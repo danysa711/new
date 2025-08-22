@@ -32,7 +32,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Test endpoint untuk pengecekan koneksi
+// Test endpoint
 app.get("/api/test", (req, res) => {
   res.json({ message: "API is working", timestamp: new Date().toISOString() });
 });

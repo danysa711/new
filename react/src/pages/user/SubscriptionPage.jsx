@@ -171,92 +171,97 @@ const SubscriptionPage = () => {
   };
 
   useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch subscription plans dengan error handling yang lebih baik
+    const fetchData = async () => {
       try {
-        const plansResponse = await axiosInstance.get('/api/subscription-plans');
-        setPlans(plansResponse.data);
-      } catch (err) {
-        console.error('Error fetching subscription plans:', err);
-        // Tidak membuat halaman gagal total jika tidak bisa fetch plans
-      }
+        setLoading(true);
+        setError(null);
 
-      // Fetch user subscriptions dengan error handling yang lebih baik
-      try {
-        const subsResponse = await axiosInstance.get('/api/subscriptions/user');
-        
-        // Sort subscriptions by start date (newest first)
-        const sortedSubs = subsResponse.data.sort((a, b) => 
-          new Date(b.start_date) - new Date(a.start_date)
-        );
-        
-        setSubscriptions(sortedSubs);
+        // Fetch subscription plans dengan error handling yang lebih baik
+        try {
+          const plansResponse = await axiosInstance.get('/api/subscription-plans');
+          setPlans(plansResponse.data);
+        } catch (err) {
+          console.error('Error fetching subscription plans:', err);
+          // Tidak membuat halaman gagal total jika tidak bisa fetch plans
+        }
 
-        // Find active subscription
-        const active = sortedSubs.find(
-          (sub) => sub.status === 'active' && new Date(sub.end_date) > new Date()
-        );
-        
-        setActiveSubscription(active);
-        
-        // Jika status berlangganan berubah, perbarui user context
-        if (updateUserData && user) {
-          const hasActiveSubscription = !!active;
-          if (hasActiveSubscription !== user.hasActiveSubscription) {
-            const updatedUser = { ...user, hasActiveSubscription };
-            updateUserData(updatedUser);
-            // Trigger refresh untuk memperbarui UI
-            if (fetchUserProfile) {
-              fetchUserProfile();
+        // Fetch user subscriptions dengan error handling yang lebih baik
+        try {
+          // Perhatikan perubahan di sini, periksa endpoint yang benar
+          const subsResponse = await axiosInstance.get('/api/subscriptions/user');
+          
+          // Sort subscriptions by start date (newest first)
+          const sortedSubs = subsResponse.data.sort((a, b) => 
+            new Date(b.start_date) - new Date(a.start_date)
+          );
+          
+          setSubscriptions(sortedSubs);
+
+          // Find active subscription
+          const active = subsResponse.data.find(
+            (sub) => sub.status === 'active' && new Date(sub.end_date) > new Date()
+          );
+          
+          setActiveSubscription(active);
+          
+          // Jika status berlangganan berubah, perbarui user context
+          if (updateUserData) {
+            if (active && !user.hasActiveSubscription) {
+              // Update user data in context
+              const updatedUser = { ...user, hasActiveSubscription: true };
+              updateUserData(updatedUser);
+            } else if (!active && user.hasActiveSubscription) {
+              // Update user data in context
+              const updatedUser = { ...user, hasActiveSubscription: false };
+              updateUserData(updatedUser);
             }
+          } else {
+            console.error('updateUserData function is undefined!');
           }
+        } catch (err) {
+          console.error('Error fetching user subscriptions:', err);
+          console.error('Error details:', err.response || err);
+          // Tampilkan pesan error yang lebih informatif
+          if (err.response && err.response.status === 403) {
+            setError('Anda tidak memiliki akses ke fitur langganan. Silakan hubungi admin.');
+          } else {
+            setError('Gagal memuat data langganan. Silakan coba lagi nanti.');
+          }
+          setSubscriptions([]);
         }
+
+        // Fetch payment methods
+        await fetchPaymentMethods();
+        
+        // Simulasi transaksi pending
+        setPendingTransactions(generateDummyPendingTransactions());
+        
+        // Simulasi riwayat transaksi
+        setTransactionHistories(generateDummyTransactionHistories());
+
       } catch (err) {
-        console.error('Error fetching user subscriptions:', err);
-        if (err.response && err.response.status === 403) {
-          setError('Anda tidak memiliki akses ke fitur langganan. Silakan hubungi admin.');
-        } else {
-          setError('Gagal memuat data langganan. Silakan coba lagi nanti.');
-        }
-        setSubscriptions([]);
+        console.error('Error fetching subscription data:', err);
+        setError('Gagal memuat data langganan. Silakan coba lagi nanti.');
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // Fetch payment methods
-      await fetchPaymentMethods();
-      
-      // Simulasi transaksi pending
-      setPendingTransactions(generateDummyPendingTransactions());
-      
-      // Simulasi riwayat transaksi
-      setTransactionHistories(generateDummyTransactionHistories());
-
-    } catch (err) {
-      console.error('Error fetching subscription data:', err);
-      setError('Gagal memuat data langganan. Silakan coba lagi nanti.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchData();
-  
-  // Set interval untuk memeriksa status langganan setiap 5 menit
-  const checkSubscriptionInterval = setInterval(() => {
-    if (fetchUserProfile) {
-      fetchUserProfile(); // Refresh user data dari server
-    }
-    fetchData(); // Refresh data langganan
-  }, 5 * 60 * 1000);
-  
-  // Cleanup interval pada unmount
-  return () => {
-    clearInterval(checkSubscriptionInterval);
-  };
-}, [user, updateUserData, fetchUserProfile]);
+    fetchData();
+    
+    // Set interval untuk memeriksa status langganan setiap 5 menit
+    const checkSubscriptionInterval = setInterval(() => {
+      if (fetchUserProfile) {
+        fetchUserProfile(); // Refresh user data dari server
+      }
+      fetchData(); // Refresh data langganan
+    }, 5 * 60 * 1000);
+    
+    // Cleanup interval pada unmount
+    return () => {
+      clearInterval(checkSubscriptionInterval);
+    };
+  }, [user, updateUserData, fetchUserProfile]);
 
   const handlePurchase = (plan) => {
     setSelectedPlan(plan);

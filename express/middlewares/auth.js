@@ -59,11 +59,11 @@ const requireActiveSubscription = async (req, res, next) => {
   }
 
   try {
-    // Periksa apakah user memiliki langganan aktif dari token
+    // Periksa apakah user memiliki langganan aktif
     const hasActiveSubscription = req.hasActiveSubscription;
     
     if (!hasActiveSubscription) {
-      // Double-check dengan database untuk memastikan
+      // Double-check dengan database
       const activeSubscription = await Subscription.findOne({
         where: {
           user_id: req.userId,
@@ -76,15 +76,13 @@ const requireActiveSubscription = async (req, res, next) => {
 
       if (!activeSubscription) {
         // Mengirim status 403 dengan flag khusus untuk menandai langganan kedaluwarsa
+        // Middleware akan memblokir akses ke API, tetapi di frontend pengguna tetap dapat
+        // melihat halaman user mereka, hanya saja koneksi API yang terputus
         return res.status(403).json({ 
           error: "Langganan tidak aktif", 
           subscriptionRequired: true,
           message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
         });
-      } else {
-        // Langganan aktif ditemukan di database meskipun tidak ada di token
-        // Tetap izinkan akses dan tambahkan ke request untuk penggunaan selanjutnya
-        req.hasActiveSubscription = true;
       }
     }
 
