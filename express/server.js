@@ -1,3 +1,4 @@
+// express/server.js
 const express = require("express");
 const cors = require("cors");
 const { db } = require("./models");
@@ -7,6 +8,10 @@ const softwareRoutes = require("./routes/softwareRoutes");
 const softwareVersionRoutes = require("./routes/softwareVersionRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const tripayRoutes = require("./routes/tripayRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5002;
@@ -34,11 +39,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Register routes
 app.use("/api", licenseRoutes);
 app.use("/api", softwareRoutes);
 app.use("/api", softwareVersionRoutes);
 app.use("/api", orderRoutes);
 app.use("/api", authRoutes);
+app.use("/api", userRoutes);
+app.use("/api", subscriptionRoutes);
+app.use("/api", paymentRoutes);
+app.use("/api", tripayRoutes);
+
+// Middleware to handle 404
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err.stack);
+  res.status(500).json({ error: "Internal server error" });
+});
 
 app.listen(PORT, async () => {
   try {

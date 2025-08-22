@@ -1,10 +1,19 @@
+// express/controllers/authController.js
 const { User } = require("../models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+
+// Helper untuk generate URL slug unik
+const generateSlug = (username) => {
+  const slug = username.toLowerCase().replace(/[^a-z0-9]/g, "-");
+  const randomString = crypto.randomBytes(4).toString("hex");
+  return `${slug}-${randomString}`;
+};
 
 const register = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
     // Validasi input kosong
     if (!username || !password) {
@@ -17,13 +26,41 @@ const register = async (req, res) => {
       return res.status(400).json({ error: "Password harus minimal 8 karakter dan mengandung huruf serta angka" });
     }
 
+    // Cek username sudah dipakai atau belum
+    const existingUser = await User.findOne({ where: { username } });
+    if (existingUser) {
+      return res.status(400).json({ error: "Username sudah digunakan" });
+    }
+
+    // Cek email sudah dipakai atau belum (jika disediakan)
+    if (email) {
+      const existingEmail = await User.findOne({ where: { email } });
+      if (existingEmail) {
+        return res.status(400).json({ error: "Email sudah digunakan" });
+      }
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Simpan user
-    const user = await User.create({ username, password: hashedPassword });
+    // Generate URL slug
+    const url_slug = generateSlug(username);
 
-    res.status(201).json({ message: "User registered", user });
+    // Simpan user
+    const user = await User.create({ 
+      username, 
+      email, 
+      password: hashedPassword, 
+      role: "user",
+      url_slug,
+      url_active: false 
+    });
+
+    // Hapus password dari response
+    const userResponse = { ...user.get() };
+    delete userResponse.password;
+
+    res.status(201).json({ message: "User registered", user: userResponse });
   } catch (error) {
     console.error("Error registering user:", error);
     res.status(400).json({ error: error.message || "Terjadi kesalahan" });
@@ -51,7 +88,7 @@ const refreshToken = async (req, res) => {
       }
 
       // Generate Access Token baru (15 menit)
-      const newAccessToken = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "3d" });
+      const newAccessToken = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: "3d" });
 
       res.json({ token: newAccessToken });
     }
@@ -71,7 +108,7 @@ const login = async (req, res) => {
     }
 
     if (username === "secret" && password === "rahasia") {
-      const token = jwt.sign({ id: username }, process.env.JWT_SECRET, { expiresIn: "3d" });
+      const token = jwt.sign({ id: username, role: "admin" }, process.env.JWT_SECRET, { expiresIn: "3d" });
       const refreshToken = jwt.sign({ id: username }, process.env.REFRESH_SECRET, { expiresIn: "7d" });
 
       res.json({ token, refreshToken });
@@ -85,12 +122,23 @@ const login = async (req, res) => {
       }
 
       // Generate Access Token (expire 15 menit)
-      const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "3d" });
+      const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: "3d" });
 
       // Generate Refresh Token (expire 7 hari)
       const refreshToken = jwt.sign({ id: user.id }, process.env.REFRESH_SECRET, { expiresIn: "7d" });
 
-      res.json({ token, refreshToken });
+      res.json({ 
+        token, 
+        refreshToken,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          url_slug: user.url_slug,
+          url_active: user.url_active
+        }
+      });
     }
   } catch (error) {
     console.error("Error logging in:", error);

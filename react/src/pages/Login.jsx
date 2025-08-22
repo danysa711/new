@@ -1,13 +1,15 @@
+// react/src/pages/Login.jsx
 import { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { Form, Input, Button, Card, Typography, Row, Col, Checkbox } from "antd";
+import { Form, Input, Button, Card, Typography, Row, Col, Checkbox, Alert } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 const { Title } = Typography;
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const { login, token } = useContext(AuthContext);
 
   if (token) {
@@ -16,8 +18,13 @@ const Login = () => {
 
   const handleSubmit = async (values) => {
     setLoading(true);
-    await login(values.username, values.password, values.remember);
+    setError(null);
+    const result = await login(values.username, values.password, values.remember);
     setLoading(false);
+    
+    if (!result.success) {
+      setError(result.error);
+    }
   };
 
   return (
@@ -27,6 +34,16 @@ const Login = () => {
           <Title level={2} style={{ textAlign: "center", marginBottom: "24px" }}>
             Login
           </Title>
+          
+          {error && (
+            <Alert 
+              message={error} 
+              type="error" 
+              showIcon 
+              style={{ marginBottom: "16px" }} 
+            />
+          )}
+          
           <Form name="login" onFinish={handleSubmit} layout="vertical">
             <Form.Item
               name="username"
@@ -52,6 +69,10 @@ const Login = () => {
                 Login
               </Button>
             </Form.Item>
+            
+            <div style={{ textAlign: "center" }}>
+              Belum punya akun? <Link to="/register">Daftar</Link>
+            </div>
           </Form>
         </Card>
       </Col>
