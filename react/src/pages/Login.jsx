@@ -1,29 +1,46 @@
-// react/src/pages/Login.jsx
 import { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { Form, Input, Button, Card, Typography, Row, Col, Checkbox, Alert } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 
 const { Title } = Typography;
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { login, token } = useContext(AuthContext);
+  const { login, token, user } = useContext(AuthContext);
 
   if (token) {
+    // Redirect admin to admin dashboard
+    if (user?.role === "admin") {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    
+    // Redirect regular users to their user page
+    if (user?.url_slug) {
+      return <Navigate to={`/user/page/${user.url_slug}`} replace />;
+    }
+    
+    // Fallback
     return <Navigate to="/" replace />;
   }
 
   const handleSubmit = async (values) => {
     setLoading(true);
     setError(null);
-    const result = await login(values.username, values.password, values.remember);
-    setLoading(false);
     
-    if (!result.success) {
-      setError(result.error);
+    try {
+      const result = await login(values.username, values.password, values.remember);
+      
+      if (!result.success) {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err.response?.data?.error || "Login gagal. Silakan coba lagi.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,21 +52,14 @@ const Login = () => {
             Login
           </Title>
           
-          {error && (
-            <Alert 
-              message={error} 
-              type="error" 
-              showIcon 
-              style={{ marginBottom: "16px" }} 
-            />
-          )}
+          {error && <Alert message={error} type="error" showIcon style={{ marginBottom: 16 }} />}
           
-          <Form name="login" onFinish={handleSubmit} layout="vertical">
+          <Form name="login" onFinish={handleSubmit} layout="vertical" initialValues={{ remember: false }}>
             <Form.Item
               name="username"
-              rules={[{ required: true, message: "Username tidak boleh kosong!" }]}
+              rules={[{ required: true, message: "Username atau email tidak boleh kosong!" }]}
             >
-              <Input prefix={<UserOutlined />} placeholder="Username" size="large" />
+              <Input prefix={<UserOutlined />} placeholder="Username atau Email" size="large" />
             </Form.Item>
 
             <Form.Item
@@ -59,9 +69,8 @@ const Login = () => {
               <Input.Password prefix={<LockOutlined />} placeholder="Password" size="large" />
             </Form.Item>
 
-            {/* Remember Me Checkbox */}
             <Form.Item name="remember" valuePropName="checked">
-              <Checkbox>Remember Me</Checkbox>
+              <Checkbox>Ingat Saya</Checkbox>
             </Form.Item>
 
             <Form.Item>

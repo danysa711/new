@@ -1,6 +1,8 @@
 import axios from "axios";
 
-export const API_URL = __BACKEND_URL__ || "http://localhost:5002";
+export const API_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
+
+console.log("Using API URL:", API_URL);
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
@@ -116,6 +118,7 @@ axiosInstance.interceptors.response.use(
         localStorage.removeItem("remember");
         sessionStorage.removeItem("remember");
         window.location.href = "/login";
+        return Promise.reject(refreshError);
       }
     }
 

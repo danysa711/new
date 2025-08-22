@@ -1,19 +1,17 @@
-// express/routes/userRoutes.js
 const express = require("express");
-const { getAllUsers, getUserById, getCurrentUser, createUser, updateUser, deleteUser, getUserBySlug } = require("../controllers/userController");
-const { authenticateUser, isAdmin } = require("../middlewares/auth");
+const { getAllUsers, getUserById, createUser, updateUserRole, deleteUser, resetUserPassword } = require("../controllers/userController");
+const { authenticateUser, requireAdmin } = require("../middlewares/auth");
 
 const router = express.Router();
 
-// Public routes
-router.get("/user/slug/:slug", getUserBySlug);
+// Semua routes ini memerlukan autentikasi dan hak admin
+router.use(authenticateUser, requireAdmin);
 
-// Protected routes
-router.get("/users", authenticateUser, isAdmin, getAllUsers);
-router.get("/users/:id", authenticateUser, getUserById);
-router.get("/user/profile", authenticateUser, getCurrentUser);
-router.post("/users", authenticateUser, isAdmin, createUser);
-router.put("/users/:id", authenticateUser, updateUser);
-router.delete("/users/:id", authenticateUser, isAdmin, deleteUser);
+router.get("/users", getAllUsers);
+router.get("/users/:id", getUserById);
+router.post("/users", createUser);
+router.put("/users/:id/role", updateUserRole);
+router.delete("/users/:id", deleteUser);
+router.put("/users/:id/reset-password", resetUserPassword);
 
 module.exports = router;

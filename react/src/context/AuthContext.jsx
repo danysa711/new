@@ -1,8 +1,6 @@
-// react/src/context/AuthContext.jsx
 import { createContext, useState, useEffect } from "react";
 import { API_URL } from "../services/axios";
 import axios from "axios";
-import { message } from "antd";
 
 export const AuthContext = createContext();
 
@@ -13,10 +11,11 @@ export const AuthProvider = ({ children }) => {
   const [refreshToken, setRefreshToken] = useState(
     localStorage.getItem("refreshToken") || sessionStorage.getItem("refreshToken") || null
   );
+
   const [user, setUser] = useState(
     JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user") || "null")
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const savedToken = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -29,15 +28,99 @@ export const AuthProvider = ({ children }) => {
     }
     const savedUser = localStorage.getItem("user") || sessionStorage.getItem("user");
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error("Error parsing saved user:", e);
+        setUser(null);
+      }
     }
-    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    // If token exists but no user data, fetch user profile
+    if (token && !user) {
+      fetchUserProfile();
+    }
+    
+    // Set interval to periodically check subscription status
+    const checkInterval = setInterval(() => {
+      if (token && user) {
+        fetchUserProfile();
+      }
+    }, 15 * 60 * 1000); // Check every 15 minutes
+    
+    return () => clearInterval(checkInterval);
+  }, [token]);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API_URL}/api/user/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const userData = res.data.user;
+      setUser(userData);
+      
+      // Save user data to storage
+      if (localStorage.getItem("remember") === "true") {
+        localStorage.setItem("user", JSON.stringify(userData));
+      } else {
+        sessionStorage.setItem("user", JSON.stringify(userData));
+      }
+      
+      return userData;
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+      // If fetch fails due to invalid token, logout
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        logout();
+      }
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (username, email, password) => {
+    try {
+      setLoading(true);
+      const res = await axios.post(`${API_URL}/api/register`, { username, email, password });
+      const { token, refreshToken, user } = res.data;
+
+      setToken(token);
+      setRefreshToken(refreshToken);
+      setUser(user);
+
+      // Store in session storage by default for new registrations
+      sessionStorage.setItem("token", token);
+      sessionStorage.setItem("refreshToken", refreshToken);
+      sessionStorage.setItem("user", JSON.stringify(user));
+      sessionStorage.setItem("remember", "false");
+
+      return { success: true };
+    } catch (error) {
+      console.error("Registration failed:", error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Registration failed" 
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const login = async (username, password, remember) => {
     try {
       setLoading(true);
+      console.log("Logging in with:", { username, password, remember });
+      console.log("API URL:", API_URL);
+      
       const res = await axios.post(`${API_URL}/api/login`, { username, password });
+      console.log("Login response:", res.data);
+      
       const { token, refreshToken, user } = res.data;
 
       setToken(token);
@@ -55,36 +138,19 @@ export const AuthProvider = ({ children }) => {
         sessionStorage.setItem("user", JSON.stringify(user));
         sessionStorage.setItem("remember", "false");
       }
-      setLoading(false);
+      
       return { success: true };
     } catch (error) {
+      console.error("Login failed:", error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Login failed" 
+      };
+    } finally {
       setLoading(false);
-      console.error("Login gagal:", error);
-      message.error(error.response?.data?.error || "Login gagal, coba lagi nanti");
-      return { success: false, error: error.response?.data?.error || "Login gagal" };
     }
   };
 
-  const register = async (username, email, password) => {
-    try {
-      setLoading(true);
-      const res = await axios.post(`${API_URL}/api/register`, { 
-        username, 
-        email, 
-        password 
-      });
-      setLoading(false);
-      message.success("Pendaftaran berhasil, silakan login");
-      return { success: true };
-    } catch (error) {
-      setLoading(false);
-      console.error("Pendaftaran gagal:", error);
-      message.error(error.response?.data?.error || "Pendaftaran gagal, coba lagi nanti");
-      return { success: false, error: error.response?.data?.error || "Pendaftaran gagal" };
-    }
-  };
-
-  // react/src/context/AuthContext.jsx (lanjutan)
   const logout = () => {
     setToken(null);
     setRefreshToken(null);
@@ -100,51 +166,26 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUserData = (userData) => {
-    const updatedUser = { ...user, ...userData };
-    setUser(updatedUser);
-    
-    // Update in storage
-    if (localStorage.getItem("user")) {
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-    }
-    if (sessionStorage.getItem("user")) {
-      sessionStorage.setItem("user", JSON.stringify(updatedUser));
-    }
-  };
-
-  const checkUrlAccess = async () => {
-    if (!token || !user) return false;
-    
-    try {
-      const res = await axios.get(`${API_URL}/api/user/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // Update user data in case it changed server-side
-      updateUserData(res.data);
-      
-      return res.data.url_active;
-    } catch (error) {
-      console.error("Error checking URL access:", error);
-      return false;
+    setUser(userData);
+    if (localStorage.getItem("remember") === "true") {
+      localStorage.setItem("user", JSON.stringify(userData));
+    } else {
+      sessionStorage.setItem("user", JSON.stringify(userData));
     }
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        refreshToken, 
-        token, 
-        user, 
-        loading,
-        login, 
-        logout,
-        register,
-        updateUserData,
-        checkUrlAccess,
-        isAdmin: user?.role === "admin"
-      }}
-    >
+    <AuthContext.Provider value={{ 
+      refreshToken, 
+      token, 
+      user, 
+      login, 
+      logout, 
+      register, 
+      loading,
+      updateUserData,
+      fetchUserProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );

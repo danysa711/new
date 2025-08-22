@@ -1,48 +1,44 @@
-// react/src/components/layouts/AdminLayout.jsx
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState } from "react";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  HomeOutlined,
   UserOutlined,
-  CrownOutlined,
-  PayCircleOutlined,
   LogoutOutlined,
   SettingOutlined,
-  DashboardOutlined
+  DashboardOutlined,
+  TeamOutlined,
+  AppstoreOutlined,
+  CreditCardOutlined,   // Tambahkan import icon ini
+  ShoppingOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Space } from "antd";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Button, Layout, Menu, theme, Typography } from "antd";
+import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
-import ChangePass from "../../pages/ChangePass";
 import HomeView from "../tables/HomeView";
+import ChangePass from "../../pages/ChangePass";
 import UserManagement from "../../pages/admin/UserManagement";
 import SubscriptionManagement from "../../pages/admin/SubscriptionManagement";
-import SubscriptionPlanManagement from "../../pages/admin/SubscriptionPlanManagement";
-import TripaySettings from "../../pages/admin/TripaySettings";
-import PaymentMethodManagement from "../../pages/admin/PaymentMethodManagement";
+import SubscriptionPlans from "../../pages/admin/SubscriptionPlans";
+import TripaySettings from "../../pages/admin/TripaySettings";  // Tambahkan import untuk halaman TripaySettings
+import TripayTransactions from "../../pages/admin/TripayTransactions";  // Tambahkan import untuk halaman TripayTransactions
 
 const { Header, Sider, Content } = Layout;
-const { Text } = Typography;
+const { Title } = Typography;
 
 const AdminLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useContext(AuthContext);
+  const { token, logout, user } = useContext(AuthContext);
 
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
-  // Redirect to login if user is not logged in or not admin
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-    } else if (user.role !== "admin") {
-      navigate("/");
-    }
-  }, [user, navigate]);
+  // Check if user is admin
+  if (!token || !user || user.role !== "admin") {
+    return <Navigate to="/login" replace />;
+  }
 
   const styleLogo = {
     fontSize: "20px",
@@ -67,20 +63,34 @@ const AdminLayout = () => {
           selectedKeys={[location.pathname]}
           onClick={({ key }) => {
             if (key === "logout") {
-              logout(); // Logout user
+              logout();
             } else {
               navigate(key);
             }
           }}
           items={[
             { key: "", label: "Admin Panel", style: styleLogo },
-            { key: "/", icon: <DashboardOutlined />, label: "Dashboard" },
-            { key: "/admin/users", icon: <UserOutlined />, label: "Kelola User" },
-            { key: "/admin/subscriptions", icon: <CrownOutlined />, label: "Langganan" },
-            { key: "/admin/plans", icon: <CrownOutlined />, label: "Paket Langganan" },
-            { key: "/admin/payment-methods", icon: <PayCircleOutlined />, label: "Metode Pembayaran" },
-            { key: "/admin/tripay", icon: <PayCircleOutlined />, label: "Tripay" },
-            { key: "/change-password", icon: <SettingOutlined />, label: "Ganti Password" },
+            { key: "/admin/dashboard", icon: <DashboardOutlined />, label: "Dashboard" },
+            { key: "/admin/users", icon: <TeamOutlined />, label: "Kelola User" },
+            { 
+              key: "subscription-menu", 
+              icon: <ShoppingOutlined />, 
+              label: "Langganan",
+              children: [
+                { key: "/admin/subscriptions", label: "Daftar Langganan" },
+                { key: "/admin/subscription-plans", label: "Paket Langganan" },
+              ]
+            },
+            { 
+              key: "tripay-menu", 
+              icon: <CreditCardOutlined />, 
+              label: "Tripay", 
+              children: [
+                { key: "/admin/tripay/transactions", label: "Transaksi" },
+                { key: "/admin/tripay/settings", label: "Pengaturan" },
+              ]
+            },
+            { key: "/admin/change-password", icon: <SettingOutlined />, label: "Ganti Password", danger: true },
             { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
           ]}
         />
@@ -95,20 +105,29 @@ const AdminLayout = () => {
             alignItems: "center",
           }}
         >
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              fontSize: "16px",
-              width: 48,
-              height: 48,
-            }}
-          />
-          <Space>
-            <UserOutlined />
-            <Text strong>{user?.username} (Admin)</Text>
-          </Space>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{
+                fontSize: "16px",
+                width: 48,
+                height: 48,
+              }}
+            />
+            <Title level={4} style={{ margin: 0, marginLeft: 16 }}>
+              Admin Panel
+            </Title>
+          </div>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <div style={{ marginRight: 16 }}>
+              <UserOutlined /> {user.username}
+            </div>
+            <Button type="primary" danger onClick={logout}>
+              Logout
+            </Button>
+          </div>
         </Header>
         <Content
           style={{
@@ -120,12 +139,12 @@ const AdminLayout = () => {
           }}
         >
           <Routes>
-            <Route path="/" element={<HomeView />} />
-            <Route path="/admin/users" element={<UserManagement />} />
-            <Route path="/admin/subscriptions" element={<SubscriptionManagement />} />
-            <Route path="/admin/plans" element={<SubscriptionPlanManagement />} />
-            <Route path="/admin/payment-methods" element={<PaymentMethodManagement />} />
-            <Route path="/admin/tripay" element={<TripaySettings />} />
+            <Route path="/dashboard" element={<HomeView />} />
+            <Route path="/users" element={<UserManagement />} />
+            <Route path="/subscriptions" element={<SubscriptionManagement />} />
+            <Route path="/subscription-plans" element={<SubscriptionPlans />} />
+            <Route path="/tripay/transactions" element={<TripayTransactions />} />
+            <Route path="/tripay/settings" element={<TripaySettings />} />
             <Route path="/change-password" element={<ChangePass />} />
           </Routes>
         </Content>

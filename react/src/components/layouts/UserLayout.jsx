@@ -1,210 +1,249 @@
-// react/src/components/layouts/UserLayout.jsx
 import React, { useContext, useState, useEffect } from "react";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  HomeOutlined,
-  ShoppingCartOutlined,
-  AppstoreOutlined,
-  CodeOutlined,
-  KeyOutlined,
+  UserOutlined,
+  VideoCameraOutlined,
   LogoutOutlined,
   SettingOutlined,
-  UserOutlined,
-  CrownOutlined
+  ShoppingOutlined,
+  HomeOutlined,
+  AppstoreOutlined,
+  ApartmentOutlined,
+  KeyOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Tag, Space, Alert, Modal } from "antd";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin } from "antd";
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
+import { AuthContext } from "../../context/AuthContext";
 import OrderTable from "../tables/OrderTable";
+import HomeView from "../tables/HomeView";
+import ChangePass from "../../pages/ChangePass";
+import SubscriptionPage from "../../pages/user/SubscriptionPage";
 import SoftwareTable from "../tables/SoftwareTable";
 import VersionTable from "../tables/VersionTable";
 import LicenseTable from "../tables/LicenseTable";
-import HomeView from "../tables/HomeView";
-import { AuthContext } from "../../context/AuthContext";
-import { SubscriptionContext } from "../../context/SubscriptionContext";
-import ChangePass from "../../pages/ChangePass";
-import Subscription from "../../pages/user/Subscription";
+import axiosInstance from "../../services/axios";
 
 const { Header, Sider, Content } = Layout;
-const { Text, Title } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const UserLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useContext(AuthContext);
-  const { subscriptionStatus, requestTrial, isUrlActive } = useContext(SubscriptionContext);
-  const [trialModalVisible, setTrialModalVisible] = useState(false);
-  const [trialMessage, setTrialMessage] = useState("");
-  const [trialLoading, setTrialLoading] = useState(false);
-
+  const { slug } = useParams();
+  const { token, logout, user, fetchUserProfile } = useContext(AuthContext);
+  
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
-  // Redirect to login if user is not logged in
+  // Check if current user is authorized to view this page
   useEffect(() => {
-    if (!user) {
-      navigate("/login");
+    if (!token) {
+      return;
     }
-  }, [user, navigate]);
-
-  const styleLogo = {
-    fontSize: "20px",
-    color: "white",
-    fontWeight: "bold",
-  };
-
-  const handleTrialRequest = async () => {
-    setTrialLoading(true);
-    const result = await requestTrial(trialMessage);
-    setTrialLoading(false);
     
-    if (result.success) {
-      setTrialModalVisible(false);
-      Modal.success({
-        title: "Permintaan Trial Berhasil",
-        content: "Permintaan trial Anda telah dikirim ke admin. Silakan tunggu persetujuan."
-      });
-    } else {
-      Modal.error({
-        title: "Permintaan Trial Gagal",
-        content: result.error || "Terjadi kesalahan saat meminta trial."
-      });
+    // If not the user's own page and not an admin, redirect to their own page
+    if (user?.url_slug !== slug && user?.role !== "admin") {
+      navigate(`/user/page/${user.url_slug}`);
+      return;
     }
-  };
+    
+    // Load user profile data
+    const fetchUserProfile = async () => {
+     try {
+       setLoading(true);
+       setError(null);
+       
+       const response = await axiosInstance.get(`/api/user/public/${slug}`);
+       setUserProfile(response.data.user);
+     } catch (err) {
+       console.error("Error fetching user profile:", err);
+       setError("Failed to load user profile");
+     } finally {
+       setLoading(false);
+     }
+   };
+   
+   fetchUserProfile();
+ }, [token, slug, user, navigate]);
 
-  return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Sider
-        trigger={null}
-        collapsible
-        collapsed={collapsed}
-        breakpoint="md"
-        collapsedWidth="0"
-        onCollapse={(collapsed) => setCollapsed(collapsed)}
-      >
-        <div className="demo-logo-vertical" />
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          onClick={({ key }) => {
-            if (key === "logout") {
-              logout(); // Logout user
-            } else {
-              navigate(key);
-            }
-          }}
-          items={[
-            { key: "", label: "Kinterstore", style: styleLogo },
-            { key: "/", icon: <HomeOutlined />, label: "Home" },
-            { key: "/subscription", icon: <CrownOutlined />, label: "Langganan" },
-            { key: "/orders", icon: <ShoppingCartOutlined />, label: "Pesanan" },
-            { key: "/software", icon: <AppstoreOutlined />, label: "Produk" },
-            { key: "/version", icon: <CodeOutlined />, label: "Variasi Produk" },
-            { key: "/license", icon: <KeyOutlined />, label: "Stok" },
-            { key: "/change-password", icon: <SettingOutlined />, label: "Ganti Password" },
-            { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
-          ]}
-        />
-      </Sider>
-      <Layout style={{ flex: 1 }}>
-        <Header
-          style={{
-            padding: "0 16px",
-            background: colorBgContainer,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              fontSize: "16px",
-              width: 48,
-              height: 48,
-            }}
-          />
-          <Space>
-            {!isUrlActive && (
-              <Button 
-                type="primary" 
-                onClick={() => setTrialModalVisible(true)}
-              >
-                Minta Trial
-              </Button>
-            )}
-            {isUrlActive ? (
-              <Tag color="success">URL Aktif</Tag>
-            ) : (
-              <Tag color="error">URL Tidak Aktif</Tag>
-            )}
-            <Space>
-              <UserOutlined />
-              <Text strong>{user?.username}</Text>
-            </Space>
-          </Space>
-        </Header>
-        
-        <Content
-          style={{
-            margin: "24px 16px",
-            padding: 24,
-            flex: 1,
-            background: colorBgContainer,
-            borderRadius: borderRadiusLG,
-          }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <Title level={5}>URL Halaman Anda:</Title>
-            <Tag color="blue" style={{ fontSize: 14, padding: "4px 8px" }}>
-              {`https://kinterstore.my.id/${user?.url_slug}`}
-            </Tag>
-            {!isUrlActive && (
-              <Alert
-                message="Perhatian!"
-                description="URL halaman Anda belum aktif. Silakan berlangganan atau minta trial untuk mengaktifkan URL Anda."
-                type="warning"
-                showIcon
-                style={{ marginTop: 8 }}
-              />
-            )}
-          </div>
-          
-          <Routes>
-            <Route path="/" element={<HomeView />} />
-            <Route path="/subscription" element={<Subscription />} />
-            <Route path="/orders" element={<OrderTable />} />
-            <Route path="/software" element={<SoftwareTable />} />
-            <Route path="/version" element={<VersionTable />} />
-            <Route path="/license" element={<LicenseTable />} />
-            <Route path="/change-password" element={<ChangePass />} />
-          </Routes>
-        </Content>
-      </Layout>
-      
-      {/* Trial Request Modal */}
-      <Modal
-        title="Permintaan Trial"
-        open={trialModalVisible}
-        onOk={handleTrialRequest}
-        onCancel={() => setTrialModalVisible(false)}
-        confirmLoading={trialLoading}
-      >
-        <p>Silakan tulis pesan untuk admin mengenai permintaan trial Anda:</p>
-        <Input.TextArea
-          rows={4}
-          value={trialMessage}
-          onChange={(e) => setTrialMessage(e.target.value)}
-          placeholder="Contoh: Saya ingin mencoba layanan ini selama 7 hari..."
-        />
-      </Modal>
-    </Layout>
-  );
+ if (!token) {
+   return <Navigate to="/login" />;
+ }
+
+ if (loading) {
+   return (
+     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+       <Spin size="large" />
+     </div>
+   );
+ }
+
+ if (error) {
+   return (
+     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+       <Card>
+         <Title level={3}>Error</Title>
+         <Text type="danger">{error}</Text>
+         <div style={{ marginTop: 16 }}>
+           <Button type="primary" onClick={() => navigate("/")}>
+             Go Home
+           </Button>
+         </div>
+       </Card>
+     </div>
+   );
+ }
+ 
+ // If user profile not found
+ if (!userProfile) {
+   return (
+     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+       <Card>
+         <Title level={3}>User Not Found</Title>
+         <Text>The requested user page does not exist.</Text>
+         <div style={{ marginTop: 16 }}>
+           <Button type="primary" onClick={() => navigate("/")}>
+             Go Home
+           </Button>
+         </div>
+       </Card>
+     </div>
+   );
+ }
+
+ // API URL yang dapat digunakan orang lain untuk mengakses data halaman ini
+ const apiUrl = `https://www.db.kinterstore.my.id/api/user/${slug}`;
+
+ return (
+   <Layout style={{ minHeight: "100vh" }}>
+     <Sider
+       trigger={null}
+       collapsible
+       collapsed={collapsed}
+       breakpoint="md"
+       collapsedWidth="0"
+       onCollapse={(collapsed) => setCollapsed(collapsed)}
+     >
+       <div className="demo-logo-vertical" />
+       <div style={{ color: "white", padding: "16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
+         <UserOutlined style={{ fontSize: 24 }} />
+         {!collapsed && (
+           <div style={{ marginTop: 8 }}>
+             <Title level={5} style={{ color: "white", margin: 0 }}>
+               {userProfile.username}
+             </Title>
+             <Badge 
+               status={userProfile.hasActiveSubscription ? "success" : "error"} 
+               text={
+                 <Text style={{ color: "white" }}>
+                   {userProfile.hasActiveSubscription ? "Active" : "Inactive"}
+                 </Text>
+               } 
+             />
+           </div>
+         )}
+       </div>
+       
+       <Menu
+         theme="dark"
+         mode="inline"
+         selectedKeys={[location.pathname]}
+         onClick={({ key }) => {
+           if (key === "logout") {
+             logout();
+           } else {
+             navigate(key);
+           }
+         }}
+         items={[
+           { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Home" },
+           { key: `/user/page/${slug}/subscription`, icon: <ShoppingOutlined />, label: "Langganan" },
+           { key: `/user/page/${slug}/orders`, icon: <VideoCameraOutlined />, label: "Pesanan" },
+           { key: `/user/page/${slug}/software`, icon: <AppstoreOutlined />, label: "Produk" },
+           { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
+           { key: `/user/page/${slug}/license`, icon: <KeyOutlined />, label: "Stok" },
+           { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
+           { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
+         ]}
+       />
+     </Sider>
+     <Layout style={{ flex: 1 }}>
+       <Header
+         style={{
+           padding: "0 16px",
+           background: colorBgContainer,
+           display: "flex",
+           justifyContent: "space-between",
+           alignItems: "center",
+         }}
+       >
+         <div style={{ display: "flex", alignItems: "center" }}>
+           <Button
+             type="text"
+             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+             onClick={() => setCollapsed(!collapsed)}
+             style={{
+               fontSize: "16px",
+               width: 48,
+               height: 48,
+             }}
+           />
+           <Title level={4} style={{ margin: 0, marginLeft: 16 }}>
+             {userProfile.username}'s Page
+           </Title>
+           {userProfile.hasActiveSubscription ? (
+             <Tag color="success" style={{ marginLeft: 8 }}>Active</Tag>
+           ) : (
+             <Tag color="error" style={{ marginLeft: 8 }}>Inactive</Tag>
+           )}
+         </div>
+         <Button type="primary" danger onClick={logout}>
+           Logout
+         </Button>
+       </Header>
+       
+       {/* API URL Banner */}
+       <div style={{ 
+         padding: "8px 16px", 
+         background: "#f0f2f5", 
+         borderBottom: "1px solid #e8e8e8",
+         display: "flex",
+         alignItems: "center",
+         justifyContent: "space-between"
+       }}>
+         <Text strong>API URL: </Text>
+         <Paragraph copyable style={{ margin: 0 }}>{apiUrl}</Paragraph>
+       </div>
+       
+       <Content
+         style={{
+           margin: "24px 16px",
+           padding: 24,
+           flex: 1,
+           background: colorBgContainer,
+           borderRadius: borderRadiusLG,
+         }}
+       >
+         <Routes>
+           <Route path="/" element={<HomeView />} />
+           <Route path="/subscription" element={<SubscriptionPage />} />
+           <Route path="/orders" element={<OrderTable />} />
+           <Route path="/software" element={<SoftwareTable />} />
+           <Route path="/version" element={<VersionTable />} />
+           <Route path="/license" element={<LicenseTable />} />
+           <Route path="/change-password" element={<ChangePass />} />
+         </Routes>
+       </Content>
+     </Layout>
+   </Layout>
+ );
 };
 
 export default UserLayout;

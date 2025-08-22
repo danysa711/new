@@ -1,9 +1,8 @@
-// react/src/pages/Register.jsx
 import { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { Form, Input, Button, Card, Typography, Row, Col, Alert } from "antd";
 import { LockOutlined, UserOutlined, MailOutlined } from "@ant-design/icons";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 
 const { Title } = Typography;
 
@@ -20,19 +19,15 @@ const Register = () => {
     setLoading(true);
     setError(null);
     
-    // Check if passwords match
-    if (values.password !== values.confirmPassword) {
-      setError("Password dan konfirmasi password tidak cocok");
-      setLoading(false);
-      return;
-    }
+    const { username, email, password } = values;
     
-    const result = await register(values.username, values.email, values.password);
-    setLoading(false);
+    const result = await register(username, email, password);
     
     if (!result.success) {
       setError(result.error);
     }
+    
+    setLoading(false);
   };
 
   return (
@@ -40,26 +35,23 @@ const Register = () => {
       <Col xs={24} sm={20} md={12} lg={8}>
         <Card style={{ boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)", borderRadius: "8px" }}>
           <Title level={2} style={{ textAlign: "center", marginBottom: "24px" }}>
-            Daftar Akun
+            Daftar Akun Baru
           </Title>
           
-          {error && (
-            <Alert 
-              message={error} 
-              type="error" 
-              showIcon 
-              style={{ marginBottom: "16px" }} 
-            />
-          )}
+          {error && <Alert message={error} type="error" showIcon style={{ marginBottom: 16 }} />}
           
           <Form name="register" onFinish={handleSubmit} layout="vertical">
             <Form.Item
               name="username"
-              rules={[{ required: true, message: "Username tidak boleh kosong!" }]}
+              rules={[
+                { required: true, message: "Username tidak boleh kosong!" },
+                { min: 3, message: "Username minimal 3 karakter!" },
+                { pattern: /^[a-zA-Z0-9_]+$/, message: "Username hanya boleh berisi huruf, angka, dan underscore!" }
+              ]}
             >
               <Input prefix={<UserOutlined />} placeholder="Username" size="large" />
             </Form.Item>
-            
+
             <Form.Item
               name="email"
               rules={[
@@ -74,26 +66,27 @@ const Register = () => {
               name="password"
               rules={[
                 { required: true, message: "Password tidak boleh kosong!" },
-                { min: 8, message: "Password minimal 8 karakter" },
-                {
+                { min: 8, message: "Password minimal 8 karakter!" },
+                { 
                   pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/,
-                  message: "Password harus mengandung huruf dan angka"
+                  message: "Password harus mengandung huruf dan angka!" 
                 }
               ]}
             >
               <Input.Password prefix={<LockOutlined />} placeholder="Password" size="large" />
             </Form.Item>
-            
+
             <Form.Item
               name="confirmPassword"
+              dependencies={["password"]}
               rules={[
                 { required: true, message: "Konfirmasi password tidak boleh kosong!" },
                 ({ getFieldValue }) => ({
                   validator(_, value) {
-                    if (!value || getFieldValue('password') === value) {
+                    if (!value || getFieldValue("password") === value) {
                       return Promise.resolve();
                     }
-                    return Promise.reject(new Error('Password tidak cocok!'));
+                    return Promise.reject(new Error("Password tidak sama!"));
                   },
                 }),
               ]}

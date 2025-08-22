@@ -1,343 +1,295 @@
-// react/src/pages/admin/UserManagement.jsx
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from 'react';
 import { 
-  Table, 
-  Button, 
-  Space, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
-  Switch, 
-  Typography,
-  Popconfirm,
-  message,
-  Tag,
-  Tooltip,
-  Spin,
-  Row,
-  Col
-} from "antd";
+  Table, Button, Space, Tag, Modal, Form, Input, 
+  Select, Typography, Card, message, Tooltip, Popconfirm 
+} from 'antd';
 import { 
-  UserOutlined, 
-  MailOutlined, 
-  LockOutlined, 
-  GlobalOutlined,
-  LinkOutlined,
-  ReloadOutlined,
-  SearchOutlined
-} from "@ant-design/icons";
-import { AdminContext } from "../../context/AdminContext";
-import axiosInstance from "../../services/axios";
+  UserAddOutlined, EditOutlined, DeleteOutlined, 
+  KeyOutlined, UserSwitchOutlined 
+} from '@ant-design/icons';
+import axiosInstance from '../../services/axios';
 
 const { Title } = Typography;
 const { Option } = Select;
 
 const UserManagement = () => {
-  const { 
-    users, 
-    loading, 
-    fetchUsers, 
-    createUser, 
-    updateUser, 
-    deleteUser 
-  } = useContext(AdminContext);
-  
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalTitle, setModalTitle] = useState("Tambah User");
+  const [modalType, setModalType] = useState('add'); // 'add', 'edit', 'reset'
+  const [selectedUser, setSelectedUser] = useState(null);
   const [form] = Form.useForm();
-  const [editingUser, setEditingUser] = useState(null);
-  const [confirmLoading, setConfirmLoading] = useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get('/api/users');
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      message.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
-  
-  useEffect(() => {
-    if (users) {
-      setFilteredUsers(
-        users.filter(
-          (user) =>
-            user.username.toLowerCase().includes(searchText.toLowerCase()) ||
-            (user.email && user.email.toLowerCase().includes(searchText.toLowerCase()))
-        )
-      );
-    }
-  }, [users, searchText]);
-  
-  const showAddModal = () => {
-    setModalTitle("Tambah User");
-    setEditingUser(null);
+
+  const handleOpenModal = (type, user = null) => {
+    setModalType(type);
+    setSelectedUser(user);
+    
     form.resetFields();
+    
+    if (user && type === 'edit') {
+      form.setFieldsValue({
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      });
+    }
+    
     setModalVisible(true);
   };
-  
-  const showEditModal = (user) => {
-    setModalTitle("Edit User");
-    setEditingUser(user);
-    form.setFieldsValue({
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      url_active: user.url_active
-    });
-    setModalVisible(true);
-  };
-  
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      setConfirmLoading(true);
+      setLoading(true);
       
-      if (editingUser) {
-        // Update existing user
-        const result = await updateUser(editingUser.id, values);
-        if (result.success) {
-          message.success("User berhasil diperbarui");
-          setModalVisible(false);
-        } else {
-          message.error(result.error);
-        }
-      } else {
-        // Create new user
-        const result = await createUser(values);
-        if (result.success) {
-          message.success("User berhasil ditambahkan");
-          setModalVisible(false);
-        } else {
-          message.error(result.error);
-        }
+      if (modalType === 'add') {
+        await axiosInstance.post('/api/users', values);
+        message.success('User created successfully');
+      } else if (modalType === 'edit') {
+        await axiosInstance.put(`/api/users/${selectedUser.id}/role`, { role: values.role });
+        message.success('User role updated successfully');
+      } else if (modalType === 'reset') {
+        await axiosInstance.put(`/api/users/${selectedUser.id}/reset-password`, { 
+          newPassword: values.newPassword 
+        });
+        message.success('Password reset successfully');
       }
+      
+      setModalVisible(false);
+      fetchUsers();
     } catch (error) {
-      console.error("Form validation error:", error);
+      console.error('Error submitting form:', error);
+      message.error(error.response?.data?.error || 'Operation failed');
     } finally {
-      setConfirmLoading(false);
+      setLoading(false);
     }
   };
-  
+
   const handleDelete = async (userId) => {
     try {
-      const result = await deleteUser(userId);
-      if (result.success) {
-        message.success("User berhasil dihapus");
-      } else {
-        message.error(result.error);
-      }
+      setLoading(true);
+      await axiosInstance.delete(`/api/users/${userId}`);
+      message.success('User deleted successfully');
+      fetchUsers();
     } catch (error) {
-      console.error("Error deleting user:", error);
-      message.error("Gagal menghapus user");
+      console.error('Error deleting user:', error);
+      message.error(error.response?.data?.error || 'Failed to delete user');
+    } finally {
+      setLoading(false);
     }
   };
-  
-  const generatePassword = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    const length = 10;
-    let password = "";
-    
-    // Ensure there's at least one letter and one number
-    password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)];
-    password += "0123456789"[Math.floor(Math.random() * 10)];
-    
-    // Fill up the rest
-    for (let i = 2; i < length; i++) {
-      password += chars[Math.floor(Math.random() * chars.length)];
-    }
-    
-    // Shuffle the password
-    password = password.split('').sort(() => 0.5 - Math.random()).join('');
-    
-    form.setFieldsValue({ password });
-  };
-  
+
   const columns = [
     {
-      title: "Username",
-      dataIndex: "username",
-      key: "username",
-      sorter: (a, b) => a.username.localeCompare(b.username)
+      title: 'Username',
+      dataIndex: 'username',
+      key: 'username',
+      sorter: (a, b) => a.username.localeCompare(b.username),
     },
     {
-      title: "Email",
-      dataIndex: "email",
-      key: "email",
-      render: (email) => email || "-"
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
     },
     {
-      title: "URL Slug",
-      dataIndex: "url_slug",
-      key: "url_slug",
-      render: (slug) => (
-        <Tooltip title={`https://kinterstore.my.id/${slug}`}>
-          <Tag icon={<LinkOutlined />} color="blue">
-            {slug || "-"}
-          </Tag>
-        </Tooltip>
-      )
-    },
-    {
-      title: "Role",
-      dataIndex: "role",
-      key: "role",
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
       render: (role) => (
-        <Tag color={role === "admin" ? "red" : "blue"}>
-          {role.toUpperCase()}
+        <Tag color={role === 'admin' ? 'red' : 'blue'}>
+          {role}
         </Tag>
-      )
+      ),
+      filters: [
+        { text: 'Admin', value: 'admin' },
+        { text: 'User', value: 'user' },
+      ],
+      onFilter: (value, record) => record.role === value,
     },
     {
-      title: "URL Aktif",
-      dataIndex: "url_active",
-      key: "url_active",
-      render: (active) => (
-        <Tag color={active ? "green" : "red"}>
-          {active ? "AKTIF" : "TIDAK AKTIF"}
+      title: 'URL Slug',
+      dataIndex: 'url_slug',
+      key: 'url_slug',
+      render: (slug) => (
+        <a href={`/user/page/${slug}`} target="_blank" rel="noopener noreferrer">
+          {slug}
+        </a>
+      ),
+    },
+    {
+      title: 'Subscription',
+      key: 'subscription',
+      render: (_, record) => (
+        <Tag color={record.hasActiveSubscription ? 'success' : 'error'}>
+          {record.hasActiveSubscription ? 'Active' : 'Inactive'}
         </Tag>
-      )
+      ),
+      filters: [
+        { text: 'Active', value: true },
+        { text: 'Inactive', value: false },
+      ],
+      onFilter: (value, record) => record.hasActiveSubscription === value,
     },
     {
-      title: "Tgl Dibuat",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      render: (date) => new Date(date).toLocaleDateString("id-ID")
+      title: 'Created At',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (date) => new Date(date).toLocaleDateString(),
+      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
     },
     {
-      title: "Aksi",
-      key: "action",
+      title: 'Actions',
+      key: 'actions',
       render: (_, record) => (
         <Space size="small">
-          <Button type="primary" size="small" onClick={() => showEditModal(record)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title="Yakin ingin menghapus user ini?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Ya"
-            cancelText="Tidak"
-          >
-            <Button type="danger" size="small">
-              Hapus
-            </Button>
-          </Popconfirm>
+          <Tooltip title="Change Role">
+            <Button 
+              icon={<UserSwitchOutlined />} 
+              onClick={() => handleOpenModal('edit', record)}
+            />
+          </Tooltip>
+          <Tooltip title="Reset Password">
+            <Button 
+              icon={<KeyOutlined />} 
+              onClick={() => handleOpenModal('reset', record)}
+            />
+          </Tooltip>
+          <Tooltip title="Delete User">
+            <Popconfirm
+              title="Are you sure you want to delete this user?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </Tooltip>
         </Space>
-      )
-    }
+      ),
+    },
   ];
-  
+
   return (
     <div>
-      <Title level={2}>
-        <UserOutlined /> Kelola User
-      </Title>
-      
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col span={12}>
-          <Input
-            placeholder="Cari berdasarkan username atau email"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            prefix={<SearchOutlined />}
-          />
-        </Col>
-        <Col span={12} style={{ textAlign: "right" }}>
-          <Space>
-            <Button type="primary" onClick={showAddModal}>
-              Tambah User
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={fetchUsers}>
-              Refresh
-            </Button>
-          </Space>
-        </Col>
-      </Row>
-      
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "50px 0" }}>
-          <Spin size="large" />
-          <p>Loading data user...</p>
+      <Card>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+          <Title level={3}>User Management</Title>
+          <Button 
+            type="primary" 
+            icon={<UserAddOutlined />} 
+            onClick={() => handleOpenModal('add')}
+          >
+            Add User
+          </Button>
         </div>
-      ) : (
+        
         <Table 
-          dataSource={filteredUsers} 
+          dataSource={users} 
           columns={columns} 
-          rowKey="id"
+          rowKey="id" 
+          loading={loading}
           pagination={{ pageSize: 10 }}
         />
-      )}
-      
-      {/* Modal Form */}
+      </Card>
+
       <Modal
-        title={modalTitle}
+        title={
+          modalType === 'add' ? 'Add New User' : 
+          modalType === 'edit' ? 'Edit User Role' : 
+          'Reset User Password'
+        }
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
-        confirmLoading={confirmLoading}
-        width={600}
+        confirmLoading={loading}
       >
-        <Form 
-          form={form} 
-          layout="vertical"
-          initialValues={{ role: "user", url_active: false }}
-        >
-          <Form.Item
-            name="username"
-            label="Username"
-            rules={[{ required: true, message: "Username wajib diisi" }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="Username" />
-          </Form.Item>
+        <Form form={form} layout="vertical">
+          {modalType === 'add' && (
+            <>
+              <Form.Item
+                name="username"
+                label="Username"
+                rules={[
+                  { required: true, message: 'Please input a username' },
+                  { min: 3, message: 'Username must be at least 3 characters' },
+                  { pattern: /^[a-zA-Z0-9_]+$/, message: 'Username can only contain letters, numbers and underscore' }
+                ]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                name="email"
+                label="Email"
+                rules={[
+                  { required: true, message: 'Please input an email' },
+                  { type: 'email', message: 'Please enter a valid email' }
+                ]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                name="password"
+                label="Password"
+                rules={[
+                  { required: true, message: 'Please input a password' },
+                  { min: 8, message: 'Password must be at least 8 characters' },
+                  { 
+                    pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/,
+                    message: 'Password must contain at least one letter and one number' 
+                  }
+                ]}
+              >
+                <Input.Password />
+              </Form.Item>
+            </>
+          )}
           
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[
-              { type: "email", message: "Format email tidak valid" }
-            ]}
-          >
-            <Input prefix={<MailOutlined />} placeholder="Email" />
-          </Form.Item>
-          
-          {!editingUser && (
+          {modalType === 'edit' && (
             <Form.Item
-              name="password"
-              label="Password"
-              rules={[
-                { required: true, message: "Password wajib diisi" },
-                { min: 8, message: "Password minimal 8 karakter" },
-                {
-                  pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/,
-                  message: "Password harus mengandung huruf dan angka"
-                }
-              ]}
-              extra={
-                <Button type="link" onClick={generatePassword}>
-                  Generate Password
-                </Button>
-              }
+              name="role"
+              label="Role"
+              rules={[{ required: true, message: 'Please select a role' }]}
             >
-              <Input.Password prefix={<LockOutlined />} placeholder="Password" />
+              <Select>
+                <Option value="user">User</Option>
+                <Option value="admin">Admin</Option>
+              </Select>
             </Form.Item>
           )}
           
-          <Form.Item
-            name="role"
-            label="Role"
-            rules={[{ required: true, message: "Role wajib diisi" }]}
-          >
-            <Select placeholder="Pilih role">
-              <Option value="user">User</Option>
-              <Option value="admin">Admin</Option>
-            </Select>
-          </Form.Item>
-          
-          <Form.Item
-            name="url_active"
-            label="URL Aktif"
-            valuePropName="checked"
-          >
-            <Switch checkedChildren="Aktif" unCheckedChildren="Tidak Aktif" />
-          </Form.Item>
+          {modalType === 'reset' && (
+            <Form.Item
+              name="newPassword"
+              label="New Password"
+              rules={[
+                { required: true, message: 'Please input a new password' },
+                { min: 8, message: 'Password must be at least 8 characters' },
+                { 
+                  pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/,
+                  message: 'Password must contain at least one letter and one number' 
+                }
+              ]}
+            >
+              <Input.Password />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </div>

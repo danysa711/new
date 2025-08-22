@@ -5,158 +5,85 @@ import API from "./const";
 // Software API
 // ########################
 
-export const getAllSoftware = (setData, setLoading, setError) => {
-  setLoading(true);
-
-  axiosInstance
-    .get(API.SOFTWARE.GET.ALL)
-    .then((response) => {
-      setData(response.data);
-      setLoading(false);
-    })
-    .catch((error) => {
-      setError(error.message);
-      setLoading(false);
-    });
-};
-
-export const addSoftware = async (data, setData, setLoading, setError) => {
-  setLoading(true);
-
+export const getAllSoftware = async (setSoftwareList, setLoading, setError) => {
   try {
-    const response = await axiosInstance.post(API.SOFTWARE.POST.ALL, data);
-    const addSoftware = response.data.software;
-
-    setData((prevData) => [...prevData, response.data.software]);
-    setLoading(false);
-
-    return { status: response.status, message: response.data.message, data: addSoftware };
-  } catch (error) {
-    setError(error.message);
-    setLoading(false);
-    return { status: "error", message: error.message };
-  }
-};
-
-export const updateSoftware = async (data, setData, setLoading, setError) => {
-  setLoading(true);
-
-  try {
-    const response = await axiosInstance.put(API.SOFTWARE.PUT.BY_ID.replace(":id", data.id), data);
-    const updatedSoftware = response.data.software;
-
-    setData((prevData) => prevData.map((software) => (software.id === updatedSoftware.id ? updatedSoftware : software)));
-    setLoading(false);
-
-    return { status: response.status, message: response.data.message, data: updatedSoftware };
-  } catch (error) {
-    setError(error.message);
-    setLoading(false);
-    return { status: "error", message: error.message };
-  }
-};
-
-export const deleteSoftware = (id, setData, setLoading, setError) => {
-  setLoading(true);
-
-  axiosInstance
-    .delete(API.SOFTWARE.DELETE.BY_ID.replace(":id", id))
-    .then((response) => {
-      setData((prevData) => prevData.filter((software) => software.id !== id));
-      setLoading(false);
-    })
-    .catch((error) => {
-      setError(error.message);
-      setLoading(false);
-    });
-};
-
-// ########################
-// Software Version API
-// ########################
-
-export const getAllSoftwareVersion = (setData, setLoading, setError) => {
-  setLoading(true);
-
-  axiosInstance
-    .get(API.SOFTWARE_VERSION.GET.ALL)
-    .then((response) => {
-      setData(response.data);
-      setLoading(false);
-    })
-    .catch((error) => {
-      setError(error.message);
-      setLoading(false);
-    });
-};
-
-export const getSoftwareVersionById = async (software_version_id) => {
-  try {
-    const response = axiosInstance.get(API.SOFTWARE_VERSION.GET.BY_ID.replace(":id", software_version_id));
+    setLoading(true);
+    const response = await axiosInstance.get(API.SOFTWARE.GET.ALL);
+    setSoftwareList(response.data);
     return response;
   } catch (error) {
-    console.log("Error: ", error);
-    return "-";
+    setError(error.response?.data?.error || "Failed to fetch software");
+    throw error;
+  } finally {
+    setLoading(false);
   }
 };
 
-export const getSoftwareVersionByParamSoftwareId = async (software_id, setData, setLoading, setError) => {
-  setLoading(true);
-
-  axiosInstance
-    .get(API.SOFTWARE_VERSION.GET.BY_SOFTWARE_ID.replace(":software_id", software_id))
-    .then((response) => {
-      setData(response.data);
-      setLoading(false);
-
-      return response;
-    })
-    .catch((error) => {
-      setError(error.message);
-      setLoading(false);
-    });
-};
-
-export const addSoftwareVersion = async (data, setSoftwareVersions, setLoading, setError) => {
-  setLoading(true);
+export const getSoftwareById = async (id, setSoftware, setLoading, setError) => {
   try {
-    const response = await axiosInstance.post(API.SOFTWARE_VERSION.POST.ALL, data);
-    setSoftwareVersions((prevVersions) => [...prevVersions, response.data.version]);
-    setLoading(false);
-    return { status: response.status, message: response.data.message };
+    setLoading(true);
+    const response = await axiosInstance.get(API.SOFTWARE.GET.BY_ID.replace(':id', id));
+    setSoftware(response.data);
+    return response;
   } catch (error) {
-    setError(error.message);
+    setError(error.response?.data?.error || "Failed to fetch software");
+    throw error;
+  } finally {
     setLoading(false);
-    return { status: "error", message: error.message };
   }
 };
 
-export const updateSoftwareVersion = async (data, setSoftwareVersions, setLoading, setError) => {
-  setLoading(true);
-
+export const addSoftware = async (softwareData, setSoftwareList, setLoading, setError) => {
   try {
-    const response = await axiosInstance.put(API.SOFTWARE_VERSION.PUT.BY_ID.replace(":id", data.id), data);
-    setSoftwareVersions((prevVersions) => prevVersions.map((version) => (version.id === data.id ? response.data.version : version)));
-    setLoading(false);
-    return { status: response.status, message: response.data.message };
+    setLoading(true);
+    const response = await axiosInstance.post(API.SOFTWARE.POST.ALL, softwareData);
+    if (setSoftwareList) {
+      const updatedList = await axiosInstance.get(API.SOFTWARE.GET.ALL);
+      setSoftwareList(updatedList.data);
+    }
+    return response;
   } catch (error) {
-    setError(error.message);
+    setError(error.response?.data?.error || "Failed to add software");
+    throw error;
+  } finally {
     setLoading(false);
-    return { status: "error", message: error.message };
   }
 };
 
-export const deleteSoftwareVersion = async (id, setSoftwareVersions, setLoading, setError) => {
-  setLoading(true);
+export const updateSoftware = async (softwareData, setSoftwareList, setLoading, setError) => {
   try {
-    const response = await axiosInstance.delete(API.SOFTWARE_VERSION.DELETE.BY_ID.replace(":id", id));
-    setSoftwareVersions((prevVersions) => prevVersions.filter((version) => version.id !== id));
-    setLoading(false);
-    return { status: response.status, message: response.data.message };
+    setLoading(true);
+    const response = await axiosInstance.put(
+      API.SOFTWARE.PUT.BY_ID.replace(':id', softwareData.id),
+      softwareData
+    );
+    if (setSoftwareList) {
+      const updatedList = await axiosInstance.get(API.SOFTWARE.GET.ALL);
+      setSoftwareList(updatedList.data);
+    }
+    return response;
   } catch (error) {
-    setError(error.message);
+    setError(error.response?.data?.error || "Failed to update software");
+    throw error;
+  } finally {
     setLoading(false);
-    return { status: "error", message: error.message };
+  }
+};
+
+export const deleteSoftware = async (id, setSoftwareList, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.delete(API.SOFTWARE.DELETE.BY_ID.replace(':id', id));
+    if (setSoftwareList) {
+      const updatedList = await axiosInstance.get(API.SOFTWARE.GET.ALL);
+      setSoftwareList(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to delete software");
+    throw error;
+  } finally {
+    setLoading(false);
   }
 };
 
@@ -164,104 +91,230 @@ export const deleteSoftwareVersion = async (id, setSoftwareVersions, setLoading,
 // License API
 // ########################
 
-export const getAllLicenses = (setData, setLoading, setError) => {
-  setLoading(true);
-
-  axiosInstance
-    .get(API.LICENSE.GET.ALL)
-    .then((response) => {
-      setData(response.data);
-      setLoading(false);
-    })
-    .catch((error) => {
-      setError(error.message);
-      setLoading(false);
-    });
-};
-
-export const getAllAvailableLicenses = (setData, setLoading, setError) => {
-  setLoading(true);
-
-  axiosInstance
-    .get(API.LICENSE.GET.AVAILABLE_ALL)
-    .then((response) => {
-      setData(response.data);
-      setLoading(false);
-    })
-    .catch((error) => {
-      setError(error.message);
-      setLoading(false);
-    });
-};
-
-export const addLicenses = async (data, setLicenses, setLoading, setError) => {
-  setLoading(true);
+export const getAllLicenses = async (setLicenses, setLoading, setError) => {
   try {
-    const response = await axiosInstance.post(API.LICENSE.POST.ALL, data);
-    console.log("post License: ", response);
-    setLicenses((prevVersions) => [...prevVersions, response.data.license]);
-    setLoading(false);
-    return { status: response.status, message: response.data.message };
-  } catch (error) {
-    setError(error.message);
-    setLoading(false);
-    return { status: "error", message: error.message };
-  }
-};
-
-export const addMultipleLicenses = async (data, setLicenses, setLoading, setError) => {
-  setLoading(true);
-  try {
-    const response = await axiosInstance.post(API.LICENSE.POST.MULTIPLE, data);
-    console.log("post License: ", response);
-    setLicenses((prevVersions) => [...prevVersions, response.data.license]);
-    setLoading(false);
-    return { status: response.status, message: response.data.message };
-  } catch (error) {
-    setError(error.message);
-    setLoading(false);
-    return { status: "error", message: error.message };
-  }
-};
-
-export const updateLicenses = async (data, setLicenses, setLoading, setError) => {
-  setLoading(true);
-
-  try {
-    const response = await axiosInstance.put(API.LICENSE.PUT.BY_ID.replace(":id", data.id), data);
-    setLicenses((prevLicenses) => prevLicenses.map((license) => (license.id === data.id ? response.data.license : license)));
-    setLoading(false);
-    return { status: response.status, message: response.data.message };
-  } catch (error) {
-    setError(error.message);
-    setLoading(false);
-    return { status: "error", message: error.message };
-  }
-};
-
-export const updateLicensesMultiple = async (data, setLicenses, setLoading, setError) => {
-  setLoading(true);
-  try {
-    const response = await axiosInstance.put(API.LICENSE.PUT.MULTIPLE, data);
-    setLicenses(response.data.license);
-    setLoading(false);
+    setLoading(true);
+    const response = await axiosInstance.get(API.LICENSE.GET.ALL);
+    setLicenses(response.data);
     return response;
   } catch (error) {
-    setLoading(false);
-    setError(error.response ? error.response.data.message : "Terjadi kesalahan");
+    setError(error.response?.data?.error || "Failed to fetch licenses");
     throw error;
+  } finally {
+    setLoading(false);
   }
 };
 
-export const deleteMultipleLicenses = async (data, setLoading, setError) => {
-  setLoading(true);
+export const getAllAvailableLicenses = async (setLicenses, setLoading, setError) => {
   try {
-    const response = await axiosInstance.post(API.LICENSE.POST.MULTIPLE_DELETE, data);
-
-    return { status: response.status, message: response.data.message };
+    setLoading(true);
+    const response = await axiosInstance.get(API.LICENSE.GET.AVAILABLE_ALL);
+    setLicenses(response.data);
+    return response;
   } catch (error) {
-    setError(error.response?.data?.message || "Failed to delete licenses");
-    return { status: error.response?.status || 500 };
+    setError(error.response?.data?.error || "Failed to fetch available licenses");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const addLicense = async (licenseData, setLicenses, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.post(API.LICENSE.POST.ALL, licenseData);
+    if (setLicenses) {
+      const updatedList = await axiosInstance.get(API.LICENSE.GET.ALL);
+      setLicenses(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to add license");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const addMultipleLicenses = async (licensesData, setLicenses, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.post(API.LICENSE.POST.MULTIPLE, licensesData);
+    if (setLicenses) {
+      const updatedList = await axiosInstance.get(API.LICENSE.GET.AVAILABLE_ALL);
+      setLicenses(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to add licenses");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const updateLicense = async (licenseData, setLicenses, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.put(
+      API.LICENSE.PUT.BY_ID.replace(':id', licenseData.id),
+      licenseData
+    );
+    if (setLicenses) {
+      const updatedList = await axiosInstance.get(API.LICENSE.GET.ALL);
+      setLicenses(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to update license");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const updateLicensesMultiple = async (licensesData, setLicenses, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.put(API.LICENSE.PUT.MULTIPLE, licensesData);
+    if (setLicenses) {
+      const updatedList = await axiosInstance.get(API.LICENSE.GET.AVAILABLE_ALL);
+      setLicenses(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to update licenses");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const deleteLicense = async (id, setLicenses, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.delete(API.LICENSE.DELETE.BY_ID.replace(':id', id));
+    if (setLicenses) {
+      const updatedList = await axiosInstance.get(API.LICENSE.GET.ALL);
+      setLicenses(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to delete license");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const deleteMultipleLicenses = async (licensesData, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.post(API.LICENSE.POST.MULTIPLE_DELETE, licensesData);
+    return response;
+  } catch (error) {
+    setError && setError(error.response?.data?.error || "Failed to delete licenses");
+    throw error;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
+// ########################
+// Software Version API
+// ########################
+
+export const getAllSoftwareVersion = async (setSoftwareVersions, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.get(API.SOFTWARE_VERSION.GET.ALL);
+    setSoftwareVersions(response.data);
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to fetch software versions");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const getSoftwareVersionById = async (id, setSoftwareVersion, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.get(API.SOFTWARE_VERSION.GET.BY_ID.replace(':id', id));
+    setSoftwareVersion(response.data);
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to fetch software version");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const getSoftwareVersionByParamSoftwareId = async (id, setSoftwareVersions, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.get(API.SOFTWARE_VERSION.GET.BY_SOFTWARE_ID.replace(':software_id', id));
+    setSoftwareVersions(response.data);
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to fetch software versions");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const addSoftwareVersion = async (versionData, setSoftwareVersions, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.post(API.SOFTWARE_VERSION.POST.ALL, versionData);
+    if (setSoftwareVersions) {
+      const updatedList = await axiosInstance.get(API.SOFTWARE_VERSION.GET.ALL);
+      setSoftwareVersions(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to add software version");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const updateSoftwareVersion = async (versionData, setSoftwareVersions, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.put(
+      API.SOFTWARE_VERSION.PUT.BY_ID.replace(':id', versionData.id),
+      versionData
+    );
+    if (setSoftwareVersions) {
+      const updatedList = await axiosInstance.get(API.SOFTWARE_VERSION.GET.ALL);
+      setSoftwareVersions(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to update software version");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const deleteSoftwareVersion = async (id, setSoftwareVersions, setLoading, setError) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.delete(API.SOFTWARE_VERSION.DELETE.BY_ID.replace(':id', id));
+    if (setSoftwareVersions) {
+      const updatedList = await axiosInstance.get(API.SOFTWARE_VERSION.GET.ALL);
+      setSoftwareVersions(updatedList.data);
+    }
+    return response;
+  } catch (error) {
+    setError(error.response?.data?.error || "Failed to delete software version");
+    throw error;
   } finally {
     setLoading(false);
   }
@@ -276,15 +329,57 @@ export const getAllOrders = async () => {
     const response = await axiosInstance.get(API.ORDER.GET.ALL);
     return response.data;
   } catch (error) {
-    throw new Error(error.response?.data?.message || "Gagal mengambil data");
+    console.error("Error fetching orders:", error);
+    throw error;
+  }
+};
+
+export const getOrderById = async (id) => {
+  try {
+    const response = await axiosInstance.get(API.ORDER.GET.BY_ID.replace(':id', id));
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    throw error;
+  }
+};
+
+export const createOrder = async (orderData) => {
+  try {
+    const response = await axiosInstance.post(API.ORDER.POST.ALL, orderData);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating order:", error);
+    throw error;
+  }
+};
+
+export const updateOrder = async (id, orderData) => {
+  try {
+    const response = await axiosInstance.put(API.ORDER.PUT.BY_ID.replace(':id', id), orderData);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating order:", error);
+    throw error;
   }
 };
 
 export const deleteOrder = async (id) => {
   try {
-    const response = await axiosInstance.delete(API.ORDER.DELETE.BY_ID.replace(":id", id));
-    return { status: response.status, message: response.data.message, id };
+    const response = await axiosInstance.delete(API.ORDER.DELETE.BY_ID.replace(':id', id));
+    return response.data;
   } catch (error) {
-    throw new Error(error.response?.data?.message || "Gagal menghapus pesanan");
+    console.error("Error deleting order:", error);
+    throw error;
+  }
+};
+
+export const findOrder = async (orderData) => {
+  try {
+    const response = await axiosInstance.post(API.ORDER.POST.FIND, orderData);
+    return response.data;
+  } catch (error) {
+    console.error("Error finding order:", error);
+    throw error;
   }
 };

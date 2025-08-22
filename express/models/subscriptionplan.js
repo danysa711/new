@@ -1,4 +1,3 @@
-// express/models/subscriptionplan.js
 "use strict";
 const { Model } = require("sequelize");
 
@@ -36,6 +35,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       sequelize,
       modelName: "SubscriptionPlan",
+      timestamps: true,
     }
   );
 

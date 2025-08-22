@@ -1,8 +1,7 @@
-// express/middlewares/auth.js
 const jwt = require("jsonwebtoken");
-const { User } = require("../models");
+const { User, Subscription, db } = require("../models");
 
-const authenticateUser = (req, res, next) => {
+const authenticateUser = async (req, res, next) => {
   const token = req.header("Authorization")?.split(" ")[1]; // Ambil token dari header
 
   if (!token) {
@@ -10,41 +9,72 @@ const authenticateUser = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "mysecretkey");
     req.userId = decoded.id;
-    req.userRole = decoded.role; // Add role to request
+    req.userRole = decoded.role || "user";
+    req.userSlug = decoded.url_slug;
+    req.hasActiveSubscription = decoded.hasActiveSubscription;
+
+    // Jika URL berisi slug, cek apakah user bisa mengakses
+    const urlPath = req.originalUrl;
+    if (urlPath.includes('/user/page/')) {
+      const urlSlug = urlPath.split('/user/page/')[1]?.split('/')[0];
+      
+      // Jika tidak sama dengan user slug dan bukan admin, tolak akses
+      if (urlSlug !== req.userSlug && req.userRole !== 'admin') {
+        return res.status(403).json({ error: "Tidak memiliki akses ke halaman ini" });
+      }
+    }
+
     next();
   } catch (error) {
+    console.error("Auth error:", error);
     return res.status(403).json({ error: "Token tidak valid" });
   }
 };
 
-// Middleware to check if user is admin
-const isAdmin = (req, res, next) => {
+const requireAdmin = (req, res, next) => {
   if (req.userRole !== "admin") {
-    return res.status(403).json({ error: "Akses ditolak, hanya admin yang diizinkan" });
+    return res.status(403).json({ error: "Akses ditolak, memerlukan hak admin" });
   }
   next();
 };
 
-// Middleware to check if URL is active for this user
-const checkActiveUrl = async (req, res, next) => {
+const requireActiveSubscription = async (req, res, next) => {
+  // Admin tidak memerlukan langganan aktif
+  if (req.userRole === "admin") {
+    return next();
+  }
+
   try {
-    const userId = req.userId;
-    const user = await User.findByPk(userId);
+    // Periksa apakah user memiliki langganan aktif
+    const hasActiveSubscription = req.hasActiveSubscription;
     
-    if (!user || !user.url_active) {
-      return res.status(403).json({ 
-        error: "URL tidak aktif, silakan aktifkan langganan Anda",
-        subscription_required: true
+    if (!hasActiveSubscription) {
+      // Double-check dengan database
+      const activeSubscription = await Subscription.findOne({
+        where: {
+          user_id: req.userId,
+          status: "active",
+          end_date: {
+            [db.Sequelize.Op.gt]: new Date()
+          }
+        }
       });
+
+      if (!activeSubscription) {
+        return res.status(403).json({ 
+          error: "Langganan tidak aktif", 
+          subscriptionRequired: true 
+        });
+      }
     }
-    
+
     next();
   } catch (error) {
-    console.error("Error checking active URL:", error);
-    return res.status(500).json({ error: "Terjadi kesalahan saat memeriksa status URL" });
+    console.error("Error checking subscription:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan saat memeriksa langganan" });
   }
 };
 
-module.exports = { authenticateUser, isAdmin, checkActiveUrl };
+module.exports = { authenticateUser, requireAdmin, requireActiveSubscription };

@@ -1,220 +1,47 @@
-// express/controllers/subscriptionController.js
-const { Subscription, User, SubscriptionPlan } = require("../models");
-const { Op } = require("sequelize");
+const { Subscription, SubscriptionPlan, User, db } = require("../models");
 
-// Get all active subscriptions
-const getAllSubscriptions = async (req, res) => {
-  try {
-    const subscriptions = await Subscription.findAll({
-      include: [{ model: User, attributes: ["id", "username", "email", "url_slug"] }],
-      order: [["createdAt", "DESC"]]
-    });
-    res.json(subscriptions);
-  } catch (error) {
-    console.error("Error fetching subscriptions:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengambil data langganan" });
-  }
-};
-
-// Get subscription by ID
-const getSubscriptionById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const subscription = await Subscription.findByPk(id, {
-      include: [{ model: User, attributes: ["id", "username", "email", "url_slug"] }],
-    });
-
-    if (!subscription) {
-      return res.status(404).json({ error: "Langganan tidak ditemukan" });
-    }
-
-    res.json(subscription);
-  } catch (error) {
-    console.error("Error fetching subscription:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengambil data langganan" });
-  }
-};
-
-// Get current user's subscriptions
-const getUserSubscriptions = async (req, res) => {
-  try {
-    const userId = req.userId;
-    const subscriptions = await Subscription.findAll({
-      where: { user_id: userId },
-      order: [["createdAt", "DESC"]]
-    });
-    res.json(subscriptions);
-  } catch (error) {
-    console.error("Error fetching user subscriptions:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengambil data langganan pengguna" });
-  }
-};
-
-// Create new subscription (admin only)
-const createSubscription = async (req, res) => {
-  try {
-    const { user_id, start_date, end_date, status = "active", payment_status = "pending", payment_method } = req.body;
-
-    // Validate required fields
-    if (!user_id || !start_date || !end_date) {
-      return res.status(400).json({ error: "User ID, tanggal mulai, dan tanggal berakhir wajib diisi" });
-    }
-
-    // Check if user exists
-    const user = await User.findByPk(user_id);
-    if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan" });
-    }
-
-    // Create subscription
-    const newSubscription = await Subscription.create({
-      user_id,
-      start_date,
-      end_date,
-      status,
-      payment_status,
-      payment_method
-    });
-
-    // If subscription is active and payment is paid, activate user URL
-    if (status === "active" && payment_status === "paid") {
-      await user.update({ url_active: true });
-    }
-
-    res.status(201).json({ message: "Langganan berhasil dibuat", subscription: newSubscription });
-  } catch (error) {
-    console.error("Error creating subscription:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat membuat langganan" });
-  }
-};
-
-// Update subscription (admin only)
-const updateSubscription = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { start_date, end_date, status, payment_status, payment_method } = req.body;
-
-    const subscription = await Subscription.findByPk(id, {
-      include: [{ model: User }]
-    });
-
-    if (!subscription) {
-      return res.status(404).json({ error: "Langganan tidak ditemukan" });
-    }
-
-    const updates = {};
-    if (start_date !== undefined) updates.start_date = start_date;
-    if (end_date !== undefined) updates.end_date = end_date;
-    if (status !== undefined) updates.status = status;
-    if (payment_status !== undefined) updates.payment_status = payment_status;
-    if (payment_method !== undefined) updates.payment_method = payment_method;
-
-    await subscription.update(updates);
-
-    // Update user URL active status based on subscription status
-    if (subscription.User) {
-      const user = subscription.User;
-      const isActiveAndPaid = subscription.status === "active" && subscription.payment_status === "paid";
-      
-      // Only update if status changed
-      if (user.url_active !== isActiveAndPaid) {
-        await user.update({ url_active: isActiveAndPaid });
-      }
-    }
-
-    res.json({ message: "Langganan berhasil diperbarui", subscription });
-  } catch (error) {
-    console.error("Error updating subscription:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat memperbarui langganan" });
-  }
-};
-
-// Cancel subscription
-const cancelSubscription = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.userId;
-    const requestingUser = await User.findByPk(userId);
-
-    const subscription = await Subscription.findByPk(id, {
-      include: [{ model: User }]
-    });
-
-    if (!subscription) {
-      return res.status(404).json({ error: "Langganan tidak ditemukan" });
-    }
-
-    // Check if admin or subscription owner
-    if (requestingUser.role !== "admin" && subscription.user_id !== userId) {
-      return res.status(403).json({ error: "Tidak diizinkan membatalkan langganan pengguna lain" });
-    }
-
-    await subscription.update({ status: "canceled" });
-
-    // Deactivate user URL if no active subscriptions left
-    if (subscription.User) {
-      const user = subscription.User;
-      const activeSubscriptions = await Subscription.findOne({
-        where: {
-          user_id: user.id,
-          status: "active",
-          payment_status: "paid",
-          end_date: { [Op.gt]: new Date() }
-        }
-      });
-
-      if (!activeSubscriptions) {
-        await user.update({ url_active: false });
-      }
-    }
-
-    res.json({ message: "Langganan berhasil dibatalkan", subscription });
-  } catch (error) {
-    console.error("Error canceling subscription:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat membatalkan langganan" });
-  }
-};
-
-// Delete subscription (admin only)
-const deleteSubscription = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const subscription = await Subscription.findByPk(id);
-    if (!subscription) {
-      return res.status(404).json({ error: "Langganan tidak ditemukan" });
-    }
-
-    await subscription.destroy();
-    res.json({ message: "Langganan berhasil dihapus" });
-  } catch (error) {
-    console.error("Error deleting subscription:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat menghapus langganan" });
-  }
-};
-
-// Get subscription plans
-const getSubscriptionPlans = async (req, res) => {
+const getAllSubscriptionPlans = async (req, res) => {
   try {
     const plans = await SubscriptionPlan.findAll({
       where: { is_active: true },
-      order: [["duration_days", "ASC"]]
+      order: [['duration_days', 'ASC']]
     });
-    res.json(plans);
+
+    return res.status(200).json(plans);
   } catch (error) {
-    console.error("Error fetching subscription plans:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengambil data paket langganan" });
+    console.error("Error getting subscription plans:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Create subscription plan (admin only)
+const getSubscriptionPlanById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const plan = await SubscriptionPlan.findByPk(id);
+
+    if (!plan) {
+      return res.status(404).json({ error: "Paket langganan tidak ditemukan" });
+    }
+
+    return res.status(200).json(plan);
+  } catch (error) {
+    console.error("Error getting subscription plan:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
+  }
+};
+
 const createSubscriptionPlan = async (req, res) => {
   try {
-    const { name, duration_days, price, description, is_active = true } = req.body;
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
 
-    // Validate required fields
-    if (!name || !duration_days || price === undefined) {
-      return res.status(400).json({ error: "Nama, durasi, dan harga wajib diisi" });
+    const { name, duration_days, price, description, is_active } = req.body;
+
+    // Validasi input
+    if (!name || !duration_days || !price) {
+      return res.status(400).json({ error: "Nama, durasi, dan harga harus diisi" });
     }
 
     const newPlan = await SubscriptionPlan.create({
@@ -222,19 +49,26 @@ const createSubscriptionPlan = async (req, res) => {
       duration_days,
       price,
       description,
-      is_active
+      is_active: is_active !== undefined ? is_active : true
     });
 
-    res.status(201).json({ message: "Paket langganan berhasil dibuat", plan: newPlan });
+    return res.status(201).json({
+      message: "Paket langganan berhasil dibuat",
+      plan: newPlan
+    });
   } catch (error) {
     console.error("Error creating subscription plan:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat membuat paket langganan" });
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Update subscription plan (admin only)
 const updateSubscriptionPlan = async (req, res) => {
   try {
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
+
     const { id } = req.params;
     const { name, duration_days, price, description, is_active } = req.body;
 
@@ -243,25 +77,31 @@ const updateSubscriptionPlan = async (req, res) => {
       return res.status(404).json({ error: "Paket langganan tidak ditemukan" });
     }
 
-    const updates = {};
-    if (name !== undefined) updates.name = name;
-    if (duration_days !== undefined) updates.duration_days = duration_days;
-    if (price !== undefined) updates.price = price;
-    if (description !== undefined) updates.description = description;
-    if (is_active !== undefined) updates.is_active = is_active;
+    await plan.update({
+      name: name || plan.name,
+      duration_days: duration_days || plan.duration_days,
+      price: price || plan.price,
+      description: description || plan.description,
+      is_active: is_active !== undefined ? is_active : plan.is_active
+    });
 
-    await plan.update(updates);
-
-    res.json({ message: "Paket langganan berhasil diperbarui", plan });
+    return res.status(200).json({
+      message: "Paket langganan berhasil diperbarui",
+      plan
+    });
   } catch (error) {
     console.error("Error updating subscription plan:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat memperbarui paket langganan" });
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Delete subscription plan (admin only)
 const deleteSubscriptionPlan = async (req, res) => {
   try {
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
+
     const { id } = req.params;
 
     const plan = await SubscriptionPlan.findByPk(id);
@@ -270,201 +110,265 @@ const deleteSubscriptionPlan = async (req, res) => {
     }
 
     await plan.destroy();
-    res.json({ message: "Paket langganan berhasil dihapus" });
+
+    return res.status(200).json({ message: "Paket langganan berhasil dihapus" });
   } catch (error) {
     console.error("Error deleting subscription plan:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat menghapus paket langganan" });
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Check subscription status
-const checkSubscriptionStatus = async (req, res) => {
+const getUserSubscriptions = async (req, res) => {
   try {
     const userId = req.userId;
-    
-    // Get current active subscription
-    const activeSubscription = await Subscription.findOne({
-      where: {
-        user_id: userId,
-        status: "active",
-        end_date: { [Op.gt]: new Date() }
-      },
-      order: [["end_date", "DESC"]]
-    });
 
-    if (!activeSubscription) {
-      return res.json({ 
-        hasActiveSubscription: false,
-        subscription: null
-      });
-    }
-
-    res.json({
-      hasActiveSubscription: true,
-      subscription: activeSubscription
-    });
-  } catch (error) {
-    console.error("Error checking subscription status:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat memeriksa status langganan" });
-  }
-};
-
-// Extend subscription with a plan
-const extendSubscription = async (req, res) => {
-  try {
-    const userId = req.userId;
-    const { plan_id, payment_method } = req.body;
-
-    // Validate plan ID
-    if (!plan_id) {
-      return res.status(400).json({ error: "ID paket langganan wajib diisi" });
-    }
-
-    // Check if plan exists
-    const plan = await SubscriptionPlan.findByPk(plan_id);
-    if (!plan || !plan.is_active) {
-      return res.status(404).json({ error: "Paket langganan tidak ditemukan atau tidak aktif" });
-    }
-
-    // Get latest subscription to determine start date
-    const latestSubscription = await Subscription.findOne({
+    const subscriptions = await Subscription.findAll({
       where: { user_id: userId },
-      order: [["end_date", "DESC"]]
+      include: [{ model: User, attributes: ['username', 'email'] }],
+      order: [['createdAt', 'DESC']]
     });
 
-    // Calculate start and end dates
-    let startDate;
-    if (latestSubscription && new Date(latestSubscription.end_date) > new Date()) {
-      // If existing subscription is still active, start from its end date
-      startDate = new Date(latestSubscription.end_date);
-    } else {
-      // Otherwise start from now
-      startDate = new Date();
-    }
-
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + plan.duration_days);
-
-    // Create new subscription
-    const newSubscription = await Subscription.create({
-      user_id: userId,
-      start_date: startDate,
-      end_date: endDate,
-      status: "active",
-      payment_status: "pending", // Start as pending until payment is confirmed
-      payment_method: payment_method || null
-    });
-
-    // Return the new subscription with payment information
-    res.status(201).json({
-      message: "Perpanjangan langganan berhasil dibuat, menunggu pembayaran",
-      subscription: newSubscription,
-      payment_info: {
-        amount: plan.price,
-        plan_name: plan.name,
-        duration_days: plan.duration_days
-      }
-    });
+    return res.status(200).json(subscriptions);
   } catch (error) {
-    console.error("Error extending subscription:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat memperpanjang langganan" });
+    console.error("Error getting user subscriptions:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Admin approves payment
-const approvePayment = async (req, res) => {
+const getAllSubscriptions = async (req, res) => {
   try {
-    const { subscription_id } = req.params;
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
 
-    const subscription = await Subscription.findByPk(subscription_id, {
-      include: [{ model: User }]
+    const subscriptions = await Subscription.findAll({
+      include: [{ model: User, attributes: ['id', 'username', 'email', 'url_slug'] }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    return res.status(200).json(subscriptions);
+  } catch (error) {
+    console.error("Error getting all subscriptions:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
+  }
+};
+
+const getSubscriptionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const subscription = await Subscription.findByPk(id, {
+      include: [{ model: User, attributes: ['id', 'username', 'email', 'url_slug'] }]
     });
 
     if (!subscription) {
       return res.status(404).json({ error: "Langganan tidak ditemukan" });
     }
 
-    // Update subscription status
-    await subscription.update({
-      payment_status: "paid"
-    });
-
-    // Activate user URL
-    if (subscription.User && subscription.status === "active") {
-      await subscription.User.update({ url_active: true });
+    // Only allow admin or the subscription owner to access
+    if (req.userRole !== "admin" && subscription.user_id !== req.userId) {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
     }
 
-    res.json({
-      message: "Pembayaran berhasil dikonfirmasi",
-      subscription
-    });
+    return res.status(200).json(subscription);
   } catch (error) {
-    console.error("Error approving payment:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengonfirmasi pembayaran" });
+    console.error("Error getting subscription:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Request trial subscription
-const requestTrialSubscription = async (req, res) => {
+const createSubscription = async (req, res) => {
   try {
-    const userId = req.userId;
-    const { message } = req.body;
-
-    // Check if user already has any subscription
-    const existingSubscription = await Subscription.findOne({
-      where: { user_id: userId }
-    });
-
-    if (existingSubscription) {
-      return res.status(400).json({ error: "Anda sudah pernah berlangganan sebelumnya" });
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
     }
 
-    // Create a 1-day trial subscription
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 1); // 1 day trial
+    const { user_id, plan_id, payment_method, custom_days } = req.body;
 
-    const trialSubscription = await Subscription.create({
-      user_id: userId,
-      start_date: startDate,
-      end_date: endDate,
-      status: "active",
-      payment_status: "pending", // Admin needs to approve
-      payment_method: "trial"
-    });
+    // Validasi input
+    if ((!plan_id && !custom_days) || !user_id) {
+      return res.status(400).json({ error: "User ID dan Plan ID atau Custom Days harus diisi" });
+    }
 
-    // Get user info
-    const user = await User.findByPk(userId);
+    // Cek apakah user ada
+    const user = await User.findByPk(user_id);
+    if (!user) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
 
-    res.status(201).json({
-      message: "Permintaan trial berhasil dibuat, menunggu persetujuan admin",
-      subscription: trialSubscription,
-      request_info: {
-        username: user.username,
-        email: user.email,
-        message: message || "Permintaan trial"
+    let duration_days = custom_days;
+    let plan = null;
+
+    // Jika menggunakan plan_id, ambil durasi dari plan
+    if (plan_id) {
+      plan = await SubscriptionPlan.findByPk(plan_id);
+      if (!plan) {
+        return res.status(404).json({ error: "Paket langganan tidak ditemukan" });
+      }
+      duration_days = plan.duration_days;
+    }
+
+    // Hitung tanggal berakhir berdasarkan durasi
+    const start_date = new Date();
+    const end_date = new Date();
+    end_date.setDate(end_date.getDate() + parseInt(duration_days));
+
+    // Cek apakah user sudah memiliki langganan aktif
+    const activeSubscription = await Subscription.findOne({
+      where: {
+        user_id,
+        status: "active",
+        end_date: {
+          [db.Sequelize.Op.gt]: new Date()
+        }
       }
     });
+
+    // Jika sudah ada langganan aktif, perpanjang langganan tersebut
+    if (activeSubscription) {
+      const newEndDate = new Date(activeSubscription.end_date);
+      newEndDate.setDate(newEndDate.getDate() + parseInt(duration_days));
+      
+      await activeSubscription.update({
+        end_date: newEndDate,
+        payment_status: "paid",
+        payment_method: payment_method || "manual"
+      });
+
+      return res.status(200).json({
+        message: "Langganan berhasil diperpanjang",
+        subscription: activeSubscription
+      });
+    }
+
+    // Buat langganan baru
+    const newSubscription = await Subscription.create({
+      user_id,
+      start_date,
+      end_date,
+      status: "active",
+      payment_status: "paid",
+      payment_method: payment_method || "manual"
+    });
+
+    return res.status(201).json({
+      message: "Langganan berhasil dibuat",
+      subscription: newSubscription
+    });
   } catch (error) {
-    console.error("Error requesting trial:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat meminta trial" });
+    console.error("Error creating subscription:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
+  }
+};
+
+const updateSubscriptionStatus = async (req, res) => {
+  try {
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
+
+    const { id } = req.params;
+    const { status, payment_status } = req.body;
+
+    const subscription = await Subscription.findByPk(id);
+    if (!subscription) {
+      return res.status(404).json({ error: "Langganan tidak ditemukan" });
+    }
+
+    await subscription.update({
+      status: status || subscription.status,
+      payment_status: payment_status || subscription.payment_status
+    });
+
+    return res.status(200).json({
+      message: "Status langganan berhasil diperbarui",
+      subscription
+    });
+  } catch (error) {
+    console.error("Error updating subscription status:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
+  }
+};
+
+const cancelSubscription = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const subscription = await Subscription.findByPk(id);
+    if (!subscription) {
+      return res.status(404).json({ error: "Langganan tidak ditemukan" });
+    }
+
+    // Only allow admin or the subscription owner to cancel
+    if (req.userRole !== "admin" && subscription.user_id !== req.userId) {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
+
+    await subscription.update({ status: "canceled" });
+
+    return res.status(200).json({
+      message: "Langganan berhasil dibatalkan",
+      subscription
+    });
+  } catch (error) {
+    console.error("Error canceling subscription:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
+  }
+};
+
+const extendSubscription = async (req, res) => {
+  try {
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
+
+    const { id } = req.params;
+    const { days } = req.body;
+
+    if (!days || isNaN(days) || days <= 0) {
+      return res.status(400).json({ error: "Jumlah hari harus diisi dengan angka positif" });
+    }
+
+    const subscription = await Subscription.findByPk(id);
+    if (!subscription) {
+      return res.status(404).json({ error: "Langganan tidak ditemukan" });
+    }
+
+    // Hitung tanggal berakhir baru
+    const currentEndDate = new Date(subscription.end_date);
+    const newEndDate = new Date(currentEndDate);
+    newEndDate.setDate(newEndDate.getDate() + parseInt(days));
+
+    await subscription.update({
+      end_date: newEndDate,
+      status: "active" // Pastikan status aktif jika sebelumnya expired
+    });
+
+    return res.status(200).json({
+      message: `Langganan berhasil diperpanjang ${days} hari`,
+      subscription
+    });
+  } catch (error) {
+    console.error("Error extending subscription:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
 module.exports = {
-  getAllSubscriptions,
-  getSubscriptionById,
-  getUserSubscriptions,
-  createSubscription,
-  updateSubscription,
-  cancelSubscription,
-  deleteSubscription,
-  getSubscriptionPlans,
+  getAllSubscriptionPlans,
+  getSubscriptionPlanById,
   createSubscriptionPlan,
   updateSubscriptionPlan,
   deleteSubscriptionPlan,
-  checkSubscriptionStatus,
-  extendSubscription,
-  approvePayment,
-  requestTrialSubscription
+  getUserSubscriptions,
+  getAllSubscriptions,
+  getSubscriptionById,
+  createSubscription,
+  updateSubscriptionStatus,
+  cancelSubscription,
+  extendSubscription
 };

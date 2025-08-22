@@ -1,13 +1,9 @@
-// express/models/user.js
 "use strict";
 const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
-      this.hasMany(models.Software, { foreignKey: "user_id" });
-      this.hasMany(models.SoftwareVersion, { foreignKey: "user_id" });
-      this.hasMany(models.License, { foreignKey: "user_id" });
       this.hasMany(models.Subscription, { foreignKey: "user_id" });
     }
   }
@@ -23,6 +19,9 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: true,
         unique: true,
+        validate: {
+          isEmail: true,
+        },
       },
       password: {
         type: DataTypes.STRING,
@@ -38,21 +37,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         unique: true,
       },
-      user_url_id: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        unique: true,
-      },
-      url_active: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-      },
     },
     {
       sequelize,
       modelName: "User",
-      timestamps: true, // Secara default akan menambahkan `createdAt` dan `updatedAt`
+      timestamps: true,
     }
   );
 

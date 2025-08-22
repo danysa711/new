@@ -1,247 +1,286 @@
-// express/controllers/userController.js
-const { User, Subscription } = require("../models");
+const { User, Subscription, SubscriptionPlan, db } = require("../models");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
-// Helper untuk generate URL slug unik
-const generateSlug = (username) => {
-  const slug = username.toLowerCase().replace(/[^a-z0-9]/g, "-");
+// Helper function to generate unique URL slug
+const generateUniqueSlug = async (username) => {
+  const baseSlug = username.toLowerCase().replace(/[^a-z0-9]/g, "");
+  
+  // Generate a random string
   const randomString = crypto.randomBytes(4).toString("hex");
-  return `${slug}-${randomString}`;
+  
+  const slug = `${baseSlug}-${randomString}`;
+  
+  // Check if slug exists
+  const existingUser = await User.findOne({ where: { url_slug: slug } });
+  if (existingUser) {
+    // If exists, try again with a different random string
+    return generateUniqueSlug(username);
+  }
+  
+  return slug;
 };
 
-// Get all users (admin only)
 const getAllUsers = async (req, res) => {
   try {
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
+
     const users = await User.findAll({
-      attributes: { exclude: ["password"] },
-      include: [{ model: Subscription }],
+      attributes: ['id', 'username', 'email', 'role', 'url_slug', 'createdAt'],
+      include: [{
+        model: Subscription,
+        where: {
+          status: 'active',
+          end_date: {
+            [db.Sequelize.Op.gt]: new Date()
+          }
+        },
+        required: false
+      }]
     });
-    res.json(users);
+
+    const formattedUsers = users.map(user => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      url_slug: user.url_slug,
+      createdAt: user.createdAt,
+      hasActiveSubscription: user.Subscriptions && user.Subscriptions.length > 0,
+      subscription: user.Subscriptions && user.Subscriptions.length > 0 ? {
+        id: user.Subscriptions[0].id,
+        startDate: user.Subscriptions[0].start_date,
+        endDate: user.Subscriptions[0].end_date,
+        status: user.Subscriptions[0].status,
+        paymentStatus: user.Subscriptions[0].payment_status
+      } : null
+    }));
+
+    return res.status(200).json(formattedUsers);
   } catch (error) {
-    console.error("Error fetching users:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengambil data pengguna" });
+    console.error("Error getting users:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Get user by ID (admin or own account)
 const getUserById = async (req, res) => {
   try {
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
+
     const { id } = req.params;
-    const requestingUserId = req.userId;
-    const requestingUser = await User.findByPk(requestingUserId);
-
-    // Check if admin or own account
-    if (requestingUser.role !== "admin" && requestingUserId !== parseInt(id)) {
-      return res.status(403).json({ error: "Tidak diizinkan mengakses data pengguna lain" });
-    }
-
     const user = await User.findByPk(id, {
-      attributes: { exclude: ["password"] },
-      include: [{ model: Subscription }],
+      attributes: ['id', 'username', 'email', 'role', 'url_slug', 'createdAt'],
+      include: [{
+        model: Subscription,
+        where: {
+          status: 'active',
+          end_date: {
+            [db.Sequelize.Op.gt]: new Date()
+          }
+        },
+        required: false
+      }]
     });
 
     if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+      return res.status(404).json({ error: "User tidak ditemukan" });
     }
 
-    res.json(user);
-  } catch (error) {
-    console.error("Error fetching user:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengambil data pengguna" });
-  }
-};
-
-// Get current user profile
-const getCurrentUser = async (req, res) => {
-  try {
-    const userId = req.userId;
-    const user = await User.findByPk(userId, {
-      attributes: { exclude: ["password"] },
-      include: [{ model: Subscription }],
+    return res.status(200).json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      url_slug: user.url_slug,
+      createdAt: user.createdAt,
+      hasActiveSubscription: user.Subscriptions && user.Subscriptions.length > 0,
+      subscription: user.Subscriptions && user.Subscriptions.length > 0 ? {
+        id: user.Subscriptions[0].id,
+        startDate: user.Subscriptions[0].start_date,
+        endDate: user.Subscriptions[0].end_date,
+        status: user.Subscriptions[0].status,
+        paymentStatus: user.Subscriptions[0].payment_status
+      } : null
     });
-
-    if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan" });
-    }
-
-    res.json(user);
   } catch (error) {
-    console.error("Error fetching current user:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengambil data pengguna" });
+    console.error("Error getting user:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Create new user (for admin)
 const createUser = async (req, res) => {
   try {
-    const { username, email, password, role = "user" } = req.body;
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
 
-    // Validate input
-    if (!username || !password) {
-      return res.status(400).json({ error: "Username dan password harus diisi" });
+    const { username, email, password, role } = req.body;
+
+    // Validasi input kosong
+    if (!username || !password || !email) {
+      return res.status(400).json({ error: "Username, email, dan password harus diisi" });
     }
 
     // Check if username already exists
-    const existingUser = await User.findOne({ where: { username } });
-    if (existingUser) {
+    const existingUsername = await User.findOne({ where: { username } });
+    if (existingUsername) {
       return res.status(400).json({ error: "Username sudah digunakan" });
     }
 
-    // Check if email already exists (if provided)
-    if (email) {
-      const existingEmail = await User.findOne({ where: { email } });
-      if (existingEmail) {
-        return res.status(400).json({ error: "Email sudah digunakan" });
-      }
+    // Check if email already exists
+    const existingEmail = await User.findOne({ where: { email } });
+    if (existingEmail) {
+      return res.status(400).json({ error: "Email sudah digunakan" });
     }
+
+    // Validasi password (min. 8 karakter, harus ada huruf dan angka)
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ error: "Password harus minimal 8 karakter dan mengandung huruf serta angka" });
+    }
+
+    // Generate unique URL slug
+    const url_slug = await generateUniqueSlug(username);
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate slug
-    const url_slug = generateSlug(username);
-
-    // Create user
-    const newUser = await User.create({
+    // Simpan user
+    const user = await User.create({
       username,
       email,
       password: hashedPassword,
-      role,
-      url_slug,
-      url_active: false,
+      role: role || "user",
+      url_slug
     });
 
-    // Remove password from response
-    const userResponse = { ...newUser.toJSON() };
-    delete userResponse.password;
-
-    res.status(201).json({ message: "Pengguna berhasil dibuat", user: userResponse });
+    return res.status(201).json({
+      message: "User berhasil dibuat",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        url_slug: user.url_slug
+      }
+    });
   } catch (error) {
     console.error("Error creating user:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat membuat pengguna" });
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Update user (admin or own account)
-const updateUser = async (req, res) => {
+const updateUserRole = async (req, res) => {
   try {
-    const { id } = req.params;
-    const requestingUserId = req.userId;
-    const requestingUser = await User.findByPk(requestingUserId);
-    const { username, email, role, url_active } = req.body;
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
 
-    // Check if admin or own account
-    if (requestingUser.role !== "admin" && requestingUserId !== parseInt(id)) {
-      return res.status(403).json({ error: "Tidak diizinkan mengubah data pengguna lain" });
+    const { id } = req.params;
+    const { role } = req.body;
+
+    // Validasi role
+    if (!role || !["admin", "user"].includes(role)) {
+      return res.status(400).json({ error: "Role tidak valid" });
     }
 
     const user = await User.findByPk(id);
     if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+      return res.status(404).json({ error: "User tidak ditemukan" });
     }
 
-    // Only admin can change role and url_active
-    const updates = {};
-    if (username && username !== user.username) {
-      // Check if username already exists
-      const existingUser = await User.findOne({ where: { username } });
-      if (existingUser && existingUser.id !== parseInt(id)) {
-        return res.status(400).json({ error: "Username sudah digunakan" });
+    await user.update({ role });
+
+    return res.status(200).json({
+      message: "Role user berhasil diperbarui",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        url_slug: user.url_slug
       }
-      updates.username = username;
-      // Update slug if username changes
-      updates.url_slug = generateSlug(username);
-    }
-
-    if (email && email !== user.email) {
-      // Check if email already exists
-      const existingEmail = await User.findOne({ where: { email } });
-      if (existingEmail && existingEmail.id !== parseInt(id)) {
-        return res.status(400).json({ error: "Email sudah digunakan" });
-      }
-      updates.email = email;
-    }
-
-    // Only admin can change role and url_active
-    if (requestingUser.role === "admin") {
-      if (role !== undefined) updates.role = role;
-      if (url_active !== undefined) updates.url_active = url_active;
-    }
-
-    await user.update(updates);
-
-    // Remove password from response
-    const userResponse = { ...user.toJSON() };
-    delete userResponse.password;
-
-    res.json({ message: "Pengguna berhasil diperbarui", user: userResponse });
+    });
   } catch (error) {
-    console.error("Error updating user:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat memperbarui pengguna" });
+    console.error("Error updating user role:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Delete user (admin only)
 const deleteUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    const requestingUserId = req.userId;
-    const requestingUser = await User.findByPk(requestingUserId);
-
-    // Check if admin
-    if (requestingUser.role !== "admin") {
-      return res.status(403).json({ error: "Hanya admin yang dapat menghapus pengguna" });
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
     }
+
+    const { id } = req.params;
 
     const user = await User.findByPk(id);
     if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+      return res.status(404).json({ error: "User tidak ditemukan" });
     }
 
-    // Prevent deleting yourself
-    if (parseInt(id) === requestingUserId) {
+    // Do not allow deleting own account
+    if (user.id === req.userId) {
       return res.status(400).json({ error: "Tidak dapat menghapus akun sendiri" });
     }
 
     await user.destroy();
-    res.json({ message: "Pengguna berhasil dihapus" });
+
+    return res.status(200).json({ message: "User berhasil dihapus" });
   } catch (error) {
     console.error("Error deleting user:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat menghapus pengguna" });
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
-// Check URL slug availability
-const getUserBySlug = async (req, res) => {
+const resetUserPassword = async (req, res) => {
   try {
-    const { slug } = req.params;
-    const user = await User.findOne({
-      where: { url_slug: slug },
-      attributes: ["id", "username", "url_slug", "url_active"],
-    });
+    // Check if the requester is admin
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
 
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    // Validasi password (min. 8 karakter, harus ada huruf dan angka)
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ error: "Password harus minimal 8 karakter dan mengandung huruf serta angka" });
+    }
+
+    const user = await User.findByPk(id);
     if (!user) {
-      return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+      return res.status(404).json({ error: "User tidak ditemukan" });
     }
 
-    if (!user.url_active) {
-      return res.status(403).json({ error: "URL tidak aktif" });
-    }
+    // Hash password baru
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    await user.update({ password: hashedPassword });
 
-    res.json(user);
+    return res.status(200).json({ message: "Password user berhasil diatur ulang" });
   } catch (error) {
-    console.error("Error fetching user by slug:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat mengambil data pengguna" });
+    console.error("Error resetting user password:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };
 
 module.exports = {
   getAllUsers,
   getUserById,
-  getCurrentUser,
   createUser,
-  updateUser,
+  updateUserRole,
   deleteUser,
-  getUserBySlug,
+  resetUserPassword
 };

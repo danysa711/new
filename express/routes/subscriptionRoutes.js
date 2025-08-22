@@ -1,43 +1,43 @@
-// express/routes/subscriptionRoutes.js
 const express = require("express");
 const {
-  getAllSubscriptions,
-  getSubscriptionById,
-  getUserSubscriptions,
-  createSubscription,
-  updateSubscription,
-  cancelSubscription,
-  deleteSubscription,
-  getSubscriptionPlans,
+  getAllSubscriptionPlans,
+  getSubscriptionPlanById,
   createSubscriptionPlan,
   updateSubscriptionPlan,
   deleteSubscriptionPlan,
-  checkSubscriptionStatus,
-  extendSubscription,
-  approvePayment,
-  requestTrialSubscription
+  getUserSubscriptions,
+  getAllSubscriptions,
+  getSubscriptionById,
+  createSubscription,
+  updateSubscriptionStatus,
+  cancelSubscription,
+  extendSubscription
 } = require("../controllers/subscriptionController");
-const { authenticateUser, isAdmin } = require("../middlewares/auth");
+const { authenticateUser, requireAdmin } = require("../middlewares/auth");
 
 const router = express.Router();
 
-// Admin routes
-router.get("/subscriptions", authenticateUser, isAdmin, getAllSubscriptions);
-router.post("/subscriptions", authenticateUser, isAdmin, createSubscription);
-router.get("/subscriptions/:id", authenticateUser, getSubscriptionById);
-router.put("/subscriptions/:id", authenticateUser, isAdmin, updateSubscription);
-router.delete("/subscriptions/:id", authenticateUser, isAdmin, deleteSubscription);
-router.post("/subscription-plans", authenticateUser, isAdmin, createSubscriptionPlan);
-router.put("/subscription-plans/:id", authenticateUser, isAdmin, updateSubscriptionPlan);
-router.delete("/subscription-plans/:id", authenticateUser, isAdmin, deleteSubscriptionPlan);
-router.post("/subscriptions/:subscription_id/approve", authenticateUser, isAdmin, approvePayment);
+// Routes publik (tanpa auth)
+router.get("/subscription-plans", getAllSubscriptionPlans);
+router.get("/subscription-plans/:id", getSubscriptionPlanById);
 
-// User routes
-router.get("/user/subscriptions", authenticateUser, getUserSubscriptions);
-router.get("/subscription-plans", authenticateUser, getSubscriptionPlans);
-router.get("/user/subscription/status", authenticateUser, checkSubscriptionStatus);
-router.post("/user/subscription/extend", authenticateUser, extendSubscription);
-router.post("/user/subscription/cancel/:id", authenticateUser, cancelSubscription);
-router.post("/user/subscription/trial", authenticateUser, requestTrialSubscription);
+// Routes yang memerlukan autentikasi
+router.use(authenticateUser);
+
+// User subscription routes
+router.get("/subscriptions/user", getUserSubscriptions);
+router.get("/subscriptions/:id", getSubscriptionById);
+router.put("/subscriptions/:id/cancel", cancelSubscription);
+
+// Routes admin
+router.get("/subscriptions", requireAdmin, getAllSubscriptions);
+router.post("/subscriptions", requireAdmin, createSubscription);
+router.put("/subscriptions/:id/status", requireAdmin, updateSubscriptionStatus);
+router.put("/subscriptions/:id/extend", requireAdmin, extendSubscription);
+
+// Subscription plan management (admin only)
+router.post("/subscription-plans", requireAdmin, createSubscriptionPlan);
+router.put("/subscription-plans/:id", requireAdmin, updateSubscriptionPlan);
+router.delete("/subscription-plans/:id", requireAdmin, deleteSubscriptionPlan);
 
 module.exports = router;

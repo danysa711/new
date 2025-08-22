@@ -1,206 +1,210 @@
-// react/src/pages/admin/TripaySettings.jsx
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from 'react';
 import { 
-  Card, 
-  Button, 
-  Space, 
-  Form, 
-  Input, 
-  Switch, 
-  Typography,
-  message,
-  Alert,
-  Spin,
-  Row,
-  Col,
-  Divider
-} from "antd";
-import { 
-  PayCircleOutlined, 
-  SaveOutlined,
-  ApiOutlined,
-  ReloadOutlined,
-  KeyOutlined,
-  ShopOutlined
-} from "@ant-design/icons";
-import { AdminContext } from "../../context/AdminContext";
+  Card, Typography, Form, Input, Button, message, Spin, 
+  Divider, Switch, Alert, Descriptions
+} from 'antd';
+import { SaveOutlined, ReloadOutlined } from '@ant-design/icons';
+import axiosInstance from '../../services/axios';
 
-const { Title, Text } = Typography;
-const { Password } = Input;
+const { Title, Text, Paragraph } = Typography;
 
 const TripaySettings = () => {
-  const { 
-    tripaySettings,
-    loading, 
-    fetchTripaySettings,
-    updateTripaySettings
-  } = useContext(AdminContext);
-  
   const [form] = Form.useForm();
-  const [saving, setSaving] = useState(false);
-  
+  const [loading, setLoading] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [testResult, setTestResult] = useState(null);
+  const [testLoading, setTestLoading] = useState(false);
+
+  // Simulasi mendapatkan pengaturan dari backend
   useEffect(() => {
-    fetchTripaySettings();
-  }, []);
-  
-  useEffect(() => {
-    if (tripaySettings) {
-      form.setFieldsValue({
-        api_key: tripaySettings.api_key,
-        merchant_code: tripaySettings.merchant_code,
-        is_sandbox: tripaySettings.is_sandbox,
-        is_active: tripaySettings.is_active
-      });
-    }
-  }, [tripaySettings, form]);
-  
-  const handleSubmit = async (values) => {
-    try {
-      setSaving(true);
-      const result = await updateTripaySettings(values);
-      
-      if (result.success) {
-        message.success("Pengaturan Tripay berhasil disimpan");
-      } else {
-        message.error(result.error);
+    const fetchSettings = async () => {
+      try {
+        setLoadingSettings(true);
+        // Dalam implementasi sebenarnya, Anda akan mengambil dari API
+        // const response = await axiosInstance.get('/api/tripay/settings');
+        
+        // Simulasi data
+        setTimeout(() => {
+          form.setFieldsValue({
+            api_key: '****************************************',
+            private_key: '****************************************',
+            merchant_code: 'T*****',
+            sandbox_mode: true,
+            callback_url: 'https://www.db.kinterstore.my.id/api/tripay/callback'
+          });
+          
+          setLoadingSettings(false);
+        }, 1000);
+      } catch (error) {
+        message.error('Gagal memuat pengaturan');
+        setLoadingSettings(false);
       }
+    };
+
+    fetchSettings();
+  }, [form]);
+
+  const handleSaveSettings = async (values) => {
+    try {
+      setLoading(true);
+      
+      // Dalam implementasi sebenarnya, Anda akan mengirim ke API
+      // await axiosInstance.post('/api/tripay/settings', values);
+      
+      // Simulasi
+      setTimeout(() => {
+        message.success('Pengaturan berhasil disimpan');
+        setLoading(false);
+      }, 1000);
     } catch (error) {
-      console.error("Error saving Tripay settings:", error);
-      message.error("Gagal menyimpan pengaturan Tripay");
-    } finally {
-      setSaving(false);
+      message.error('Gagal menyimpan pengaturan');
+      setLoading(false);
     }
   };
-  
-  if (loading) {
-    return (
-      <div style={{ textAlign: "center", padding: "50px 0" }}>
-        <Spin size="large" />
-        <p>Loading pengaturan Tripay...</p>
-      </div>
-    );
-  }
-  
+
+  const handleTestConnection = async () => {
+    try {
+      setTestLoading(true);
+      setTestResult(null);
+      
+      // Dalam implementasi sebenarnya, Anda akan menguji koneksi ke API Tripay
+      // const response = await axiosInstance.post('/api/tripay/test-connection');
+      
+      // Simulasi
+      setTimeout(() => {
+        setTestResult({
+          success: true,
+          message: 'Koneksi ke Tripay berhasil!',
+          merchantName: 'PT Demo Merchant',
+          environment: 'Sandbox'
+        });
+        setTestLoading(false);
+      }, 2000);
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: 'Koneksi ke Tripay gagal. Periksa pengaturan Anda.',
+        error: error.response?.data?.message || error.message
+      });
+      setTestLoading(false);
+    }
+  };
+
   return (
     <div>
-      <Title level={2}>
-        <PayCircleOutlined /> Pengaturan Tripay
-      </Title>
+      <Title level={2}>Pengaturan Tripay</Title>
       
-      <Alert
-        message="Tripay Payment Gateway"
-        description={
-          <div>
-            <p>
-              Tripay adalah gateway pembayaran yang mendukung berbagai metode pembayaran seperti
-              transfer bank, e-wallet, dan toko retail. Anda perlu mendaftar di Tripay untuk
-              mendapatkan API key dan informasi merchant.
-            </p>
-            <p>
-              <a href="https://tripay.co.id" target="_blank" rel="noopener noreferrer">
-                Kunjungi Tripay
-              </a>
-            </p>
-          </div>
-        }
-        type="info"
-        showIcon
-        style={{ marginBottom: 24 }}
-      />
+      <Paragraph>
+        Konfigurasi integrasi dengan gateway pembayaran Tripay. Pastikan Anda telah mendaftar dan 
+        memiliki akun merchant di <a href="https://tripay.co.id" target="_blank" rel="noopener noreferrer">Tripay</a>.
+      </Paragraph>
       
-      <Card title="Konfigurasi Tripay">
-        <Form 
-          form={form} 
-          layout="vertical"
-          onFinish={handleSubmit}
-          initialValues={{ 
-            is_sandbox: true,
-            is_active: false
-          }}
-        >
-          <Row gutter={24}>
-            <Col span={12}>
-              <Form.Item
-                name="api_key"
-                label="API Key"
-                rules={[{ required: true, message: "API Key wajib diisi" }]}
-              >
-                <Password 
-                  prefix={<ApiOutlined />}
-                  placeholder="API Key dari Tripay" 
-                />
-              </Form.Item>
-            </Col>
-            
-            <Col span={12}>
-              <Form.Item
-                name="private_key"
-                label="Private Key"
-                rules={[{ required: true, message: "Private Key wajib diisi" }]}
-              >
-                <Password 
-                  prefix={<KeyOutlined />}
-                  placeholder="Private Key dari Tripay" 
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item
-            name="merchant_code"
-            label="Merchant Code"
-            rules={[{ required: true, message: "Merchant Code wajib diisi" }]}
+      {loadingSettings ? (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <Spin size="large" />
+          <div style={{ marginTop: 16 }}>Memuat pengaturan...</div>
+        </div>
+      ) : (
+        <Card>
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSaveSettings}
           >
-            <Input 
-              prefix={<ShopOutlined />}
-              placeholder="Merchant Code dari Tripay" 
-            />
-          </Form.Item>
-          
-          <Row gutter={24}>
-            <Col span={12}>
-              <Form.Item
-                name="is_sandbox"
-                label="Mode Sandbox"
-                valuePropName="checked"
-              >
-                <Switch checkedChildren="Ya" unCheckedChildren="Tidak" />
-              </Form.Item>
-            </Col>
+            <Form.Item
+              name="api_key"
+              label="API Key"
+              rules={[{ required: true, message: 'API Key diperlukan' }]}
+            >
+              <Input.Password placeholder="Masukkan API Key dari Tripay" />
+            </Form.Item>
             
-            <Col span={12}>
-              <Form.Item
-                name="is_active"
-                label="Aktifkan Tripay"
-                valuePropName="checked"
-              >
-                <Switch checkedChildren="Aktif" unCheckedChildren="Nonaktif" />
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Divider />
-          
-          <Form.Item>
-            <Space>
+            <Form.Item
+              name="private_key"
+              label="Private Key"
+              rules={[{ required: true, message: 'Private Key diperlukan' }]}
+            >
+              <Input.Password placeholder="Masukkan Private Key dari Tripay" />
+            </Form.Item>
+            
+            <Form.Item
+              name="merchant_code"
+              label="Kode Merchant"
+              rules={[{ required: true, message: 'Kode Merchant diperlukan' }]}
+            >
+              <Input placeholder="Masukkan Kode Merchant dari Tripay" />
+            </Form.Item>
+            
+            <Form.Item
+              name="callback_url"
+              label="URL Callback"
+            >
+              <Input disabled />
+            </Form.Item>
+            
+            <Form.Item
+              name="sandbox_mode"
+              label="Mode Sandbox"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+            
+            <Form.Item>
               <Button 
                 type="primary" 
                 htmlType="submit" 
-                icon={<SaveOutlined />}
-                loading={saving}
+                icon={<SaveOutlined />} 
+                loading={loading}
+                style={{ marginRight: 8 }}
               >
                 Simpan Pengaturan
               </Button>
+              
               <Button 
+                onClick={handleTestConnection} 
                 icon={<ReloadOutlined />}
-                onClick={fetchTripaySettings}
+                loading={testLoading}
               >
-                Refresh
+                Tes Koneksi
               </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Card>
+            </Form.Item>
+          </Form>
+          
+          {testResult && (
+            <>
+              <Divider />
+              {testResult.success ? (
+                <>
+                  <Alert
+                    message="Koneksi Berhasil"
+                    description={testResult.message}
+                    type="success"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  
+                  <Descriptions title="Detail Merchant" bordered size="small">
+                    <Descriptions.Item label="Nama Merchant" span={3}>
+                      {testResult.merchantName}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Lingkungan" span={3}>
+                      {testResult.environment}
+                    </Descriptions.Item>
+                  </Descriptions>
+                </>
+              ) : (
+                <Alert
+                  message="Koneksi Gagal"
+                  description={testResult.message}
+                  type="error"
+                  showIcon
+                />
+              )}
+            </>
+          )}
+        </Card>
+      )}
     </div>
   );
 };

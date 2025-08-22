@@ -1,4 +1,3 @@
-// express/server.js
 const express = require("express");
 const cors = require("cors");
 const { db } = require("./models");
@@ -10,36 +9,35 @@ const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
 const tripayRoutes = require("./routes/tripayRoutes");
+const publicApiRoutes = require("./routes/publicApiRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 3500;
 
-const allowedOrigins = ["https://kinterstore.my.id", "http://172.30.174.75:5200", "http://192.168.0.24:5200", "https://www.kinterstore.my.id"];
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
+// CORS configuration - allow all origins during development
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true // Tambahkan ini jika menggunakan cookies
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Log all incoming requests
 app.use((req, res, next) => {
-  console.log(`Incoming Request: ${req.method} ${req.url}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Register routes
+// Test endpoint
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API is working", timestamp: new Date().toISOString() });
+});
+
+// Routes
 app.use("/api", licenseRoutes);
 app.use("/api", softwareRoutes);
 app.use("/api", softwareVersionRoutes);
@@ -47,23 +45,13 @@ app.use("/api", orderRoutes);
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
 app.use("/api", subscriptionRoutes);
-app.use("/api", paymentRoutes);
-app.use("/api", tripayRoutes);
+app.use("/api/tripay", tripayRoutes);
+app.use("/api/public", publicApiRoutes);
 
-// Middleware to handle 404
-app.use((req, res) => {
-  res.status(404).json({ error: "Route not found" });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err.stack);
-  res.status(500).json({ error: "Internal server error" });
-});
-
+// Start server
 app.listen(PORT, async () => {
   try {
-    await db.sequelize.sync();
+    await db.sequelize.authenticate();
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
   } catch (error) {
     console.error("❌ Gagal menyambungkan database:", error);

@@ -1,484 +1,481 @@
-// react/src/pages/admin/SubscriptionManagement.jsx
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from 'react';
 import { 
-  Table, 
-  Button, 
-  Space, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
-  DatePicker, 
-  Typography,
-  Popconfirm,
-  message,
-  Tag,
-  Spin,
-  Row,
-  Col,
-  Card,
-  Tooltip
-} from "antd";
+  Table, Button, Space, Tag, Modal, Form, Input, 
+  Select, Typography, Card, message, DatePicker, InputNumber,
+  Tooltip, Popconfirm, Row, Col, Statistic 
+} from 'antd';
 import { 
-  CrownOutlined, 
-  UserOutlined, 
-  CalendarOutlined, 
-  ReloadOutlined,
-  CheckCircleOutlined,
-  SearchOutlined
-} from "@ant-design/icons";
-import { AdminContext } from "../../context/AdminContext";
-import moment from "moment";
-import axiosInstance from "../../services/axios";
+  PlusOutlined, CalendarOutlined, UserOutlined,
+  ClockCircleOutlined, EditOutlined
+} from '@ant-design/icons';
+import axiosInstance from '../../services/axios';
+import moment from 'moment';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
+const { TextArea } = Input;
 
 const SubscriptionManagement = () => {
-  const { 
-    subscriptions,
-    loading, 
-    fetchUsers, 
-    fetchSubscriptions,
-    fetchPaymentMethods,
-    createSubscription,
-    updateSubscription,
-    deleteSubscription,
-    approvePayment
-  } = useContext(AdminContext);
-  
+  const [subscriptions, setSubscriptions] = useState([]);
   const [users, setUsers] = useState([]);
-  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    expired: 0,
+    canceled: 0
+  });
+  
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalTitle, setModalTitle] = useState("Tambah Langganan");
+  const [extendModalVisible, setExtendModalVisible] = useState(false);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [form] = Form.useForm();
-  const [editingSubscription, setEditingSubscription] = useState(null);
-  const [confirmLoading, setConfirmLoading] = useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [filteredSubscriptions, setFilteredSubscriptions] = useState([]);
-  
+  const [extendForm] = Form.useForm();
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch subscriptions
+      const subsResponse = await axiosInstance.get('/api/subscriptions');
+      setSubscriptions(subsResponse.data);
+      
+      // Calculate stats
+      const total = subsResponse.data.length;
+      const active = subsResponse.data.filter(sub => 
+        sub.status === 'active' && new Date(sub.end_date) > new Date()
+      ).length;
+      const expired = subsResponse.data.filter(sub => 
+        sub.status === 'active' && new Date(sub.end_date) <= new Date()
+      ).length;
+      const canceled = subsResponse.data.filter(sub => 
+        sub.status === 'canceled'
+      ).length;
+      
+      setStats({ total, active, expired, canceled });
+      
+      // Fetch users
+      const usersResponse = await axiosInstance.get('/api/users');
+      setUsers(usersResponse.data);
+      
+      // Fetch subscription plans
+      const plansResponse = await axiosInstance.get('/api/subscription-plans');
+      setPlans(plansResponse.data);
+      
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      message.error('Failed to load subscription data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchSubscriptions();
-    loadUsers();
-    loadPaymentMethods();
+    fetchData();
   }, []);
-  
-  useEffect(() => {
-    if (subscriptions) {
-      setFilteredSubscriptions(
-        subscriptions.filter(
-          (subscription) =>
-            subscription.User?.username?.toLowerCase().includes(searchText.toLowerCase()) ||
-            subscription.User?.email?.toLowerCase().includes(searchText.toLowerCase())
-        )
-      );
-    }
-  }, [subscriptions, searchText]);
-  
-  const loadUsers = async () => {
-    try {
-      const response = await axiosInstance.get("/api/users");
-      setUsers(response.data);
-    } catch (error) {
-      console.error("Error loading users:", error);
-    }
-  };
-  
-  const loadPaymentMethods = async () => {
-    try {
-      const response = await axiosInstance.get("/api/payment-methods");
-      setPaymentMethods(response.data);
-    } catch (error) {
-      console.error("Error loading payment methods:", error);
-    }
-  };
-  
-  const showAddModal = () => {
-    setModalTitle("Tambah Langganan");
-    setEditingSubscription(null);
+
+  const handleOpenModal = () => {
     form.resetFields();
     setModalVisible(true);
   };
-  
-  const showEditModal = (subscription) => {
-    setModalTitle("Edit Langganan");
-    setEditingSubscription(subscription);
-    form.setFieldsValue({
-      user_id: subscription.user_id,
-      date_range: [
-        moment(subscription.start_date),
-        moment(subscription.end_date)
-      ],
-      status: subscription.status,
-      payment_status: subscription.payment_status,
-      payment_method: subscription.payment_method
-    });
-    setModalVisible(true);
+
+  const handleOpenExtendModal = (subscription) => {
+    setSelectedSubscription(subscription);
+    extendForm.resetFields();
+    setExtendModalVisible(true);
   };
-  
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      setConfirmLoading(true);
+      setLoading(true);
       
-      // Process date range
-      const [startDate, endDate] = values.date_range;
-      
-      const subscriptionData = {
+      const payload = {
         user_id: values.user_id,
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-        status: values.status,
-        payment_status: values.payment_status,
         payment_method: values.payment_method
       };
       
-      if (editingSubscription) {
-        // Update existing subscription
-        const result = await updateSubscription(editingSubscription.id, subscriptionData);
-        if (result.success) {
-          message.success("Langganan berhasil diperbarui");
-          setModalVisible(false);
-        } else {
-          message.error(result.error);
-        }
+      // Either use plan_id or custom_days
+      if (values.use_plan) {
+        payload.plan_id = values.plan_id;
       } else {
-        // Create new subscription
-        const result = await createSubscription(subscriptionData);
-        if (result.success) {
-          message.success("Langganan berhasil ditambahkan");
-          setModalVisible(false);
-        } else {
-          message.error(result.error);
-        }
+        payload.custom_days = values.custom_days;
       }
+      
+      await axiosInstance.post('/api/subscriptions', payload);
+      message.success('Subscription created successfully');
+      
+      setModalVisible(false);
+      fetchData();
     } catch (error) {
-      console.error("Form validation error:", error);
+      console.error('Error creating subscription:', error);
+      message.error(error.response?.data?.error || 'Failed to create subscription');
     } finally {
-      setConfirmLoading(false);
+      setLoading(false);
     }
   };
-  
-  const handleDelete = async (subscriptionId) => {
+
+  const handleExtendSubmit = async () => {
     try {
-      const result = await deleteSubscription(subscriptionId);
-      if (result.success) {
-        message.success("Langganan berhasil dihapus");
-      } else {
-        message.error(result.error);
-      }
+      const values = await extendForm.validateFields();
+      setLoading(true);
+      
+      await axiosInstance.put(
+        `/api/subscriptions/${selectedSubscription.id}/extend`, 
+        { days: values.days }
+      );
+      
+      message.success('Subscription extended successfully');
+      setExtendModalVisible(false);
+      fetchData();
     } catch (error) {
-      console.error("Error deleting subscription:", error);
-      message.error("Gagal menghapus langganan");
+      console.error('Error extending subscription:', error);
+      message.error(error.response?.data?.error || 'Failed to extend subscription');
+    } finally {
+      setLoading(false);
     }
   };
-  
-  const handleApprovePayment = async (subscriptionId) => {
+
+  const handleUpdateStatus = async (id, status, payment_status = null) => {
     try {
-      const result = await approvePayment(subscriptionId);
-      if (result.success) {
-        message.success("Pembayaran berhasil dikonfirmasi");
-      } else {
-        message.error(result.error);
-      }
-    } catch (error) {
-      console.error("Error approving payment:", error);
-      message.error("Gagal mengonfirmasi pembayaran");
-    }
-  };
-  
-  const handleAddDuration = async (subscriptionId, durationDays) => {
-    try {
-      const subscription = subscriptions.find(s => s.id === subscriptionId);
-      if (!subscription) {
-        message.error("Langganan tidak ditemukan");
-        return;
+      setLoading(true);
+      const payload = { status };
+      if (payment_status) {
+        payload.payment_status = payment_status;
       }
       
-      const endDate = new Date(subscription.end_date);
-      endDate.setDate(endDate.getDate() + durationDays);
-      
-      const result = await updateSubscription(subscriptionId, {
-        end_date: endDate.toISOString()
-      });
-      
-      if (result.success) {
-        message.success(`Durasi berhasil ditambahkan ${durationDays} hari`);
-      } else {
-        message.error(result.error);
-      }
+      await axiosInstance.put(`/api/subscriptions/${id}/status`, payload);
+      message.success('Subscription status updated successfully');
+      fetchData();
     } catch (error) {
-      console.error("Error adding duration:", error);
-      message.error("Gagal menambahkan durasi");
+      console.error('Error updating subscription status:', error);
+      message.error('Failed to update subscription status');
+    } finally {
+      setLoading(false);
     }
   };
-  
+
+  // Format date
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
   const columns = [
     {
-      title: "User",
-      dataIndex: "User",
-      key: "user",
-      render: (user) => user ? (
-        <Tooltip title={user.email || ""}>
-          <Tag icon={<UserOutlined />} color="blue">
-            {user.username}
-          </Tag>
-        </Tooltip>
-      ) : "-"
-    },
-    {
-      title: "Tanggal Mulai",
-      dataIndex: "start_date",
-      key: "start_date",
-      render: (date) => (
-        <Tooltip title={new Date(date).toLocaleString("id-ID")}>
-          {new Date(date).toLocaleDateString("id-ID")}
-        </Tooltip>
+      title: 'User',
+      dataIndex: 'User',
+      key: 'user',
+      render: (user) => (
+        <>
+          <div><strong>{user.username}</strong></div>
+          <div>{user.email}</div>
+          <div>
+            <a href={`/user/page/${user.url_slug}`} target="_blank" rel="noopener noreferrer">
+              {user.url_slug}
+            </a>
+          </div>
+        </>
       ),
-      sorter: (a, b) => new Date(a.start_date) - new Date(b.start_date)
+      sorter: (a, b) => a.User.username.localeCompare(b.User.username),
     },
     {
-      title: "Tanggal Berakhir",
-      dataIndex: "end_date",
-      key: "end_date",
-      render: (date) => (
-        <Tooltip title={new Date(date).toLocaleString("id-ID")}>
-          {new Date(date).toLocaleDateString("id-ID")}
-        </Tooltip>
-      ),
-      sorter: (a, b) => new Date(a.end_date) - new Date(b.end_date)
+      title: 'Start Date',
+      dataIndex: 'start_date',
+      key: 'start_date',
+      render: (date) => formatDate(date),
+      sorter: (a, b) => new Date(a.start_date) - new Date(b.start_date),
     },
     {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) => {
-        let color;
-        switch (status) {
-          case "active":
-            color = "green";
-            break;
-          case "expired":
-            color = "red";
-            break;
-          case "canceled":
-            color = "orange";
-            break;
-          default:
-            color = "default";
+      title: 'End Date',
+      dataIndex: 'end_date',
+      key: 'end_date',
+      render: (date) => formatDate(date),
+      sorter: (a, b) => new Date(a.end_date) - new Date(b.end_date),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status, record) => {
+        let color = 'default';
+        let displayText = status.toUpperCase();
+        
+        if (status === 'active') {
+          const now = new Date();
+          const endDate = new Date(record.end_date);
+          
+          if (endDate > now) {
+            color = 'success';
+            displayText = 'ACTIVE';
+          } else {
+            color = 'error';
+            displayText = 'EXPIRED';
+          }
+        } else if (status === 'canceled') {
+          color = 'warning';
         }
-        return <Tag color={color}>{status.toUpperCase()}</Tag>;
-      }
+        
+        return <Tag color={color}>{displayText}</Tag>;
+      },
+      filters: [
+        { text: 'Active', value: 'active' },
+        { text: 'Canceled', value: 'canceled' },
+      ],
+      onFilter: (value, record) => record.status === value,
     },
     {
-      title: "Status Pembayaran",
-      dataIndex: "payment_status",
-      key: "payment_status",
+      title: 'Payment Status',
+      dataIndex: 'payment_status',
+      key: 'payment_status',
       render: (status) => {
-        let color;
-        switch (status) {
-          case "paid":
-            color = "green";
-            break;
-          case "pending":
-            color = "orange";
-            break;
-          case "failed":
-            color = "red";
-            break;
-          default:
-            color = "default";
-        }
+        let color = 'default';
+        if (status === 'paid') color = 'success';
+        if (status === 'pending') color = 'warning';
+        if (status === 'failed') color = 'error';
+        
         return <Tag color={color}>{status.toUpperCase()}</Tag>;
-      }
+      },
+      filters: [
+        { text: 'Paid', value: 'paid' },
+        { text: 'Pending', value: 'pending' },
+        { text: 'Failed', value: 'failed' },
+      ],
+      onFilter: (value, record) => record.payment_status === value,
     },
     {
-      title: "Metode Pembayaran",
-      dataIndex: "payment_method",
-      key: "payment_method",
-      render: (method) => method || "-"
+      title: 'Payment Method',
+      dataIndex: 'payment_method',
+      key: 'payment_method',
+      render: (method) => method || '-',
     },
     {
-      title: "Aksi",
-      key: "action",
-      render: (_, record) => (
-        <Space size="small" wrap>
-          <Button type="primary" size="small" onClick={() => showEditModal(record)}>
-            Edit
-          </Button>
-          
-          {record.payment_status === "pending" && (
-            <Button 
-              type="primary" 
-              size="small" 
-              icon={<CheckCircleOutlined />} 
-              onClick={() => handleApprovePayment(record.id)}
-            >
-              Konfirmasi
-            </Button>
-          )}
-          
-          <Popconfirm
-            title="Yakin ingin menghapus langganan ini?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Ya"
-            cancelText="Tidak"
-          >
-            <Button type="danger" size="small">
-              Hapus
-            </Button>
-          </Popconfirm>
-          
-          <Button 
-            size="small" 
-            onClick={() => handleAddDuration(record.id, 1)}
-          >
-            +1 Hari
-          </Button>
-          
-          <Button 
-            size="small" 
-            onClick={() => handleAddDuration(record.id, 7)}
-          >
-            +7 Hari
-          </Button>
-          
-          <Button 
-            size="small" 
-            onClick={() => handleAddDuration(record.id, 30)}
-          >
-            +30 Hari
-          </Button>
-        </Space>
-      )
-    }
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => {
+        const isExpired = new Date(record.end_date) <= new Date() && record.status === 'active';
+        
+        return (
+          <Space size="small">
+            <Tooltip title="Extend Subscription">
+              <Button 
+                icon={<CalendarOutlined />} 
+                onClick={() => handleOpenExtendModal(record)}
+              />
+            </Tooltip>
+            
+            {record.status === 'active' && !isExpired && (
+              <Tooltip title="Mark as Canceled">
+                <Button 
+                  danger
+                  onClick={() => handleUpdateStatus(record.id, 'canceled')}
+                >
+                  Cancel
+                </Button>
+              </Tooltip>
+            )}
+            
+            {(record.status === 'canceled' || isExpired) && (
+              <Tooltip title="Reactivate">
+                <Button 
+                  type="primary" 
+                  onClick={() => handleUpdateStatus(record.id, 'active')}
+                >
+                  Activate
+                </Button>
+              </Tooltip>
+            )}
+            
+            {record.payment_status === 'pending' && (
+              <Tooltip title="Mark as Paid">
+                <Button 
+                  type="primary" 
+                  onClick={() => handleUpdateStatus(record.id, null, 'paid')}
+                >
+                  Paid
+                </Button>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
+    },
   ];
-  
+
   return (
     <div>
-      <Title level={2}>
-        <CrownOutlined /> Kelola Langganan
-      </Title>
+      <Title level={3}>Subscription Management</Title>
       
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col span={12}>
-          <Input
-            placeholder="Cari berdasarkan username atau email"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            prefix={<SearchOutlined />}
-          />
+      {/* Stats Cards */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={6}>
+          <Card>
+            <Statistic title="Total Subscriptions" value={stats.total} />
+          </Card>
         </Col>
-        <Col span={12} style={{ textAlign: "right" }}>
-          <Space>
-            <Button type="primary" onClick={showAddModal}>
-              Tambah Langganan
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={fetchSubscriptions}>
-              Refresh
-            </Button>
-          </Space>
+        <Col span={6}>
+          <Card>
+            <Statistic 
+              title="Active Subscriptions" 
+              value={stats.active} 
+              valueStyle={{ color: '#3f8600' }} 
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic 
+              title="Expired Subscriptions" 
+              value={stats.expired} 
+              valueStyle={{ color: '#cf1322' }} 
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic 
+              title="Canceled Subscriptions" 
+              value={stats.canceled} 
+              valueStyle={{ color: '#faad14' }} 
+            />
+          </Card>
         </Col>
       </Row>
       
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "50px 0" }}>
-          <Spin size="large" />
-          <p>Loading data langganan...</p>
-        </div>
-      ) : (
+      <Card
+        title="All Subscriptions"
+        extra={
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            onClick={handleOpenModal}
+          >
+            Add Subscription
+          </Button>
+        }
+      >
         <Table 
-          dataSource={filteredSubscriptions} 
+          dataSource={subscriptions} 
           columns={columns} 
-          rowKey="id"
+          rowKey="id" 
+          loading={loading}
           pagination={{ pageSize: 10 }}
         />
-      )}
-      
-      {/* Modal Form */}
+      </Card>
+
+      {/* Add Subscription Modal */}
       <Modal
-        title={modalTitle}
+        title="Add New Subscription"
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
-        confirmLoading={confirmLoading}
+        confirmLoading={loading}
         width={600}
       >
-        <Form 
-          form={form} 
-          layout="vertical"
-          initialValues={{ 
-            status: "active", 
-            payment_status: "pending" 
-          }}
-        >
+        <Form form={form} layout="vertical" initialValues={{ use_plan: true }}>
           <Form.Item
             name="user_id"
             label="User"
-            rules={[{ required: true, message: "User wajib dipilih" }]}
+            rules={[{ required: true, message: 'Please select a user' }]}
           >
-            <Select 
-              placeholder="Pilih user" 
+            <Select
               showSearch
+              placeholder="Select a user"
               optionFilterProp="children"
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
             >
               {users.map(user => (
-                <Option key={user.id} value={user.id}>
-                  {user.username} {user.email ? `(${user.email})` : ''}
-                </Option>
+                <Option key={user.id} value={user.id}>{user.username} ({user.email})</Option>
               ))}
             </Select>
           </Form.Item>
           
-          <Form.Item
-            name="date_range"
-            label="Periode Langganan"
-            rules={[{ required: true, message: "Periode langganan wajib diisi" }]}
-          >
-            <RangePicker 
-              style={{ width: '100%' }} 
-              showTime={{ format: 'HH:mm' }}
-              format="YYYY-MM-DD HH:mm"
-            />
-          </Form.Item>
-          
-          <Form.Item
-            name="status"
-            label="Status"
-            rules={[{ required: true, message: "Status wajib dipilih" }]}
-          >
-            <Select placeholder="Pilih status">
-              <Option value="active">Active</Option>
-              <Option value="expired">Expired</Option>
-              <Option value="canceled">Canceled</Option>
+          <Form.Item name="use_plan" label="Subscription Duration">
+            <Select>
+              <Option value={true}>Use Predefined Plan</Option>
+              <Option value={false}>Custom Duration</Option>
             </Select>
           </Form.Item>
           
           <Form.Item
-            name="payment_status"
-            label="Status Pembayaran"
-            rules={[{ required: true, message: "Status pembayaran wajib dipilih" }]}
+            noStyle
+            shouldUpdate={(prevValues, currentValues) => prevValues.use_plan !== currentValues.use_plan}
           >
-            <Select placeholder="Pilih status pembayaran">
-              <Option value="pending">Pending</Option>
-              <Option value="paid">Paid</Option>
-              <Option value="failed">Failed</Option>
-            </Select>
+            {({ getFieldValue }) => 
+              getFieldValue('use_plan') ? (
+                <Form.Item
+                  name="plan_id"
+                  label="Subscription Plan"
+                  rules={[{ required: true, message: 'Please select a plan' }]}
+                >
+                  <Select placeholder="Select a plan">
+                    {plans.map(plan => (
+                      <Option key={plan.id} value={plan.id}>
+                        {plan.name} - {plan.duration_days} days (Rp {plan.price.toLocaleString('id-ID')})
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              ) : (
+                <Form.Item
+                  name="custom_days"
+                  label="Custom Duration (days)"
+                  rules={[
+                    { required: true, message: 'Please enter duration' },
+                    { type: 'number', min: 1, message: 'Duration must be at least 1 day' }
+                  ]}
+                >
+                  <InputNumber min={1} style={{ width: '100%' }} />
+                </Form.Item>
+              )
+            }
           </Form.Item>
           
           <Form.Item
             name="payment_method"
-            label="Metode Pembayaran"
+            label="Payment Method"
+            initialValue="manual"
           >
-            <Select placeholder="Pilih metode pembayaran" allowClear>
+            <Select>
               <Option value="manual">Manual</Option>
-              {paymentMethods.map(method => (
-                <Option key={method.id} value={method.code}>
-                  {method.name}
-                </Option>
-              ))}
+              <Option value="transfer">Bank Transfer</Option>
+              <Option value="cash">Cash</Option>
             </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Extend Subscription Modal */}
+      <Modal
+        title="Extend Subscription"
+        open={extendModalVisible}
+        onOk={handleExtendSubmit}
+        onCancel={() => setExtendModalVisible(false)}
+        confirmLoading={loading}
+      >
+        {selectedSubscription && (
+          <div style={{ marginBottom: 16 }}>
+            <p><strong>User:</strong> {selectedSubscription.User.username}</p>
+            <p><strong>Current End Date:</strong> {formatDate(selectedSubscription.end_date)}</p>
+          </div>
+        )}
+        
+        <Form form={extendForm} layout="vertical">
+          <Form.Item
+            name="days"
+            label="Extend Duration (days)"
+            rules={[
+              { required: true, message: 'Please enter extension days' },
+              { type: 'number', min: 1, message: 'Duration must be at least 1 day' }
+            ]}
+          >
+            <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>

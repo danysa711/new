@@ -1,6 +1,5 @@
-// express/routes/licenseRoutes.js
 const express = require("express");
-const { authenticateUser } = require("../middlewares/auth");
+const { authenticateUser } = require("../middlewares/auth"); // Ubah import menjadi destructuring
 
 const {
   getAllLicenses,
@@ -20,6 +19,7 @@ const {
 
 const router = express.Router();
 
+// Ganti semua authenticateToken menjadi authenticateUser
 router.get("/licenses", authenticateUser, getAllLicenses);
 router.get("/licenses/:id", authenticateUser, getLicenseById);
 router.get("/licenses/available", authenticateUser, getAvailableLicenses);
