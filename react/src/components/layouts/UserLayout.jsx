@@ -10,11 +10,16 @@ import {
   HomeOutlined,
   AppstoreOutlined,
   ApartmentOutlined,
-  KeyOutlined
+  KeyOutlined,
+  WhatsAppOutlined,
+  DownOutlined,
+  LinkOutlined,
+  WarningOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin } from "antd";
+import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal } from "antd";
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
+import { ConnectionContext } from "../../context/ConnectionContext"; // Import ConnectionContext
 import OrderTable from "../tables/OrderTable";
 import HomeView from "../tables/HomeView";
 import ChangePass from "../../pages/ChangePass";
@@ -37,6 +42,9 @@ const UserLayout = () => {
   const location = useLocation();
   const { slug } = useParams();
   const { token, logout, user, fetchUserProfile } = useContext(AuthContext);
+  
+  // Mengambil konteks koneksi
+  const { isConnected, connectionStatus, backendUrl } = useContext(ConnectionContext);
   
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -121,6 +129,14 @@ const UserLayout = () => {
  // API URL yang dapat digunakan orang lain untuk mengakses data halaman ini
  const apiUrl = `https://www.db.kinterstore.my.id/api/user/${slug}`;
 
+ // Fungsi untuk membuka WhatsApp dengan pesan request trial
+ const requestTrial = () => {
+   // Pesan WhatsApp dengan format yang berisi informasi user
+   const message = `Halo, saya ${user.username} (${user.email}) ingin request trial untuk langganan. URL Slug: ${user.url_slug}`;
+   const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(message)}`;
+   window.open(waLink, '_blank');
+ };
+
  return (
    <Layout style={{ minHeight: "100vh" }}>
      <Sider
@@ -158,6 +174,8 @@ const UserLayout = () => {
          onClick={({ key }) => {
            if (key === "logout") {
              logout();
+           } else if (key === "trial") {
+             requestTrial();
            } else {
              navigate(key);
            }
@@ -170,6 +188,7 @@ const UserLayout = () => {
            { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
            { key: `/user/page/${slug}/license`, icon: <KeyOutlined />, label: "Stok" },
            { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
+           { key: "trial", icon: <WhatsAppOutlined />, label: "Request Trial" },
            { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
          ]}
        />
@@ -204,10 +223,80 @@ const UserLayout = () => {
              <Tag color="error" style={{ marginLeft: 8 }}>Inactive</Tag>
            )}
          </div>
-         <Button type="primary" danger onClick={logout}>
-           Logout
-         </Button>
+         
+         {/* Dropdown untuk Request Trial dan Logout */}
+         <Dropdown
+           menu={{
+             items: [
+               {
+                 key: '1',
+                 label: 'Request Trial',
+                 icon: <WhatsAppOutlined />,
+                 onClick: requestTrial
+               },
+               {
+                 key: '2',
+                 label: 'Pengaturan Koneksi',
+                 icon: <LinkOutlined />,
+                 onClick: () => navigate("/connection-settings")
+               },
+               {
+                 key: '3',
+                 label: 'Logout',
+                 icon: <LogoutOutlined />,
+                 danger: true,
+                 onClick: logout
+               }
+             ]
+           }}
+         >
+           <Button type="primary">
+             <Space>
+               Akun
+               <DownOutlined />
+             </Space>
+           </Button>
+         </Dropdown>
        </Header>
+       
+       {/* Connection Status & API URL Banner */}
+       <div style={{ 
+         padding: "8px 16px", 
+         background: "#f0f2f5", 
+         borderBottom: "1px solid #e8e8e8",
+         display: "flex",
+         alignItems: "center",
+         justifyContent: "space-between"
+       }}>
+         <Space>
+           <Text strong>Backend URL: </Text>
+           <Paragraph copyable style={{ margin: 0 }}>{backendUrl || "Not configured"}</Paragraph>
+         </Space>
+         <Space>
+           <Text>Status: </Text>
+           <Tag color={isConnected ? "success" : "error"}>
+             {isConnected ? "Terhubung" : "Terputus"}
+           </Tag>
+         </Space>
+       </div>
+       
+       {/* Tampilkan peringatan jika langganan kedaluwarsa, tapi tetap izinkan akses ke halaman */}
+       {connectionStatus === 'subscription_expired' && (
+         <Alert
+           message="Langganan Kedaluwarsa"
+           description="Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda."
+           type="warning"
+           showIcon
+           icon={<WarningOutlined />}
+           action={
+             <Button type="primary" size="small" onClick={() => navigate(`/user/page/${slug}/subscription`)}>
+               Perbarui Langganan
+             </Button>
+           }
+           closable
+           style={{ margin: "8px 16px 0" }}
+         />
+       )}
        
        {/* API URL Banner */}
        <div style={{ 

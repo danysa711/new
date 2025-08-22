@@ -1,0 +1,41 @@
+Gunakan bahasa indonesia
+kirimkan full versi codingan tinggal copy paste
+beserta intruksi dan urutan baris codingan
+konfigurasi semua baik dari api,axios,const,app.jsx,main.jsx,package.json,server.json dll
+url backend saya saat ini https://db.kinterstore.my.id
+url frontend saya saat ini https://kinterstore.my.id
+dan sinkronisasi dengan mysql
+tambahkan permintaan saya di bawah tanpa mengubah struktur yang sudah ada
+
+
+1. Buatkan Register di menu login contoh register username,email,password,verify password
+2. Buatkan setiap user memiliki page pribadi masing-masing,1 user 1 page contoh ketika user A membuat atau menambahkan produk itu tidak akan terlihat pada user B dan tambahkan
+3. Buat setiap user yang login / baru register tidak dapat masuk ke domain utama contoh kinterstore.my.id tetapi langsung masuk ke page mereka masing-masing
+4. Buat setiap user memiliki url sendiri contoh kinterstore.my.id/api/user/id user (acak id), buat url setiap user ini terhubung pada url backend login domain saya saat ini https://db.kinterstore.my.id dengan port 3500
+5. pengguna lain atau user tidak dapat masuk ke user lain hanya dengan mengganti url
+6. Tambahkan Menu Langganan untuk semua user,menu langganan pada user dapat melihat status langganan,pembelian langganan,perpanjang langganan, dan pembayaran
+7. Halaman saat ini jadikan halaman untuk User dan tambahkan menu Langganan. urutan halaman Home,Langganan,Pesanan,Produk,Variasi Produk,Stok,Ganti Password,Keluar
+8. Tambahkan Menu Trial Langganan request pada halaman user request via wa
+9. Tampilkan URL setiap user di halaman user bagian atas
+10. Tambahkan ketika akun user di hapus oleh admin,user otomatis logout dari akun dan kembali ke Login page
+11. Tambahkan pada role user bagian langganan,ketika langganan masa berlakunya habis url user yang terhubung dengan url backend akan di nonaktifkan/diputus akan tetap tetap dapat mengelola semua menu yang berada pada halaman user,ketika berlangganan baru aktif kembali urlnya
+
+Detail Role User 
+Tampilan Home,Langganan,Pesanan,Produk,Variasi Produk,Stok,Ganti Password,Keluar
+tombol logout di kanan atas pada role user ubah menjadi tombol trial
+Tampilkan profile user dikiri atas
+
+1. Tambahkan Menu Panel Admin untuk kontrol user,payment gateway tripay,langganan
+- Tambahkan Menu Panel Admin - Kelola User untuk mengetahui username,password,email,url page,delete user beserta ubah role dari admin ke user dan sebaliknya
+- Tambahkan Menu Langganan pada panel admin untuk kontrol langganan pada user,tambahkan custom durasi langganan 1 hari dan seterusnya,mengubah durasi langganan,mengubah harga,dan hapus langganan,dan kolom search melalui username/email untuk mencari data user
+- Tambahkan payment Gateway Tripay dan di kelola oleh role admin
+- urutan halaman role admin Home(saat ini),Kelola User,Langganan,Tripay,Ganti Password,Keluar
+- pada menu pembayaran tambahkan pembayaran Manual Dana,Gopay,Ovo,Linkaja,BCA dan menu dapat di ubah (custom) masukan pada menu role admin
+- Buat langganan untuk semua user Durasi 1 bulan 3 bulan 6 bulan 1 tahun dan Buat harga bisa di ubah beserta durasi langganan
+- buat menu admin bisa menambahkan durasi langganan secara manual contohnya menambahkan durasi 1 hari - 1 minggu - 1 bulan
+
+
+- Tambahkan url user saat ini dapat terhubung ke url backend http://localhost:port (url backend) agar dapat login pada aplikasi saat ini menggunakan akses url backend 
+- Tambahkan pada role user, ketika langganan masa berlakunya habis url user yang terhubung dengan url backend akan di nonaktifkan/diputus. akan tetapi tetap dapat mengelola semua menu yang berada pada halaman user,ketika berlangganan baru aktif kembali urlnya
+- Tambahkan Menu Trial Langganan request pada halaman user request via wa (tombol logout di kanan atas ubah menjadi tombol trial pada halaman user)
+- Tambahkan ketika akun user di hapus oleh admin,user otomatis logout dari akun dan kembali ke Login page

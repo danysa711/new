@@ -15,6 +15,18 @@ const authenticateUser = async (req, res, next) => {
     req.userSlug = decoded.url_slug;
     req.hasActiveSubscription = decoded.hasActiveSubscription;
 
+    // Tambahkan pengecekan apakah user masih ada di database
+    // Skip untuk user admin yang hardcoded
+    if (decoded.id !== "admin") {
+      const user = await User.findByPk(decoded.id);
+      if (!user) {
+        return res.status(401).json({ 
+          error: "User tidak ditemukan", 
+          code: "USER_DELETED" // Kode khusus untuk menandai user telah dihapus
+        });
+      }
+    }
+
     // Jika URL berisi slug, cek apakah user bisa mengakses
     const urlPath = req.originalUrl;
     if (urlPath.includes('/user/page/')) {
@@ -63,9 +75,13 @@ const requireActiveSubscription = async (req, res, next) => {
       });
 
       if (!activeSubscription) {
+        // Mengirim status 403 dengan flag khusus untuk menandai langganan kedaluwarsa
+        // Middleware akan memblokir akses ke API, tetapi di frontend pengguna tetap dapat
+        // melihat halaman user mereka, hanya saja koneksi API yang terputus
         return res.status(403).json({ 
           error: "Langganan tidak aktif", 
-          subscriptionRequired: true 
+          subscriptionRequired: true,
+          message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
         });
       }
     }
