@@ -597,454 +597,455 @@ const SubscriptionPage = () => {
             columns={[
               {
                 title: 'Tanggal Mulai',
-                dataIndex: 'start_date',
-                key: 'start_date',
-                render: (date) => formatDate(date),
-                sorter: (a, b) => new Date(b.start_date) - new Date(a.start_date),
-                defaultSortOrder: 'descend',
-              },
-              {
-                title: 'Tanggal Berakhir',
-                dataIndex: 'end_date',
-                key: 'end_date',
-                render: (date) => formatDate(date),
-              },
-              {
-                title: 'Status',
-                dataIndex: 'status',
-                key: 'status',
-                render: (status, record) => {
-                  let color = 'default';
-                  let displayText = status.toUpperCase();
-                  
-                  if (status === 'active') {
-                    const now = new Date();
-                    const endDate = new Date(record.end_date);
-                    
-                    if (endDate > now) {
-                      color = 'success';
-                      displayText = 'AKTIF';
-                    } else {
-                      color = 'error';
-                      displayText = 'KADALUARSA';
-                    }
-                  } else if (status === 'canceled') {
-                    color = 'warning';
-                    displayText = 'DIBATALKAN';
-                  }
-                  
-                  return <Tag color={color}>{displayText}</Tag>;
-                },
-                filters: [
-                  { text: 'Aktif', value: 'active' },
-                  { text: 'Dibatalkan', value: 'canceled' },
-                ],
-                onFilter: (value, record) => record.status === value,
-              },
-              {
-                title: 'Status Pembayaran',
-                dataIndex: 'payment_status',
-                key: 'payment_status',
-                render: (status) => {
-                  const statusMap = {
-                    'paid': { color: 'green', text: 'LUNAS' },
-                    'pending': { color: 'orange', text: 'MENUNGGU' },
-                    'failed': { color: 'red', text: 'GAGAL' }
-                  };
-                  
-                  const { color, text } = statusMap[status] || { color: 'default', text: status.toUpperCase() };
-                  
-                  return <Tag color={color}>{text}</Tag>;
-                },
-                filters: [
-                  { text: 'Lunas', value: 'paid' },
-                  { text: 'Menunggu', value: 'pending' },
-                  { text: 'Gagal', value: 'failed' },
-                ],
-                onFilter: (value, record) => record.payment_status === value,
-              },
-              {
-                title: 'Metode Pembayaran',
-                dataIndex: 'payment_method',
-                key: 'payment_method',
-                render: (method) => method || '-',
-              },
-            ]}
-            pagination={{ pageSize: 5 }}
-            locale={{ emptyText: 'Belum ada riwayat langganan' }}
-          />
-        </TabPane>
-        
-        <TabPane tab="Riwayat Transaksi" key="transactions">
-          <Table
-            dataSource={transactionHistories}
-            rowKey="reference"
-            columns={[
-              {
-                title: 'Referensi',
-                dataIndex: 'reference',
-                key: 'reference',
-                render: text => <Text copyable>{text}</Text>
-              },
-              {
-                title: 'Paket',
-                dataIndex: 'plan_name',
-                key: 'plan_name',
-              },
-              {
-                title: 'Metode',
-                dataIndex: 'payment_name',
-                key: 'payment_name',
-              },
-              {
-                title: 'Jumlah',
-                dataIndex: 'total_amount',
-                key: 'total_amount',
-                render: (amount) => `Rp ${amount.toLocaleString('id-ID')}`,
-                sorter: (a, b) => a.total_amount - b.total_amount,
-              },
-              {
-                title: 'Status',
-                dataIndex: 'status',
-                key: 'status',
-                render: (status) => {
-                  let color = 'default';
-                  let text = status;
-                  
-                  if (status === 'PAID') {
-                    color = 'success';
-                    text = 'LUNAS';
-                  } else if (status === 'UNPAID') {
-                    color = 'warning';
-                    text = 'MENUNGGU';
-                  } else if (status === 'EXPIRED') {
-                    color = 'error';
-                    text = 'KEDALUWARSA';
-                  } else if (status === 'FAILED') {
-                    color = 'error';text = 'GAGAL';
+               dataIndex: 'start_date',
+               key: 'start_date',
+               render: (date) => formatDate(date),
+               sorter: (a, b) => new Date(b.start_date) - new Date(a.start_date),
+               defaultSortOrder: 'descend',
+             },
+             {
+               title: 'Tanggal Berakhir',
+               dataIndex: 'end_date',
+               key: 'end_date',
+               render: (date) => formatDate(date),
+             },
+             {
+               title: 'Status',
+               dataIndex: 'status',
+               key: 'status',
+               render: (status, record) => {
+                 let color = 'default';
+                 let displayText = status.toUpperCase();
+                 
+                 if (status === 'active') {
+                   const now = new Date();
+                   const endDate = new Date(record.end_date);
+                   
+                   if (endDate > now) {
+                     color = 'success';
+                     displayText = 'AKTIF';
+                   } else {
+                     color = 'error';
+                     displayText = 'KADALUARSA';
+                   }
+                 } else if (status === 'canceled') {
+                   color = 'warning';
+                   displayText = 'DIBATALKAN';
                  }
-
-                 return <Tag color={color}>{text}</Tag>;
+                 
+                 return <Tag color={color}>{displayText}</Tag>;
                },
                filters: [
-                 { text: 'LUNAS', value: 'PAID' },
-                 { text: 'MENUNGGU', value: 'UNPAID' },
-                 { text: 'KEDALUWARSA', value: 'EXPIRED' },
-                 { text: 'GAGAL', value: 'FAILED' },
+                 { text: 'Aktif', value: 'active' },
+                 { text: 'Dibatalkan', value: 'canceled' },
                ],
                onFilter: (value, record) => record.status === value,
              },
              {
-               title: 'Tanggal',
-               dataIndex: 'created_at',
-               key: 'created_at',
-               render: (date) => moment(date).format('DD MMM YYYY HH:mm'),
-               sorter: (a, b) => moment(a.created_at).unix() - moment(b.created_at).unix(),
-               defaultSortOrder: 'descend',
+               title: 'Status Pembayaran',
+               dataIndex: 'payment_status',
+               key: 'payment_status',
+               render: (status) => {
+                 const statusMap = {
+                   'paid': { color: 'green', text: 'LUNAS' },
+                   'pending': { color: 'orange', text: 'MENUNGGU' },
+                   'failed': { color: 'red', text: 'GAGAL' }
+                 };
+                 
+                 const { color, text } = statusMap[status] || { color: 'default', text: status.toUpperCase() };
+                 
+                 return <Tag color={color}>{text}</Tag>;
+               },
+               filters: [
+                 { text: 'Lunas', value: 'paid' },
+                 { text: 'Menunggu', value: 'pending' },
+                 { text: 'Gagal', value: 'failed' },
+               ],
+               onFilter: (value, record) => record.payment_status === value,
              },
              {
-               title: 'Aksi',
-               key: 'action',
-               render: (_, record) => (
-                 <Button 
-                   type="link"
-                   onClick={() => {
-                     setPaymentResult(record);
-                     setPaymentModalVisible(true);
-                   }}
-                 >
-                   Detail
-                 </Button>
-               ),
+               title: 'Metode Pembayaran',
+               dataIndex: 'payment_method',
+               key: 'payment_method',
+               render: (method) => method || '-',
              },
            ]}
            pagination={{ pageSize: 5 }}
-           locale={{ emptyText: 'Belum ada riwayat transaksi' }}
+           locale={{ emptyText: 'Belum ada riwayat langganan' }}
          />
        </TabPane>
-     </Tabs>
-
-     {/* Payment Modal */}
-     <Modal
-       title={paymentResult ? "Detail Transaksi" : "Pembayaran Langganan"}
-       open={paymentModalVisible}
-       onCancel={() => {
-         if (!paymentLoading) setPaymentModalVisible(false);
-       }}
-       footer={
-         paymentResult ? [
-           <Button key="close" onClick={() => setPaymentModalVisible(false)}>
-             Tutup
-           </Button>
-         ] : null
-       }
-       width={700}
-     >
-       {selectedPlan && !paymentResult && (
-         <Form form={form} layout="vertical">
-
-         <div style={{ marginBottom: 20 }}>
-             <Title level={4}>Paket: {selectedPlan.name}</Title>
-             <Paragraph>
-               <Text strong>Harga:</Text> Rp {selectedPlan.price.toLocaleString('id-ID')}
-             </Paragraph>
-             <Paragraph>
-               <Text strong>Durasi:</Text> {selectedPlan.duration_days} hari
-             </Paragraph>
-             <Paragraph>
-               <Text strong>Deskripsi:</Text> {selectedPlan.description || `Langganan standar selama ${selectedPlan.name}`}
-             </Paragraph>
-           </div>
-           
-           <Divider />
-           
-           <Form.Item
-             name="name"
-             label="Nama Lengkap"
-             rules={[{ required: true, message: 'Harap masukkan nama lengkap' }]}
-             initialValue={user?.username}
-           >
-             <Input placeholder="Nama lengkap sesuai identitas" />
-           </Form.Item>
-           
-           <Form.Item
-             name="email"
-             label="Email"
-             rules={[
-               { required: true, message: 'Harap masukkan email' },
-               { type: 'email', message: 'Format email tidak valid' }
-             ]}
-             initialValue={user?.email}
-           >
-             <Input placeholder="Email aktif untuk notifikasi pembayaran" />
-           </Form.Item>
-           
-           <Form.Item
-             name="phone"
-             label="Nomor Telepon"
-             rules={[
-               { required: true, message: 'Harap masukkan nomor telepon' },
-               { pattern: /^[0-9+]+$/, message: 'Hanya angka dan tanda + diperbolehkan' }
-             ]}
-           >
-             <Input placeholder="Contoh: 08123456789" />
-           </Form.Item>
-           
-           <Divider />
-           
-           <Form.Item
-             name="payment_method"
-             label="Metode Pembayaran"
-             rules={[{ required: true, message: 'Harap pilih metode pembayaran' }]}
-           >
-             <Radio.Group>
-               <div style={{ marginBottom: 8 }}><Text strong>Transfer Bank</Text></div>
-               <Row gutter={[8, 8]}>
-                 {paymentMethods
-                   .filter(method => method.type === 'bank')
-                   .map(method => (
-                     <Col span={12} key={method.code}>
-                       <Radio.Button 
-                         value={method.code}
-                         style={{ 
-                           width: '100%', 
-                           height: '60px',
-                           display: 'flex',
-                           alignItems: 'center',
-                           justifyContent: 'center'
-                         }}
-                       >
-                         <div style={{ textAlign: 'center' }}>
-                           <BankOutlined style={{ fontSize: '20px', display: 'block', marginBottom: '4px' }} />
-                           <div>{method.name}</div>
-                         </div>
-                       </Radio.Button>
-                     </Col>
-                   ))}
-               </Row>
-               
-               <div style={{ margin: '16px 0 8px' }}><Text strong>E-Wallet</Text></div>
-               <Row gutter={[8, 8]}>
-                 {paymentMethods
-                   .filter(method => method.type === 'ewallet')
-                   .map(method => (
-                     <Col span={12} key={method.code}>
-                       <Radio.Button 
-                         value={method.code}
-                         style={{ 
-                           width: '100%', 
-                           height: '60px',
-                           display: 'flex',
-                           alignItems: 'center',
-                           justifyContent: 'center'
-                         }}
-                       >
-                         <div style={{ textAlign: 'center' }}>
-                           <WalletOutlined style={{ fontSize: '20px', display: 'block', marginBottom: '4px' }} />
-                           <div>{method.name}</div>
-                         </div>
-                       </Radio.Button>
-                     </Col>
-                   ))}
-               </Row>
-               
-               <div style={{ margin: '16px 0 8px' }}><Text strong>QRIS</Text></div>
-               <Row gutter={[8, 8]}>
-                 {paymentMethods
-                   .filter(method => method.type === 'qris')
-                   .map(method => (
-                     <Col span={12} key={method.code}>
-                       <Radio.Button 
-                         value={method.code}
-                         style={{ 
-                           width: '100%', 
-                           height: '60px',
-                           display: 'flex',
-                           alignItems: 'center',
-                           justifyContent: 'center'
-                         }}
-                       >
-                         <div style={{ textAlign: 'center' }}>
-                           <CreditCardOutlined style={{ fontSize: '20px', display: 'block', marginBottom: '4px' }} />
-                           <div>{method.name}</div>
-                         </div>
-                       </Radio.Button>
-                     </Col>
-                   ))}
-               </Row>
-             </Radio.Group>
-           </Form.Item>
-           
-           {form.getFieldValue('payment_method') && (
-             <div style={{ marginBottom: 16 }}>
-               {(() => {
-                 const selectedMethod = paymentMethods.find(
-                   method => method.code === form.getFieldValue('payment_method')
-                 );
-                 if (!selectedMethod) return null;
-                 
-                 return (
-                   <Descriptions bordered column={1} size="small">
-                     <Descriptions.Item label="Harga Paket">
-                       Rp {selectedPlan.price.toLocaleString('id-ID')}
-                     </Descriptions.Item>
-                     <Descriptions.Item label="Biaya Admin">
-                       Rp {selectedMethod.fee.toLocaleString('id-ID')}
-                     </Descriptions.Item>
-                     <Descriptions.Item label="Total Pembayaran">
-                       <Text strong>
-                         Rp {(selectedPlan.price + selectedMethod.fee).toLocaleString('id-ID')}
-                       </Text>
-                     </Descriptions.Item>
-                   </Descriptions>
-                 );
-               })()}
-             </div>
-           )}
-           
-           <Form.Item style={{ marginTop: 24 }}>
-             <Button 
-               type="primary" 
-               onClick={handlePayment} 
-               loading={paymentLoading}
-               disabled={!form.getFieldValue('payment_method')}
-               block
-             >
-               Lanjutkan Pembayaran
-             </Button>
-           </Form.Item>
-         </Form>
-       )}
        
-       {/* Hasil Pembayaran */}
-       {paymentResult && (
-         <div>
-           {paymentResult.status === 'UNPAID' ? (
-             <Result
-               status="info"
-               title="Menunggu Pembayaran"
-               subTitle={`Referensi: ${paymentResult.reference}`}
-             />
-           ) : paymentResult.status === 'PAID' ? (
-             <Result
-               status="success"
-               title="Pembayaran Berhasil"
-               subTitle={`Referensi: ${paymentResult.reference}`}
-             />
-           ) : (
-             <Result
-               status="error"
-               title={paymentResult.status === 'EXPIRED' ? "Pembayaran Kedaluwarsa" : "Pembayaran Gagal"}
-               subTitle={`Referensi: ${paymentResult.reference}`}
-             />
-           )}
-           
-           <Descriptions bordered column={1} size="small" style={{ marginBottom: 20 }}>
-             <Descriptions.Item label="Kode Transaksi">
-               <Text copyable>{paymentResult.reference}</Text>
-             </Descriptions.Item>
-             <Descriptions.Item label="Metode Pembayaran">
-               {paymentResult.payment_name}
-             </Descriptions.Item>
-             <Descriptions.Item label="Jumlah">
-               <Text strong>
-                 Rp {(paymentResult.amount || 0).toLocaleString('id-ID')}
-               </Text>
-             </Descriptions.Item>
-             <Descriptions.Item label="Biaya Admin">
-               Rp {(paymentResult.fee || 0).toLocaleString('id-ID')}
-             </Descriptions.Item>
-             <Descriptions.Item label="Total Pembayaran">
-               <Text strong>
-                 Rp {(paymentResult.total_amount || 0).toLocaleString('id-ID')}
-               </Text>
-             </Descriptions.Item>
-             <Descriptions.Item label="Tanggal Dibuat">
-               {moment(paymentResult.created_at).format('DD MMMM YYYY HH:mm')}
-             </Descriptions.Item>
-             {paymentResult.paid_at && (
-               <Descriptions.Item label="Tanggal Pembayaran">
-                 {moment(paymentResult.paid_at).format('DD MMMM YYYY HH:mm')}
-               </Descriptions.Item>
-             )}
-             {paymentResult.expired_at && paymentResult.status === 'UNPAID' && (
-               <Descriptions.Item label="Batas Waktu Pembayaran">
-                 <Text type="danger">
-                   {moment(paymentResult.expired_at).format('DD MMMM YYYY HH:mm')}
-                 </Text>
-               </Descriptions.Item>
-             )}
-             <Descriptions.Item label="Status">
-               <Tag color={
-                 paymentResult.status === 'PAID' ? 'success' : 
-                 paymentResult.status === 'UNPAID' ? 'warning' : 'error'
-               }>
-                 {paymentResult.status === 'PAID' ? 'LUNAS' : 
-                  paymentResult.status === 'UNPAID' ? 'MENUNGGU PEMBAYARAN' : 
-                  paymentResult.status === 'EXPIRED' ? 'KEDALUWARSA' : 'GAGAL'}
-               </Tag>
-             </Descriptions.Item>
-           </Descriptions>
-           
-           {paymentResult.status === 'UNPAID' && renderPaymentInstructions(paymentResult)}
-           
-           {paymentResult.status === 'UNPAID' && (
-             <div style={{ marginTop: 20, textAlign: 'center' }}>
-               <Button
-                 type="primary"
-                 icon={<ReloadOutlined />}
-                 loading={checkingStatus}
-                 onClick={() => handleCheckStatus(paymentResult.reference)}
-               >
-                 Periksa Status Pembayaran
-               </Button>
-             </div>
-           )}
-         </div>
-       )}
-     </Modal>
-   </div>
- );
+       <TabPane tab="Riwayat Transaksi" key="transactions">
+         <Table
+           dataSource={transactionHistories}
+           rowKey="reference"
+           columns={[
+             {
+               title: 'Referensi',
+               dataIndex: 'reference',
+               key: 'reference',
+               render: text => <Text copyable>{text}</Text>
+             },
+             {
+               title: 'Paket',
+               dataIndex: 'plan_name',
+               key: 'plan_name',
+             },
+             {
+               title: 'Metode',
+               dataIndex: 'payment_name',
+               key: 'payment_name',
+             },
+             {
+               title: 'Jumlah',
+               dataIndex: 'total_amount',
+               key: 'total_amount',
+               render: (amount) => `Rp ${amount.toLocaleString('id-ID')}`,
+               sorter: (a, b) => a.total_amount - b.total_amount,
+             },
+             {
+               title: 'Status',
+               dataIndex: 'status',
+               key: 'status',
+               render: (status) => {
+                 let color = 'default';
+                 let text = status;
+                 
+                 if (status === 'PAID') {
+                   color = 'success';
+                   text = 'LUNAS';
+                 } else if (status === 'UNPAID') {
+                   color = 'warning';
+                   text = 'MENUNGGU';
+                 } else if (status === 'EXPIRED') {
+                   color = 'error';
+                   text = 'KEDALUWARSA';
+                 } else if (status === 'FAILED') {
+                   color = 'error';
+                   text = 'GAGAL';
+                }
+
+                return <Tag color={color}>{text}</Tag>;
+              },
+              filters: [
+                { text: 'LUNAS', value: 'PAID' },
+                { text: 'MENUNGGU', value: 'UNPAID' },
+                { text: 'KEDALUWARSA', value: 'EXPIRED' },
+                { text: 'GAGAL', value: 'FAILED' },
+              ],
+              onFilter: (value, record) => record.status === value,
+            },
+            {
+              title: 'Tanggal',
+              dataIndex: 'created_at',
+              key: 'created_at',
+              render: (date) => moment(date).format('DD MMM YYYY HH:mm'),
+              sorter: (a, b) => moment(a.created_at).unix() - moment(b.created_at).unix(),
+              defaultSortOrder: 'descend',
+            },
+            {
+              title: 'Aksi',
+              key: 'action',
+              render: (_, record) => (
+                <Button 
+                  type="link"
+                  onClick={() => {
+                    setPaymentResult(record);
+                    setPaymentModalVisible(true);
+                  }}
+                >
+                  Detail
+                </Button>
+              ),
+            },
+          ]}
+          pagination={{ pageSize: 5 }}
+          locale={{ emptyText: 'Belum ada riwayat transaksi' }}
+        />
+      </TabPane>
+    </Tabs>
+
+    {/* Payment Modal */}
+    <Modal
+      title={paymentResult ? "Detail Transaksi" : "Pembayaran Langganan"}
+      open={paymentModalVisible}
+      onCancel={() => {
+        if (!paymentLoading) setPaymentModalVisible(false);
+      }}
+      footer={
+        paymentResult ? [
+          <Button key="close" onClick={() => setPaymentModalVisible(false)}>
+            Tutup
+          </Button>
+        ] : null
+      }
+      width={700}
+    >
+      {selectedPlan && !paymentResult && (
+        <Form form={form} layout="vertical">
+
+        <div style={{ marginBottom: 20 }}>
+            <Title level={4}>Paket: {selectedPlan.name}</Title>
+            <Paragraph>
+              <Text strong>Harga:</Text> Rp {selectedPlan.price.toLocaleString('id-ID')}
+            </Paragraph>
+            <Paragraph>
+              <Text strong>Durasi:</Text> {selectedPlan.duration_days} hari
+            </Paragraph>
+            <Paragraph>
+              <Text strong>Deskripsi:</Text> {selectedPlan.description || `Langganan standar selama ${selectedPlan.name}`}
+            </Paragraph>
+          </div>
+          
+          <Divider />
+          
+          <Form.Item
+            name="name"
+            label="Nama Lengkap"
+            rules={[{ required: true, message: 'Harap masukkan nama lengkap' }]}
+            initialValue={user?.username}
+          >
+            <Input placeholder="Nama lengkap sesuai identitas" />
+          </Form.Item>
+          
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: 'Harap masukkan email' },
+              { type: 'email', message: 'Format email tidak valid' }
+            ]}
+            initialValue={user?.email}
+          >
+            <Input placeholder="Email aktif untuk notifikasi pembayaran" />
+          </Form.Item>
+          
+          <Form.Item
+            name="phone"
+            label="Nomor Telepon"
+            rules={[
+              { required: true, message: 'Harap masukkan nomor telepon' },
+              { pattern: /^[0-9+]+$/, message: 'Hanya angka dan tanda + diperbolehkan' }
+            ]}
+          >
+            <Input placeholder="Contoh: 08123456789" />
+          </Form.Item>
+          
+          <Divider />
+          
+          <Form.Item
+            name="payment_method"
+            label="Metode Pembayaran"
+            rules={[{ required: true, message: 'Harap pilih metode pembayaran' }]}
+          >
+            <Radio.Group>
+              <div style={{ marginBottom: 8 }}><Text strong>Transfer Bank</Text></div>
+              <Row gutter={[8, 8]}>
+                {paymentMethods
+                  .filter(method => method.type === 'bank')
+                  .map(method => (
+                    <Col span={12} key={method.code}>
+                      <Radio.Button 
+                        value={method.code}
+                        style={{ 
+                          width: '100%', 
+                          height: '60px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <div style={{ textAlign: 'center' }}>
+                          <BankOutlined style={{ fontSize: '20px', display: 'block', marginBottom: '4px' }} />
+                          <div>{method.name}</div>
+                        </div>
+                      </Radio.Button>
+                    </Col>
+                  ))}
+              </Row>
+              
+              <div style={{ margin: '16px 0 8px' }}><Text strong>E-Wallet</Text></div>
+              <Row gutter={[8, 8]}>
+                {paymentMethods
+                  .filter(method => method.type === 'ewallet')
+                  .map(method => (
+                    <Col span={12} key={method.code}>
+                      <Radio.Button 
+                        value={method.code}
+                        style={{ 
+                          width: '100%', 
+                          height: '60px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <div style={{ textAlign: 'center' }}>
+                          <WalletOutlined style={{ fontSize: '20px', display: 'block', marginBottom: '4px' }} />
+                          <div>{method.name}</div>
+                        </div>
+                      </Radio.Button>
+                    </Col>
+                  ))}
+              </Row>
+              
+              <div style={{ margin: '16px 0 8px' }}><Text strong>QRIS</Text></div>
+              <Row gutter={[8, 8]}>
+                {paymentMethods
+                  .filter(method => method.type === 'qris')
+                  .map(method => (
+                    <Col span={12} key={method.code}>
+                      <Radio.Button 
+                        value={method.code}
+                        style={{ 
+                          width: '100%', 
+                          height: '60px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <div style={{ textAlign: 'center' }}>
+                          <CreditCardOutlined style={{ fontSize: '20px', display: 'block', marginBottom: '4px' }} />
+                          <div>{method.name}</div>
+                        </div>
+                      </Radio.Button>
+                    </Col>
+                  ))}
+              </Row>
+            </Radio.Group>
+          </Form.Item>
+          
+          {form.getFieldValue('payment_method') && (
+            <div style={{ marginBottom: 16 }}>
+              {(() => {
+                const selectedMethod = paymentMethods.find(
+                  method => method.code === form.getFieldValue('payment_method')
+                );
+                if (!selectedMethod) return null;
+                
+                return (
+                  <Descriptions bordered column={1} size="small">
+                    <Descriptions.Item label="Harga Paket">
+                      Rp {selectedPlan.price.toLocaleString('id-ID')}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Biaya Admin">
+                      Rp {selectedMethod.fee.toLocaleString('id-ID')}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Total Pembayaran">
+                      <Text strong>
+                        Rp {(selectedPlan.price + selectedMethod.fee).toLocaleString('id-ID')}
+                      </Text>
+                    </Descriptions.Item>
+                  </Descriptions>
+                );
+              })()}
+            </div>
+          )}
+          
+          <Form.Item style={{ marginTop: 24 }}>
+            <Button 
+              type="primary" 
+              onClick={handlePayment} 
+              loading={paymentLoading}
+              disabled={!form.getFieldValue('payment_method')}
+              block
+            >
+              Lanjutkan Pembayaran
+            </Button>
+          </Form.Item>
+        </Form>
+      )}
+      
+      {/* Hasil Pembayaran */}
+      {paymentResult && (
+        <div>
+          {paymentResult.status === 'UNPAID' ? (
+            <Result
+              status="info"
+              title="Menunggu Pembayaran"
+              subTitle={`Referensi: ${paymentResult.reference}`}
+            />
+          ) : paymentResult.status === 'PAID' ? (
+            <Result
+              status="success"
+              title="Pembayaran Berhasil"
+              subTitle={`Referensi: ${paymentResult.reference}`}
+            />
+          ) : (
+            <Result
+              status="error"
+              title={paymentResult.status === 'EXPIRED' ? "Pembayaran Kedaluwarsa" : "Pembayaran Gagal"}
+              subTitle={`Referensi: ${paymentResult.reference}`}
+            />
+          )}
+          
+          <Descriptions bordered column={1} size="small" style={{ marginBottom: 20 }}>
+            <Descriptions.Item label="Kode Transaksi">
+              <Text copyable>{paymentResult.reference}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Metode Pembayaran">
+              {paymentResult.payment_name}
+            </Descriptions.Item>
+            <Descriptions.Item label="Jumlah">
+              <Text strong>
+                Rp {(paymentResult.amount || 0).toLocaleString('id-ID')}
+              </Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Biaya Admin">
+              Rp {(paymentResult.fee || 0).toLocaleString('id-ID')}
+            </Descriptions.Item>
+            <Descriptions.Item label="Total Pembayaran">
+              <Text strong>
+                Rp {(paymentResult.total_amount || 0).toLocaleString('id-ID')}
+              </Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Tanggal Dibuat">
+              {moment(paymentResult.created_at).format('DD MMMM YYYY HH:mm')}
+            </Descriptions.Item>
+            {paymentResult.paid_at && (
+              <Descriptions.Item label="Tanggal Pembayaran">
+                {moment(paymentResult.paid_at).format('DD MMMM YYYY HH:mm')}
+              </Descriptions.Item>
+            )}
+            {paymentResult.expired_at && paymentResult.status === 'UNPAID' && (
+              <Descriptions.Item label="Batas Waktu Pembayaran">
+                <Text type="danger">
+                  {moment(paymentResult.expired_at).format('DD MMMM YYYY HH:mm')}
+                </Text>
+              </Descriptions.Item>
+            )}
+            <Descriptions.Item label="Status">
+              <Tag color={
+                paymentResult.status === 'PAID' ? 'success' : 
+                paymentResult.status === 'UNPAID' ? 'warning' : 'error'
+              }>
+                {paymentResult.status === 'PAID' ? 'LUNAS' : 
+                 paymentResult.status === 'UNPAID' ? 'MENUNGGU PEMBAYARAN' : 
+                 paymentResult.status === 'EXPIRED' ? 'KEDALUWARSA' : 'GAGAL'}
+              </Tag>
+            </Descriptions.Item>
+          </Descriptions>
+          
+          {paymentResult.status === 'UNPAID' && renderPaymentInstructions(paymentResult)}
+          
+          {paymentResult.status === 'UNPAID' && (
+            <div style={{ marginTop: 20, textAlign: 'center' }}>
+              <Button
+                type="primary"
+                icon={<ReloadOutlined />}
+                loading={checkingStatus}
+                onClick={() => handleCheckStatus(paymentResult.reference)}
+              >
+                Periksa Status Pembayaran
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  </div>
+);
 };
 
 export default SubscriptionPage;

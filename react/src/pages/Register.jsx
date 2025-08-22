@@ -69,45 +69,45 @@ const Register = () => {
                 { min: 8, message: "Password minimal 8 karakter!" },
                 { 
                   pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/,
-                  message: "Password harus mengandung huruf dan angka!" 
-                }
-              ]}
-            >
-              <Input.Password prefix={<LockOutlined />} placeholder="Password" size="large" />
-            </Form.Item>
+                 message: "Password harus mengandung huruf dan angka!" 
+               }
+             ]}
+           >
+             <Input.Password prefix={<LockOutlined />} placeholder="Password" size="large" />
+           </Form.Item>
 
-            <Form.Item
-              name="confirmPassword"
-              dependencies={["password"]}
-              rules={[
-                { required: true, message: "Konfirmasi password tidak boleh kosong!" },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue("password") === value) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject(new Error("Password tidak sama!"));
-                  },
-                }),
-              ]}
-            >
-              <Input.Password prefix={<LockOutlined />} placeholder="Konfirmasi Password" size="large" />
-            </Form.Item>
+           <Form.Item
+             name="confirmPassword"
+             dependencies={["password"]}
+             rules={[
+               { required: true, message: "Konfirmasi password tidak boleh kosong!" },
+               ({ getFieldValue }) => ({
+                 validator(_, value) {
+                   if (!value || getFieldValue("password") === value) {
+                     return Promise.resolve();
+                   }
+                   return Promise.reject(new Error("Password tidak sama!"));
+                 },
+               }),
+             ]}
+           >
+             <Input.Password prefix={<LockOutlined />} placeholder="Konfirmasi Password" size="large" />
+           </Form.Item>
 
-            <Form.Item>
-              <Button type="primary" htmlType="submit" block size="large" loading={loading}>
-                Daftar
-              </Button>
-            </Form.Item>
-            
-            <div style={{ textAlign: "center" }}>
-              Sudah punya akun? <Link to="/login">Login</Link>
-            </div>
-          </Form>
-        </Card>
-      </Col>
-    </Row>
-  );
+           <Form.Item>
+             <Button type="primary" htmlType="submit" block size="large" loading={loading}>
+               Daftar
+             </Button>
+           </Form.Item>
+           
+           <div style={{ textAlign: "center" }}>
+             Sudah punya akun? <Link to="/login">Login</Link>
+           </div>
+         </Form>
+       </Card>
+     </Col>
+   </Row>
+ );
 };
 
 export default Register;
