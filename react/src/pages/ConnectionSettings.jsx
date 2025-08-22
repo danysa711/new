@@ -1,21 +1,20 @@
-// antml:artifact id="connection-settings-page" type="application/vnd.ant.code" language="javascript"
-// File: react/src/pages/ConnectionSettings.jsx
+// File: src/pages/ConnectionSettings.jsx
 
 import React, { useContext, useState } from 'react';
 import { 
   Form, Input, Button, Card, Typography, Alert, Space, 
-  Row, Col, Divider, Spin, Result
+  Row, Col, Divider, Spin, message
 } from 'antd';
-import { ConnectionContext } from '../context/ConnectionContext';
-import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LinkOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { ConnectionContext } from '../context/ConnectionContext';
+import { AuthContext } from '../context/AuthContext';
 
 const { Title, Text, Paragraph } = Typography;
 
 const ConnectionSettings = () => {
   const { backendUrl, updateBackendUrl, isConnected, connectionStatus } = useContext(ConnectionContext);
-  const { user, token } = useContext(AuthContext);
+  const { fetchUserProfile } = useContext(AuthContext);
   const [form] = Form.useForm();
   const [testing, setTesting] = useState(false);
   const navigate = useNavigate();
@@ -37,12 +36,21 @@ const ConnectionSettings = () => {
     // Update URL backend
     updateBackendUrl(url);
     
-    // Redirect ke login jika belum login, atau ke halaman utama jika sudah login
-    if (!token) {
-      navigate('/login');
-    } else {
-      navigate('/');
+    // Refresh profil pengguna jika fungsi tersedia
+    if (fetchUserProfile) {
+      try {
+        await fetchUserProfile();
+      } catch (err) {
+        console.error('Error refreshing user profile:', err);
+      }
     }
+    
+    message.success('URL backend berhasil diperbarui');
+    
+    // Kembali ke halaman sebelumnya
+    setTimeout(() => {
+      navigate(-1);
+    }, 1500);
   };
   
   const testConnection = async () => {
@@ -61,6 +69,7 @@ const ConnectionSettings = () => {
             value: url
           }
         ]);
+        message.success('Koneksi berhasil');
       } else {
         form.setFields([
           {
@@ -68,6 +77,7 @@ const ConnectionSettings = () => {
             errors: ['Koneksi gagal: Respons tidak valid']
           }
         ]);
+        message.error('Koneksi gagal: Respons tidak valid');
       }
     } catch (err) {
       form.setFields([
@@ -76,6 +86,7 @@ const ConnectionSettings = () => {
           errors: [`Koneksi gagal: ${err.message}`]
         }
       ]);
+      message.error(`Koneksi gagal: ${err.message}`);
     } finally {
       setTesting(false);
     }
@@ -140,11 +151,11 @@ const ConnectionSettings = () => {
               name="backendUrl"
               label="URL Backend"
               rules={[{ required: true, message: 'URL backend tidak boleh kosong' }]}
-              extra="Contoh: http://localhost:3500"
+              extra="Contoh: https://db.kinterstore.my.id"
             >
               <Input 
                 prefix={<LinkOutlined />} 
-                placeholder="http://localhost:3500" 
+                placeholder="https://db.kinterstore.my.id" 
                 addonAfter={
                   <Button 
                     type="link" 

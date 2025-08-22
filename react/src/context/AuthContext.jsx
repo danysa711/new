@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
       if (token && user) {
         fetchUserProfile();
       }
-    }, 15 * 60 * 1000); // Check every 15 minutes
+    }, 5 * 60 * 1000); // Check every 5 minutes
     
     return () => clearInterval(checkInterval);
   }, [token]);
@@ -62,16 +62,23 @@ export const AuthProvider = ({ children }) => {
         }
       });
       const userData = res.data.user;
-      setUser(userData);
+      
+      // Update user data with the latest subscription status
+      const updatedUser = {
+        ...userData,
+        hasActiveSubscription: userData.hasActiveSubscription
+      };
+      
+      setUser(updatedUser);
       
       // Save user data to storage
       if (localStorage.getItem("remember") === "true") {
-        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("user", JSON.stringify(updatedUser));
       } else {
-        sessionStorage.setItem("user", JSON.stringify(userData));
+        sessionStorage.setItem("user", JSON.stringify(updatedUser));
       }
       
-      return userData;
+      return updatedUser;
     } catch (error) {
       console.error("Failed to fetch user profile:", error);
       // If fetch fails due to invalid token, logout

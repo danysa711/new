@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const API_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
+export const API_URL = localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
 
 console.log("Using API URL:", API_URL);
 
@@ -101,24 +101,37 @@ axiosInstance.interceptors.response.use(
     // Cek apakah error terkait langganan kedaluwarsa
     if (error.response?.data?.subscriptionRequired) {
       console.warn("Subscription expired");
-      // Jangan mengarahkan ulang ke halaman login, biarkan pengguna tetap di halaman user
-      // Hanya perbarui status koneksi dan tampilkan notifikasi
-      if (error.response.status === 403) {
-        try {
+      
+      // Update user status in localStorage/sessionStorage
+      try {
+        const remember = localStorage.getItem("remember") === "true";
+        const userStr = remember ? localStorage.getItem("user") : sessionStorage.getItem("user");
+        
+        if (userStr) {
+          const userData = JSON.parse(userStr);
+          userData.hasActiveSubscription = false;
+          
+          if (remember) {
+            localStorage.setItem("user", JSON.stringify(userData));
+          } else {
+            sessionStorage.setItem("user", JSON.stringify(userData));
+          }
+          
+          // Update user state via window object (temporary solution)
+          if (typeof window !== 'undefined' && window.updateUserSubscriptionStatus) {
+            window.updateUserSubscriptionStatus(false);
+          }
+          
+          // Trigger UI update notification
           const { notification } = require('antd');
           notification.warning({
             message: 'Langganan Kedaluwarsa',
             description: 'Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
             duration: 10,
           });
-          
-          // Update user state if needed
-          if (typeof window !== 'undefined' && window.updateUserSubscriptionStatus) {
-            window.updateUserSubscriptionStatus(false);
-          }
-        } catch (err) {
-          console.error("Error handling subscription expired:", err);
         }
+      } catch (err) {
+        console.error("Error handling subscription expired:", err);
       }
       return Promise.reject(error);
     }

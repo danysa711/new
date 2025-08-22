@@ -375,12 +375,15 @@ const getPublicUserProfile = async (req, res) => {
       return res.status(404).json({ error: "User tidak ditemukan" });
     }
 
+    // Pastikan nilai hasActiveSubscription benar
+    const hasActiveSubscription = user.Subscriptions && user.Subscriptions.length > 0;
+
     res.json({
       user: {
         username: user.username,
         url_slug: user.url_slug,
         createdAt: user.createdAt,
-        hasActiveSubscription: user.Subscriptions && user.Subscriptions.length > 0
+        hasActiveSubscription: hasActiveSubscription
       }
     });
   } catch (error) {

@@ -39,3 +39,8 @@ Tampilkan profile user dikiri atas
 - Tambahkan pada role user, ketika langganan masa berlakunya habis url user yang terhubung dengan url backend akan di nonaktifkan/diputus. akan tetapi tetap dapat mengelola semua menu yang berada pada halaman user,ketika berlangganan baru aktif kembali urlnya
 - Tambahkan Menu Trial Langganan request pada halaman user request via wa (tombol logout di kanan atas ubah menjadi tombol trial pada halaman user)
 - Tambahkan ketika akun user di hapus oleh admin,user otomatis logout dari akun dan kembali ke Login page
+
+========================================
+status user telah berlangganan,status tidak tetap tidak aktif dan tidak terkoneksi ke url backend seperti foto berikut ini
+
+berikan perbaikan semua codingan lengkap tinggal copy paste

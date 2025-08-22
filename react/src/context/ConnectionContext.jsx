@@ -1,13 +1,14 @@
-// File: react/src/context/ConnectionContext.jsx
+// File: src/context/ConnectionContext.jsx
 
 import { createContext, useState, useEffect, useContext } from "react";
 import { AuthContext } from "./AuthContext";
 import axiosInstance from "../services/axios";
+import { message } from "antd";
 
 export const ConnectionContext = createContext();
 
 export const ConnectionProvider = ({ children }) => {
-  const { user, token } = useContext(AuthContext);
+  const { user, token, fetchUserProfile } = useContext(AuthContext);
   const [backendUrl, setBackendUrl] = useState(localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("checking");
@@ -16,6 +17,8 @@ export const ConnectionProvider = ({ children }) => {
   useEffect(() => {
     if (backendUrl) {
       localStorage.setItem("backendUrl", backendUrl);
+      // Update axios baseURL
+      axiosInstance.defaults.baseURL = backendUrl;
     }
   }, [backendUrl]);
   
@@ -31,13 +34,18 @@ export const ConnectionProvider = ({ children }) => {
       try {
         setConnectionStatus("checking");
         // Test connection dengan endpoint sederhana
-        const response = await axiosInstance.get(`${backendUrl}/api/test`);
+        const response = await axiosInstance.get(`/api/test`);
         
-        // Cek apakah user berlangganan aktif
-        if (user && !user.hasActiveSubscription) {
-          setIsConnected(false);
-          setConnectionStatus("subscription_expired");
-          return;
+        // Fetch ulang profil pengguna untuk mendapatkan status langganan terbaru
+        if (fetchUserProfile) {
+          const userData = await fetchUserProfile();
+          
+          // Periksa status langganan berdasarkan data yang diperbarui
+          if (userData && !userData.hasActiveSubscription) {
+            setIsConnected(false);
+            setConnectionStatus("subscription_expired");
+            return;
+          }
         }
         
         if (response.data && response.data.message === "API is working") {
@@ -49,8 +57,13 @@ export const ConnectionProvider = ({ children }) => {
         }
       } catch (err) {
         console.error("Connection error:", err);
-        setIsConnected(false);
-        setConnectionStatus("error");
+        if (err.response && err.response.data && err.response.data.subscriptionRequired) {
+          setIsConnected(false);
+          setConnectionStatus("subscription_expired");
+        } else {
+          setIsConnected(false);
+          setConnectionStatus("error");
+        }
       }
     };
 
@@ -60,14 +73,26 @@ export const ConnectionProvider = ({ children }) => {
     const intervalId = setInterval(checkConnection, 60000);
     
     return () => clearInterval(intervalId);
-  }, [backendUrl, token, user]);
+  }, [backendUrl, token, user, fetchUserProfile]);
   
   // Fungsi untuk mengubah URL backend
   const updateBackendUrl = (newUrl) => {
     if (newUrl && newUrl.trim() !== "") {
-      setBackendUrl(newUrl);
-      // Update axios baseURL
-      axiosInstance.defaults.baseURL = newUrl;
+      try {
+        // Simpan URL baru
+        setBackendUrl(newUrl);
+        
+        // Notifikasi berhasil
+        message.success("URL backend berhasil diperbarui");
+        
+        // Refresh halaman setelah jeda singkat
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } catch (err) {
+        console.error("Error updating backend URL:", err);
+        message.error("Gagal memperbarui URL backend");
+      }
     }
   };
   
