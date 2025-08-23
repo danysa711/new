@@ -1,6 +1,7 @@
 import axios from "axios";
 
-export const API_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
+// Gunakan URL dari localStorage atau fallback ke .env
+export const API_URL = localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "https://db.kinterstore.my.id";
 
 console.log("Using API URL:", API_URL);
 
@@ -151,7 +152,9 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshResponse = await axios.post(`${API_URL}/api/user/refresh`, { token: refreshToken });
+        // Gunakan URL backend yang tersimpan
+        const backendUrl = localStorage.getItem("backendUrl") || API_URL;
+        const refreshResponse = await axios.post(`${backendUrl}/api/user/refresh`, { token: refreshToken });
 
         const newAccessToken = refreshResponse.data.token;
         // const newRefreshToken = refreshResponse.data.refreshToken;

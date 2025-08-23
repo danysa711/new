@@ -9,6 +9,7 @@ export const ConnectionContext = createContext();
 export const ConnectionProvider = ({ children }) => {
   const { user, token } = useContext(AuthContext);
   const [backendUrl, setBackendUrl] = useState(localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL);
+  const [apiBaseUrl, setApiBaseUrl] = useState(localStorage.getItem("apiBaseUrl") || "https://www.kinterstore.my.id");
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("checking");
   
@@ -17,7 +18,10 @@ export const ConnectionProvider = ({ children }) => {
     if (backendUrl) {
       localStorage.setItem("backendUrl", backendUrl);
     }
-  }, [backendUrl]);
+    if (apiBaseUrl) {
+      localStorage.setItem("apiBaseUrl", apiBaseUrl);
+    }
+  }, [backendUrl, apiBaseUrl]);
   
   // Cek koneksi saat URL berubah atau user login/logout
   useEffect(() => {
@@ -71,11 +75,26 @@ export const ConnectionProvider = ({ children }) => {
     }
   };
   
+  // Fungsi untuk mengubah URL API publik
+  const updateApiBaseUrl = (newUrl) => {
+    if (newUrl && newUrl.trim() !== "") {
+      setApiBaseUrl(newUrl);
+    }
+  };
+  
+  // Fungsi untuk mendapatkan URL API publik pengguna
+  const getUserApiUrl = (slug) => {
+    return `${apiBaseUrl}/api/user/${slug}`;
+  };
+  
   return (
     <ConnectionContext.Provider 
       value={{ 
         backendUrl, 
         updateBackendUrl, 
+        apiBaseUrl,
+        updateApiBaseUrl,
+        getUserApiUrl,
         isConnected, 
         connectionStatus 
       }}

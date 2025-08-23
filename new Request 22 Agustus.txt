@@ -43,4 +43,16 @@ Tampilkan profile user dikiri atas
 ========================================
 status user telah berlangganan,status tidak tetap tidak aktif dan tidak terkoneksi ke url backend seperti foto berikut ini
 
-berikan perbaikan semua codingan lengkap tinggal copy paste
+
+analisa file saya
+
+berikan perbaikan semua codingan lengkap tinggal copy paste dan gunakan bahasa indonesia beserta intruksi dan urutan baris coding
+
+Ubah url user saat ini dapat terhubung ke api/login di backend (https://db.kinterstore.my.id) 
+
+Tambahkan menu hapus Langganan pada user
+
+
+Sinkronisasi menu Langganan role user dan role admin, buat status aktif / tidak aktif dapat tersinkronisasi dan berikan akses penuh menu langganan user dapat di akses untuk melakukan pembelian langganan,penbayaran, status langganan
+
+ubah API URL saat ini contoh https://www.db.kinterstore.my.id/api/user/queen-493998d4 menjadi https://www.kinterstore.my.id/api/user/queen-493998d4

@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -44,7 +44,7 @@ const UserLayout = () => {
   const { token, logout, user, fetchUserProfile } = useContext(AuthContext);
   
   // Mengambil konteks koneksi
-  const { isConnected, connectionStatus, backendUrl } = useContext(ConnectionContext);
+  const { isConnected, connectionStatus, backendUrl, getUserApiUrl } = useContext(ConnectionContext);
   
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -80,6 +80,9 @@ const UserLayout = () => {
    
    fetchUserProfile();
  }, [token, slug, user, navigate]);
+
+ // Dapatkan URL API publik untuk pengguna ini
+ const apiUrl = getUserApiUrl(slug);
 
  if (!token) {
    return <Navigate to="/login" />;
@@ -125,9 +128,6 @@ const UserLayout = () => {
      </div>
    );
  }
-
- // API URL yang dapat digunakan orang lain untuk mengakses data halaman ini
- const apiUrl = `https://www.db.kinterstore.my.id/api/user/${slug}`;
 
  // Fungsi untuk membuka WhatsApp dengan pesan request trial
  const requestTrial = () => {
