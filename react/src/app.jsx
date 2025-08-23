@@ -1,6 +1,3 @@
-// antml:artifact id="app-with-connection" type="application/vnd.ant.code" language="javascript"
-// File: react/src/app.jsx
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -11,11 +8,18 @@ import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
 import ProtectedRoute from "./components/layouts/ProtectedRoute";
 import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman baru untuk pengaturan koneksi
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 
 // Home redirect component
 const HomeRedirect = () => {
-  const { user } = useContext(AuthContext);
+  const { user, fetchUserProfile } = useContext(AuthContext);
+  
+  // Force refresh user profile on app load to ensure subscription status is up-to-date
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [user, fetchUserProfile]);
   
   if (!user) {
     return <Navigate to="/login" />;

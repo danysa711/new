@@ -11,6 +11,7 @@ const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const tripayRoutes = require("./routes/tripayRoutes");
 const publicApiRoutes = require("./routes/publicApiRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3500;
@@ -47,6 +48,7 @@ app.use("/api", userRoutes);
 app.use("/api", subscriptionRoutes);
 app.use("/api/tripay", tripayRoutes);
 app.use("/api/public", publicApiRoutes);
+app.use("/api", settingsRoutes);
 
 // Start server
 app.listen(PORT, async () => {

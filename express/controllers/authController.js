@@ -109,7 +109,7 @@ const refreshToken = async (req, res) => {
 
     if (decoded.id === "admin") {
       const newAccessToken = jwt.sign(
-        { id: decoded.id, role: "admin" }, 
+        { id: decoded.id, role: "admin", hasActiveSubscription: true }, 
         process.env.JWT_SECRET || "mysecretkey", 
         { expiresIn: "3d" }
       );
@@ -122,9 +122,26 @@ const refreshToken = async (req, res) => {
         return res.status(403).json({ error: "Refresh Token tidak valid!" });
       }
 
-      // Generate Access Token baru (3 hari)
+      // Check active subscription for the user
+      const activeSubscription = await Subscription.findOne({
+        where: {
+          user_id: user.id,
+          status: "active",
+          end_date: {
+            [db.Sequelize.Op.gt]: new Date()
+          }
+        }
+      });
+
+      // Generate Access Token baru (3 hari) with subscription status
       const newAccessToken = jwt.sign(
-        { id: user.id, username: user.username, role: user.role, url_slug: user.url_slug },
+        { 
+          id: user.id, 
+          username: user.username, 
+          role: user.role, 
+          url_slug: user.url_slug,
+          hasActiveSubscription: !!activeSubscription
+        },
         process.env.JWT_SECRET || "mysecretkey",
         { expiresIn: "3d" }
       );
@@ -151,7 +168,7 @@ const login = async (req, res) => {
     if (username === "admin" && password === "Admin123!") {
       console.log("Admin login successful");
       const token = jwt.sign(
-        { id: "admin", username: "admin", role: "admin", url_slug: "admin" }, 
+        { id: "admin", username: "admin", role: "admin", url_slug: "admin", hasActiveSubscription: true }, 
         process.env.JWT_SECRET || "mysecretkey", 
         { expiresIn: "3d" }
       );
@@ -202,13 +219,13 @@ const login = async (req, res) => {
       return res.status(401).json({ error: "Username atau password salah" });
     }
 
-    // Periksa apakah user memiliki langganan aktif
+    // Periksa apakah user memiliki langganan aktif dengan query yang tepat
     const activeSubscription = await Subscription.findOne({
       where: {
         user_id: user.id,
         status: "active",
         end_date: {
-          [db.Sequelize.Op.gt]: new Date()
+          [db.Sequelize.Op.gt]: new Date() // Pastikan end_date ada di masa depan
         }
       }
     });
@@ -222,7 +239,7 @@ const login = async (req, res) => {
         username: user.username, 
         role: user.role, 
         url_slug: user.url_slug,
-        hasActiveSubscription: !!activeSubscription
+        hasActiveSubscription: !!activeSubscription // Konversi eksplisit ke boolean
       },
       process.env.JWT_SECRET || "mysecretkey",
       { expiresIn: "3d" }
@@ -245,7 +262,7 @@ const login = async (req, res) => {
         email: user.email,
         role: user.role,
         url_slug: user.url_slug,
-        hasActiveSubscription: !!activeSubscription
+        hasActiveSubscription: !!activeSubscription // Pastikan ini juga diatur dengan benar dalam response
       }
     });
   } catch (error) {
@@ -328,6 +345,46 @@ const getUserProfile = async (req, res) => {
 
     const hasActiveSubscription = user.Subscriptions && user.Subscriptions.length > 0;
 
+    // Update JWT token dengan status langganan terbaru jika telah berubah
+    const tokenPayload = jwt.decode(req.header("Authorization")?.split(" ")[1]);
+    
+    if (tokenPayload && tokenPayload.hasActiveSubscription !== hasActiveSubscription) {
+      // Generate token baru dengan status langganan yang diperbarui
+      const newToken = jwt.sign(
+        { 
+          id: user.id, 
+          username: user.username, 
+          role: user.role, 
+          url_slug: user.url_slug,
+          hasActiveSubscription: hasActiveSubscription
+        },
+        process.env.JWT_SECRET || "mysecretkey",
+        { expiresIn: "3d" }
+      );
+      
+      // Return dengan token yang diperbarui
+      return res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          url_slug: user.url_slug,
+          createdAt: user.createdAt,
+          hasActiveSubscription: hasActiveSubscription,
+          subscription: hasActiveSubscription ? {
+            id: user.Subscriptions[0].id,
+            startDate: user.Subscriptions[0].start_date,
+            endDate: user.Subscriptions[0].end_date,
+            status: user.Subscriptions[0].status,
+            paymentStatus: user.Subscriptions[0].payment_status
+          } : null
+        },
+        token: newToken
+      });
+    }
+
+    // Jika tidak, hanya mengembalikan data user
     res.json({
       user: {
         id: user.id,

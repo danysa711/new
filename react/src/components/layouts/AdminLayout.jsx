@@ -21,6 +21,8 @@ import SubscriptionManagement from "../../pages/admin/SubscriptionManagement";
 import SubscriptionPlans from "../../pages/admin/SubscriptionPlans";
 import TripaySettings from "../../pages/admin/TripaySettings";  // Tambahkan import untuk halaman TripaySettings
 import TripayTransactions from "../../pages/admin/TripayTransactions";  // Tambahkan import untuk halaman TripayTransactions
+import WhatsAppSettings from "../../pages/admin/WhatsAppSettings";
+import { WhatsAppOutlined } from "@ant-design/icons";
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -80,7 +82,7 @@ const AdminLayout = () => {
                 { key: "/admin/subscriptions", label: "Daftar Langganan" },
                 { key: "/admin/subscription-plans", label: "Paket Langganan" },
               ]
-            },
+            },     
             { 
               key: "tripay-menu", 
               icon: <CreditCardOutlined />, 
@@ -92,6 +94,15 @@ const AdminLayout = () => {
             },
             { key: "/admin/change-password", icon: <SettingOutlined />, label: "Ganti Password", danger: true },
             { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
+            { 
+              key: "settings-menu", 
+              icon: <SettingOutlined />, 
+              label: "Pengaturan", 
+              children: [
+              { key: "/admin/settings/whatsapp", icon: <WhatsAppOutlined />, label: "WhatsApp" },
+    // Menu pengaturan lainnya bisa ditambahkan di sini
+  ]
+}
           ]}
         />
       </Sider>
@@ -146,6 +157,7 @@ const AdminLayout = () => {
             <Route path="/tripay/transactions" element={<TripayTransactions />} />
             <Route path="/tripay/settings" element={<TripaySettings />} />
             <Route path="/change-password" element={<ChangePass />} />
+            <Route path="/settings/whatsapp" element={<WhatsAppSettings />} />
           </Routes>
         </Content>
       </Layout>

@@ -1,4 +1,3 @@
-// File: react/src/services/axios.js
 import axios from "axios";
 
 export const API_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
@@ -15,7 +14,7 @@ const axiosInstance = axios.create({
 
 // Fungsi menyimpan token berdasarkan remember
 const saveToken = (token, refreshToken) => {
-  const remember = localStorage.getItem("remember") === "true"; // Ambil remember dari localStorage
+  const remember = localStorage.getItem("remember") === "true";
 
   if (remember) {
     localStorage.setItem("token", token);
@@ -35,6 +34,15 @@ const getStoredToken = () => {
 const getStoredRefreshToken = () => {
   const remember = localStorage.getItem("remember") === "true";
   return remember ? localStorage.getItem("refreshToken") : sessionStorage.getItem("refreshToken");
+};
+
+// Function to parse JWT token
+const parseJwt = (token) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
 };
 
 // Tambahkan token ke setiap request
@@ -74,7 +82,35 @@ const onRefreshed = (token) => {
 
 // Handling response error (refresh token jika access token expired)
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Jika respons berisi token baru, update
+    if (response.data && response.data.token) {
+      saveToken(response.data.token, "");
+      
+      // Parse dan periksa apakah status langganan telah berubah
+      const decoded = parseJwt(response.data.token);
+      if (decoded && typeof decoded.hasActiveSubscription !== 'undefined') {
+        // Update data user dengan status langganan baru
+        const remember = localStorage.getItem("remember") === "true";
+        const storage = remember ? localStorage : sessionStorage;
+        const userData = JSON.parse(storage.getItem("user") || "null");
+        
+        if (userData && userData.hasActiveSubscription !== decoded.hasActiveSubscription) {
+          userData.hasActiveSubscription = decoded.hasActiveSubscription;
+          storage.setItem("user", JSON.stringify(userData));
+          
+          // Notify components about the update
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('userDataUpdated', {
+              detail: { user: userData }
+            }));
+          }
+        }
+      }
+    }
+    
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 
@@ -94,7 +130,6 @@ axiosInstance.interceptors.response.use(
       // Tampilkan pesan
       if (typeof window !== 'undefined') {
         // Gunakan Modal dari antd untuk menampilkan pesan
-        // Import ini perlu ditambahkan di bagian atas file
         const { Modal } = require('antd');
         Modal.warning({
           title: 'Akun Dihapus',
@@ -112,36 +147,53 @@ axiosInstance.interceptors.response.use(
     // Cek apakah error terkait langganan kedaluwarsa
     if (error.response?.data?.subscriptionRequired) {
       console.warn("Subscription expired");
-      // Jangan mengarahkan ulang ke halaman login, biarkan pengguna tetap di halaman user
-      // Hanya perbarui status koneksi dan tampilkan notifikasi
-      if (error.response.status === 403) {
-        try {
-          const { notification } = require('antd');
-          
-          // Cek header menu-type untuk menentukan menu yang terpengaruh
-          const menuType = originalRequest.headers["X-Menu-Type"];
-          
-          notification.warning({
-            message: 'Langganan Kedaluwarsa',
-            description: menuType ? 
-              `Koneksi ke menu ${menuType === 'software' ? 'Produk' : menuType === 'version' ? 'Variasi Produk' : 'Stok'} terputus karena langganan Anda telah berakhir.` : 
-              'Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
-            duration: 10,
-          });
-          
-          // Update status koneksi menu jika tersedia
-          if (typeof window !== 'undefined' && window.updateMenuConnectionStatus && menuType) {
-            window.updateMenuConnectionStatus(menuType, 'disconnected');
+      
+      // Update user subscription status in local storage/session
+      try {
+        const token = getStoredToken();
+        if (token) {
+          const decoded = parseJwt(token);
+          if (decoded) {
+            // Read current user data
+            const remember = localStorage.getItem("remember") === "true";
+            const storage = remember ? localStorage : sessionStorage;
+            const userData = JSON.parse(storage.getItem("user") || "null");
+            
+            if (userData) {
+              // Update the subscription status
+              userData.hasActiveSubscription = false;
+              storage.setItem("user", JSON.stringify(userData));
+              
+              // Dispatch a custom event to notify components
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('userDataUpdated', {
+                  detail: { user: userData }
+                }));
+              }
+              
+              // Show notification
+              const { notification } = require('antd');
+              const menuType = originalRequest.headers["X-Menu-Type"];
+              
+              notification.warning({
+                message: 'Langganan Kedaluwarsa',
+                description: menuType ? 
+                  `Koneksi ke menu ${menuType === 'software' ? 'Produk' : menuType === 'version' ? 'Variasi Produk' : 'Stok'} terputus karena langganan Anda telah berakhir.` : 
+                  'Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
+                duration: 10,
+              });
+              
+              // Update status koneksi menu jika tersedia
+              if (typeof window !== 'undefined' && menuType) {
+                window.updateMenuConnectionStatus(menuType, 'disconnected');
+              }
+            }
           }
-          
-          // Update user state if needed
-          if (typeof window !== 'undefined' && window.updateUserSubscriptionStatus) {
-            window.updateUserSubscriptionStatus(false);
-          }
-        } catch (err) {
-          console.error("Error handling subscription expired:", err);
         }
+      } catch (err) {
+        console.error("Error handling subscription expired:", err);
       }
+      
       return Promise.reject(error);
     }
 
@@ -176,11 +228,29 @@ axiosInstance.interceptors.response.use(
         const refreshResponse = await axios.post(`${API_URL}/api/user/refresh`, { token: refreshToken });
 
         const newAccessToken = refreshResponse.data.token;
-        // const newRefreshToken = refreshResponse.data.refreshToken;
-
-        // saveToken(newAccessToken, newRefreshToken); // Simpan token sesuai remember
-        saveToken(newAccessToken, ""); // Simpan token sesuai remember
-
+        
+        // Get updated subscription status from token
+        const decoded = parseJwt(newAccessToken);
+        if (decoded && typeof decoded.hasActiveSubscription !== 'undefined') {
+          // Update user data with new subscription status
+          const remember = localStorage.getItem("remember") === "true";
+          const storage = remember ? localStorage : sessionStorage;
+          const userData = JSON.parse(storage.getItem("user") || "null");
+          
+          if (userData) {
+            userData.hasActiveSubscription = decoded.hasActiveSubscription;
+            storage.setItem("user", JSON.stringify(userData));
+            
+            // Notify components about the update
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('userDataUpdated', {
+                detail: { user: userData }
+              }));
+            }
+          }
+        }
+        
+        saveToken(newAccessToken, "");
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
 
         onRefreshed(newAccessToken);
@@ -211,6 +281,23 @@ if (typeof window !== 'undefined') {
       detail: { menuType, status } 
     });
     window.dispatchEvent(event);
+  };
+  
+  // Add function to update user subscription status
+  window.updateUserSubscriptionStatus = (hasActiveSubscription) => {
+    const remember = localStorage.getItem("remember") === "true";
+    const storage = remember ? localStorage : sessionStorage;
+    const userData = JSON.parse(storage.getItem("user") || "null");
+    
+    if (userData) {
+      userData.hasActiveSubscription = hasActiveSubscription;
+      storage.setItem("user", JSON.stringify(userData));
+      
+      // Notify components about the update
+      window.dispatchEvent(new CustomEvent('userDataUpdated', {
+        detail: { user: userData }
+      }));
+    }
   };
 }
 

@@ -13,7 +13,27 @@ const authenticateUser = async (req, res, next) => {
     req.userId = decoded.id;
     req.userRole = decoded.role || "user";
     req.userSlug = decoded.url_slug;
-    req.hasActiveSubscription = decoded.hasActiveSubscription;
+    
+    // Pastikan kita memiliki status langganan terbaru dalam request
+    // Daripada menggunakan nilai yang di-cache dari token, cek database langsung
+    if (decoded.id !== "admin") {
+      // Dapatkan status langganan terbaru dari database
+      const activeSubscription = await Subscription.findOne({
+        where: {
+          user_id: decoded.id,
+          status: "active",
+          end_date: {
+            [db.Sequelize.Op.gt]: new Date()
+          }
+        }
+      });
+      
+      // Set status langganan saat ini
+      req.hasActiveSubscription = !!activeSubscription;
+    } else {
+      // Admin selalu memiliki langganan aktif
+      req.hasActiveSubscription = true;
+    }
 
     // Tambahkan pengecekan apakah user masih ada di database
     // Skip untuk user admin yang hardcoded
@@ -59,33 +79,27 @@ const requireActiveSubscription = async (req, res, next) => {
   }
 
   try {
-    // Periksa apakah user memiliki langganan aktif
-    const hasActiveSubscription = req.hasActiveSubscription;
-    
-    if (!hasActiveSubscription) {
-      // Double-check dengan database
-      const activeSubscription = await Subscription.findOne({
-        where: {
-          user_id: req.userId,
-          status: "active",
-          end_date: {
-            [db.Sequelize.Op.gt]: new Date()
-          }
+    // Cek langganan aktif langsung dari database daripada mengandalkan token
+    const activeSubscription = await Subscription.findOne({
+      where: {
+        user_id: req.userId,
+        status: "active",
+        end_date: {
+          [db.Sequelize.Op.gt]: new Date()
         }
-      });
-
-      if (!activeSubscription) {
-        // Mengirim status 403 dengan flag khusus untuk menandai langganan kedaluwarsa
-        // Middleware akan memblokir akses ke API, tetapi di frontend pengguna tetap dapat
-        // melihat halaman user mereka, hanya saja koneksi API yang terputus
-        return res.status(403).json({ 
-          error: "Langganan tidak aktif", 
-          subscriptionRequired: true,
-          message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
-        });
       }
+    });
+
+    if (!activeSubscription) {
+      // Mengirim status 403 dengan flag khusus untuk menandai langganan kedaluwarsa
+      return res.status(403).json({ 
+        error: "Langganan tidak aktif", 
+        subscriptionRequired: true,
+        message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
+      });
     }
 
+    // Jika sampai di sini, langganan aktif
     next();
   } catch (error) {
     console.error("Error checking subscription:", error);

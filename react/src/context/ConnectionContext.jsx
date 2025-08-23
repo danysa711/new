@@ -6,7 +6,7 @@ import axiosInstance, { API_URL } from "../services/axios";
 export const ConnectionContext = createContext();
 
 export const ConnectionProvider = ({ children }) => {
-  const { user, token } = useContext(AuthContext);
+  const { user, token, fetchUserProfile } = useContext(AuthContext);
   const [backendUrl, setBackendUrl] = useState(localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL);
   const [userBackendUrl, setUserBackendUrl] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -16,6 +16,13 @@ export const ConnectionProvider = ({ children }) => {
     version: "connected",
     license: "connected"
   });
+  
+  // Automatically retry connection if user subscription status changes
+  useEffect(() => {
+    if (user) {
+      checkConnection();
+    }
+  }, [user?.hasActiveSubscription]);
   
   // Simpan URL di localStorage saat berubah
   useEffect(() => {
@@ -34,60 +41,84 @@ export const ConnectionProvider = ({ children }) => {
   
   // Cek koneksi saat URL berubah atau user login/logout
   useEffect(() => {
-    const checkConnection = async () => {
-      if (!token) {
+    const checkIntervalId = setInterval(checkConnection, 60000); // Check every minute
+    
+    // Initial check
+    checkConnection();
+    
+    return () => clearInterval(checkIntervalId);
+  }, [backendUrl, token]);
+
+  const checkConnection = async () => {
+    if (!token) {
+      setIsConnected(false);
+      setConnectionStatus("disconnected");
+      return;
+    }
+
+    try {
+      setConnectionStatus("checking");
+      // Test connection dengan endpoint sederhana
+      const response = await axiosInstance.get(`${backendUrl}/api/test`);
+      
+      // Force refresh user profile to ensure we have the latest subscription status
+      if (user && fetchUserProfile) {
+        await fetchUserProfile();
+      }
+      
+      // Re-check subscription status after refresh
+      const hasActiveSubscription = user?.hasActiveSubscription;
+      
+      // Cek apakah user berlangganan aktif
+      if (user && !hasActiveSubscription) {
         setIsConnected(false);
-        setConnectionStatus("disconnected");
+        setConnectionStatus("subscription_expired");
+        
+        // Set status koneksi menu untuk user dengan langganan kedaluwarsa
+        setMenuConnectionStatus({
+          software: "disconnected",
+          version: "disconnected",
+          license: "disconnected"
+        });
+        
+        // Trigger custom event for UI components to update
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('subscriptionStatusChanged', { 
+            detail: { status: 'expired' } 
+          });
+          window.dispatchEvent(event);
+        }
         return;
       }
-
-      try {
-        setConnectionStatus("checking");
-        // Test connection dengan endpoint sederhana
-        const response = await axiosInstance.get(`${backendUrl}/api/test`);
+      
+      if (response.data && response.data.message === "API is working") {
+        setIsConnected(true);
+        setConnectionStatus("connected");
         
-        // Cek apakah user berlangganan aktif
-        if (user && !user.hasActiveSubscription) {
-          setIsConnected(false);
-          setConnectionStatus("subscription_expired");
-          
-          // Set status koneksi menu untuk user dengan langganan kedaluwarsa
-          setMenuConnectionStatus({
-            software: "disconnected",
-            version: "disconnected",
-            license: "disconnected"
-          });
-          return;
-        }
+        // Reset status koneksi menu untuk user dengan langganan aktif
+        setMenuConnectionStatus({
+          software: "connected",
+          version: "connected",
+          license: "connected"
+        });
         
-        if (response.data && response.data.message === "API is working") {
-          setIsConnected(true);
-          setConnectionStatus("connected");
-          
-          // Reset status koneksi menu untuk user dengan langganan aktif
-          setMenuConnectionStatus({
-            software: "connected",
-            version: "connected",
-            license: "connected"
+        // Trigger custom event for UI components to update
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('subscriptionStatusChanged', { 
+            detail: { status: 'active' } 
           });
-        } else {
-          setIsConnected(false);
-          setConnectionStatus("error");
+          window.dispatchEvent(event);
         }
-      } catch (err) {
-        console.error("Connection error:", err);
+      } else {
         setIsConnected(false);
         setConnectionStatus("error");
       }
-    };
-
-    checkConnection();
-    
-    // Set interval untuk cek koneksi secara berkala (setiap 1 menit)
-    const intervalId = setInterval(checkConnection, 60000);
-    
-    return () => clearInterval(intervalId);
-  }, [backendUrl, token, user]);
+    } catch (err) {
+      console.error("Connection error:", err);
+      setIsConnected(false);
+      setConnectionStatus("error");
+    }
+  };
   
   // Fungsi untuk mengubah URL backend
   const updateBackendUrl = (newUrl) => {
@@ -95,6 +126,8 @@ export const ConnectionProvider = ({ children }) => {
       setBackendUrl(newUrl);
       // Update axios baseURL
       axiosInstance.defaults.baseURL = newUrl;
+      // Re-check connection after URL change
+      checkConnection();
     }
   };
   
@@ -106,7 +139,8 @@ export const ConnectionProvider = ({ children }) => {
         updateBackendUrl, 
         isConnected, 
         connectionStatus,
-        menuConnectionStatus
+        menuConnectionStatus,
+        checkConnection
       }}
     >
       {children}

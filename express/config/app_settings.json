@@ -1,0 +1,11 @@
+{
+  "whatsapp": {
+    "phone": "6281234567890",
+    "message": "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
+  },
+  "company": {
+    "name": "Kinterstore",
+    "address": "Jakarta, Indonesia",
+    "email": "info@kinterstore.my.id"
+  }
+}

@@ -15,9 +15,10 @@ import {
   DownOutlined,
   LinkOutlined,
   WarningOutlined,
-  DisconnectOutlined
+  DisconnectOutlined,
+  ReloadOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Tooltip } from "antd";
+import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Tooltip, message } from "antd";
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { ConnectionContext } from "../../context/ConnectionContext"; 
@@ -56,7 +57,8 @@ const UserLayout = () => {
     connectionStatus, 
     backendUrl, 
     userBackendUrl, 
-    menuConnectionStatus 
+    menuConnectionStatus,
+    checkConnection 
   } = useContext(ConnectionContext);
   
   const {
@@ -79,6 +81,27 @@ const UserLayout = () => {
       window.removeEventListener('menuConnectionStatusChanged', handleMenuStatusChange);
     };
   }, []);
+
+  // Listen for subscription status changes
+  useEffect(() => {
+    const handleSubscriptionStatusChange = () => {
+      // Force refresh user profile
+      if (fetchUserProfile) {
+        fetchUserProfile();
+      }
+      
+      // Re-check connection status
+      if (checkConnection) {
+        checkConnection();
+      }
+    };
+    
+    window.addEventListener('subscriptionStatusChanged', handleSubscriptionStatusChange);
+    
+    return () => {
+      window.removeEventListener('subscriptionStatusChanged', handleSubscriptionStatusChange);
+    };
+  }, [fetchUserProfile, checkConnection]);
 
   // Sync dengan status menu dari context
   useEffect(() => {
@@ -119,6 +142,19 @@ const UserLayout = () => {
       fetchUserProfile();
     }
   }, [token, slug, user, navigate, profileFetched]);
+
+  // Force refresh when user subscription status changes in auth context
+  useEffect(() => {
+    if (user && userProfile) {
+      // If user subscription status changes, update userProfile accordingly
+      if (user.hasActiveSubscription !== userProfile.hasActiveSubscription) {
+        setUserProfile({
+          ...userProfile,
+          hasActiveSubscription: user.hasActiveSubscription
+        });
+      }
+    }
+  }, [user?.hasActiveSubscription]);
 
   if (!token) {
     return <Navigate to="/login" />;
@@ -174,6 +210,23 @@ const UserLayout = () => {
     const message = `Halo, saya ${user.username} (${user.email}) ingin request trial untuk langganan. URL Slug: ${user.url_slug}`;
     const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(message)}`;
     window.open(waLink, '_blank');
+  };
+  
+  // Force refresh subscription status
+  const handleRefreshSubscription = async () => {
+    try {
+      if (fetchUserProfile) {
+        await fetchUserProfile();
+      }
+      
+      if (checkConnection) {
+        await checkConnection();
+      }
+      
+      message.success('Status langganan berhasil diperbarui');
+    } catch (error) {
+      message.error('Gagal memperbarui status langganan');
+    }
   };
 
   // Menu dengan status koneksi
@@ -325,6 +378,14 @@ const UserLayout = () => {
             ) : (
               <Tag color="error" style={{ marginLeft: 8 }}>Inactive</Tag>
             )}
+            <Button 
+              type="link" 
+              icon={<ReloadOutlined />} 
+              onClick={handleRefreshSubscription} 
+              title="Refresh Subscription Status"
+            >
+              Refresh
+            </Button>
           </div>
          
           {/* Dropdown untuk Request Trial dan Logout */}
