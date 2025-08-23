@@ -58,3 +58,7 @@ Sinkronisasi menu Langganan role user dan role admin, buat status aktif / tidak 
 ubah API URL saat ini contoh https://www.db.kinterstore.my.id/api/user/queen-493998d4 menjadi https://www.kinterstore.my.id/api/user/queen-493998d4
 
 Tambahkan setiap user memiliki url backend masing-masing contoh http://localhost:3500/api/username/id
+
+buatkan pada role user ketika langganan habis, menu produk,variasi produk,stok terputus oleh koneksi backend
+gunakan struktur yang sudah ada jangan mengubahnya.
+berikan codingan versi lengkap tinggal copy paste
