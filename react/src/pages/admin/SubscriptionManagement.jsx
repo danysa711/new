@@ -6,7 +6,7 @@ import {
 } from 'antd';
 import { 
   PlusOutlined, CalendarOutlined, UserOutlined,
-  ClockCircleOutlined, EditOutlined, ReloadOutlined
+  ClockCircleOutlined, EditOutlined
 } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
@@ -156,22 +156,6 @@ const SubscriptionManagement = () => {
    }
  };
 
- // Tambahkan fungsi untuk refresh status langganan pengguna
- const refreshUserSubscriptionStatus = async (userId) => {
-   try {
-     setLoading(true);
-     // API call untuk memperbarui status langganan pengguna
-     await axiosInstance.post(`/api/users/${userId}/refresh-subscription-status`);
-     message.success('Status langganan pengguna berhasil diperbarui');
-     fetchData();
-   } catch (error) {
-     console.error('Error refreshing user subscription status:', error);
-     message.error('Gagal memperbarui status langganan pengguna');
-   } finally {
-     setLoading(false);
-   }
- };
-
  // Format date
  const formatDate = (dateString) => {
    return new Date(dateString).toLocaleDateString('id-ID', {
@@ -281,13 +265,6 @@ const SubscriptionManagement = () => {
              <Button 
                icon={<CalendarOutlined />} 
                onClick={() => handleOpenExtendModal(record)}
-             />
-           </Tooltip>
-           
-           <Tooltip title="Refresh User Status">
-             <Button 
-               icon={<ReloadOutlined />} 
-               onClick={() => refreshUserSubscriptionStatus(record.User.id)}
              />
            </Tooltip>
            

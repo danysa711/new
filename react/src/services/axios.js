@@ -1,7 +1,6 @@
 import axios from "axios";
 
-// Gunakan URL dari localStorage atau fallback ke .env
-export const API_URL = localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "https://db.kinterstore.my.id";
+export const API_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
 
 console.log("Using API URL:", API_URL);
 
@@ -98,33 +97,6 @@ axiosInstance.interceptors.response.use(
       }
       return Promise.reject(error);
     }
-
-    if (error.response?.data?.code === "TENANT_NOT_FOUND" || error.response?.data?.code === "INACTIVE_TENANT") {
-  console.warn("Tenant error:", error.response?.data?.code);
-  // Tampilkan pesan
-  if (typeof window !== 'undefined') {
-    const { Modal } = require('antd');
-    Modal.warning({
-      title: error.response?.data?.code === "TENANT_NOT_FOUND" ? 'Tenant Tidak Ditemukan' : 'Tenant Tidak Aktif',
-      content: error.response?.data?.message || 'Tenant tidak tersedia. Silakan hubungi pemilik tenant.',
-      onOk() {
-        // Logout user
-        localStorage.removeItem("token");
-        sessionStorage.removeItem("token");
-        localStorage.removeItem("refreshToken");
-        sessionStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-        sessionStorage.removeItem("user");
-        localStorage.removeItem("remember");
-        sessionStorage.removeItem("remember");
-        window.location.href = "/login";
-      }
-    });
-  } else {
-    window.location.href = "/login";
-  }
-  return Promise.reject(error);
-}
     
     // Cek apakah error terkait langganan kedaluwarsa
     if (error.response?.data?.subscriptionRequired) {
@@ -152,13 +124,7 @@ axiosInstance.interceptors.response.use(
     }
 
     if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
-  const refreshToken = getStoredRefreshToken();
-  let user;
-  try {
-    user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user") || "null");
-  } catch (e) {
-    user = null;
-  }
+      const refreshToken = getStoredRefreshToken();
 
       if (!refreshToken) {
         console.warn("No refresh token found, redirecting to login...");
@@ -185,9 +151,7 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Gunakan URL backend yang tersimpan
-        const backendUrl = localStorage.getItem("backendUrl") || API_URL;
-        const refreshResponse = await axios.post(`${backendUrl}/api/user/refresh`, { token: refreshToken });
+        const refreshResponse = await axios.post(`${API_URL}/api/user/refresh`, { token: refreshToken });
 
         const newAccessToken = refreshResponse.data.token;
         // const newRefreshToken = refreshResponse.data.refreshToken;

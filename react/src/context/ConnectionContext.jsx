@@ -9,7 +9,6 @@ export const ConnectionContext = createContext();
 export const ConnectionProvider = ({ children }) => {
   const { user, token } = useContext(AuthContext);
   const [backendUrl, setBackendUrl] = useState(localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL);
-  const [apiBaseUrl, setApiBaseUrl] = useState(localStorage.getItem("apiBaseUrl") || "https://www.kinterstore.my.id");
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("checking");
   
@@ -18,10 +17,7 @@ export const ConnectionProvider = ({ children }) => {
     if (backendUrl) {
       localStorage.setItem("backendUrl", backendUrl);
     }
-    if (apiBaseUrl) {
-      localStorage.setItem("apiBaseUrl", apiBaseUrl);
-    }
-  }, [backendUrl, apiBaseUrl]);
+  }, [backendUrl]);
   
   // Cek koneksi saat URL berubah atau user login/logout
   useEffect(() => {
@@ -75,43 +71,11 @@ export const ConnectionProvider = ({ children }) => {
     }
   };
   
-  // Fungsi untuk mengubah URL API publik
-  const updateApiBaseUrl = (newUrl) => {
-    if (newUrl && newUrl.trim() !== "") {
-      setApiBaseUrl(newUrl);
-    }
-  };
-  
-  // Fungsi untuk mendapatkan URL API publik pengguna
-  const getUserApiUrl = (slug) => {
-    return `${apiBaseUrl}/api/user/${slug}`;
-  };
-
-  TenantLoginUrl = (slug) => {
-  return `${backendUrl}/api/tenant/${slug}/login`;
-};
-
-// Fungsi untuk mendapatkan URL tenant refresh
-const getTenantRefreshUrl = (slug) => {
-  return `${backendUrl}/api/tenant/${slug}/refresh`;
-};
-
-// Fungsi untuk mendapatkan URL test tenant
-const getTenantTestUrl = (slug) => {
-  return `${backendUrl}/api/tenant/${slug}/test`;
-};
-  
   return (
     <ConnectionContext.Provider 
       value={{ 
         backendUrl, 
         updateBackendUrl, 
-        apiBaseUrl,
-        updateApiBaseUrl,
-        getUserApiUrl,
-        getTenantLoginUrl,   
-        getTenantRefreshUrl,
-        getTenantTestUrl,
         isConnected, 
         connectionStatus 
       }}

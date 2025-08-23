@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -44,7 +44,7 @@ const UserLayout = () => {
   const { token, logout, user, fetchUserProfile } = useContext(AuthContext);
   
   // Mengambil konteks koneksi
-  const { isConnected, connectionStatus, backendUrl, getUserApiUrl } = useContext(ConnectionContext);
+  const { isConnected, connectionStatus, backendUrl } = useContext(ConnectionContext);
   
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -80,9 +80,6 @@ const UserLayout = () => {
    
    fetchUserProfile();
  }, [token, slug, user, navigate]);
-
- // Dapatkan URL API publik untuk pengguna ini
- const apiUrl = getUserApiUrl(slug);
 
  if (!token) {
    return <Navigate to="/login" />;
@@ -128,6 +125,9 @@ const UserLayout = () => {
      </div>
    );
  }
+
+ // API URL yang dapat digunakan orang lain untuk mengakses data halaman ini
+ const apiUrl = `https://www.db.kinterstore.my.id/api/user/${slug}`;
 
  // Fungsi untuk membuka WhatsApp dengan pesan request trial
  const requestTrial = () => {
@@ -300,24 +300,16 @@ const UserLayout = () => {
        
        {/* API URL Banner */}
        <div style={{ 
-  padding: "8px 16px", 
-  background: "#f0f2f5", 
-  borderBottom: "1px solid #e8e8e8",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between"
-}}>
-  <Space>
-    <Text strong>Tenant Login URL: </Text>
-    <Paragraph copyable style={{ margin: 0 }}>{`${window.location.origin}/tenant/${slug}/login`}</Paragraph>
-  </Space>
-  <Button 
-    type="primary" 
-    onClick={() => window.open(`/tenant/${slug}/login`, '_blank')}
-  >
-    Buka Login Tenant
-  </Button>
-</div>
+         padding: "8px 16px", 
+         background: "#f0f2f5", 
+         borderBottom: "1px solid #e8e8e8",
+         display: "flex",
+         alignItems: "center",
+         justifyContent: "space-between"
+       }}>
+         <Text strong>API URL: </Text>
+         <Paragraph copyable style={{ margin: 0 }}>{apiUrl}</Paragraph>
+       </div>
        
        <Content
          style={{

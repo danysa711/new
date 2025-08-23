@@ -14,12 +14,6 @@ const authenticateUser = async (req, res, next) => {
     req.userRole = decoded.role || "user";
     req.userSlug = decoded.url_slug;
     req.hasActiveSubscription = decoded.hasActiveSubscription;
-    
-    // Tambahkan tenant info jika ada
-    if (decoded.tenant_slug) {
-      req.tenantSlug = decoded.tenant_slug;
-      req.tenantId = decoded.tenant_id;
-    }
 
     // Tambahkan pengecekan apakah user masih ada di database
     // Skip untuk user admin yang hardcoded
@@ -29,38 +23,6 @@ const authenticateUser = async (req, res, next) => {
         return res.status(401).json({ 
           error: "User tidak ditemukan", 
           code: "USER_DELETED" // Kode khusus untuk menandai user telah dihapus
-        });
-      }
-    }
-
-    // Jika ada tenant, periksa apakah tenant masih aktif
-    if (decoded.tenant_slug) {
-      const tenant = await User.findOne({
-        where: { url_slug: decoded.tenant_slug }
-      });
-
-      if (!tenant) {
-        return res.status(404).json({ 
-          error: "Tenant tidak ditemukan", 
-          code: "TENANT_NOT_FOUND" 
-        });
-      }
-
-      const tenantSubscription = await Subscription.findOne({
-        where: {
-          user_id: tenant.id,
-          status: "active",
-          end_date: {
-            [db.Sequelize.Op.gt]: new Date()
-          }
-        }
-      });
-
-      if (!tenantSubscription) {
-        return res.status(403).json({ 
-          error: "Tenant tidak aktif", 
-          code: "INACTIVE_TENANT",
-          subscriptionRequired: true
         });
       }
     }

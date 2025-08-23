@@ -109,7 +109,7 @@ const refreshToken = async (req, res) => {
 
     if (decoded.id === "admin") {
       const newAccessToken = jwt.sign(
-        { id: decoded.id, role: "admin", hasActiveSubscription: true }, 
+        { id: decoded.id, role: "admin" }, 
         process.env.JWT_SECRET || "mysecretkey", 
         { expiresIn: "3d" }
       );
@@ -121,27 +121,10 @@ const refreshToken = async (req, res) => {
       if (!user) {
         return res.status(403).json({ error: "Refresh Token tidak valid!" });
       }
-      
-      // Periksa apakah user memiliki langganan aktif
-      const activeSubscription = await Subscription.findOne({
-        where: {
-          user_id: user.id,
-          status: "active",
-          end_date: {
-            [db.Sequelize.Op.gt]: new Date()
-          }
-        }
-      });
 
       // Generate Access Token baru (3 hari)
       const newAccessToken = jwt.sign(
-        { 
-          id: user.id, 
-          username: user.username, 
-          role: user.role, 
-          url_slug: user.url_slug,
-          hasActiveSubscription: !!activeSubscription
-        },
+        { id: user.id, username: user.username, role: user.role, url_slug: user.url_slug },
         process.env.JWT_SECRET || "mysecretkey",
         { expiresIn: "3d" }
       );
@@ -168,7 +151,7 @@ const login = async (req, res) => {
     if (username === "admin" && password === "Admin123!") {
       console.log("Admin login successful");
       const token = jwt.sign(
-        { id: "admin", username: "admin", role: "admin", url_slug: "admin", hasActiveSubscription: true }, 
+        { id: "admin", username: "admin", role: "admin", url_slug: "admin" }, 
         process.env.JWT_SECRET || "mysecretkey", 
         { expiresIn: "3d" }
       );

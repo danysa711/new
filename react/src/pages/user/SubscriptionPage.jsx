@@ -285,44 +285,6 @@ const SubscriptionPage = () => {
     }
   };
 
-  const handleCancelSubscription = async (subscriptionId) => {
-  try {
-    const isConfirmed = await new Promise((resolve) => {
-      Modal.confirm({
-        title: 'Konfirmasi Pembatalan',
-        content: 'Apakah Anda yakin ingin membatalkan langganan ini? Anda masih dapat menggunakan langganan hingga masa berakhirnya.',
-        okText: 'Ya, Batalkan',
-        cancelText: 'Tidak',
-        onOk: () => resolve(true),
-        onCancel: () => resolve(false),
-      });
-    });
-
-    if (!isConfirmed) return;
-
-    setLoading(true);
-    
-    const response = await axiosInstance.put(`/api/subscriptions/${subscriptionId}/cancel`);
-    
-    if (response.status === 200) {
-      message.success('Langganan berhasil dibatalkan');
-      
-      // Perbarui data langganan
-      await fetchData();
-      
-      // Perbarui data profil pengguna
-      if (fetchUserProfile) {
-        await fetchUserProfile();
-      }
-    }
-  } catch (err) {
-    console.error('Error canceling subscription:', err);
-    message.error('Gagal membatalkan langganan');
-  } finally {
-    setLoading(false);
-  }
-};
-
   const handlePayment = async () => {
     try {
       setPaymentLoading(true);
@@ -468,46 +430,35 @@ const SubscriptionPage = () => {
         }
       >
         {activeSubscription ? (
-  <Row gutter={[24, 24]}>
-    <Col xs={24} sm={12} md={8}>
-      <Statistic
-        title="Sisa Waktu Langganan"
-        value={calculateRemainingDays(activeSubscription.end_date)}
-        suffix="hari"
-        valueStyle={{ color: '#3f8600' }}
-      />
-    </Col>
-    <Col xs={24} sm={12} md={16}>
-      <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
-        <Descriptions.Item label="Mulai Langganan">
-          {formatDate(activeSubscription.start_date)}
-        </Descriptions.Item>
-        <Descriptions.Item label="Berakhir Pada">
-          {formatDate(activeSubscription.end_date)}
-        </Descriptions.Item>
-        <Descriptions.Item label="Status Pembayaran">
-          <Tag color={activeSubscription.payment_status === 'paid' ? 'green' : 'orange'}>
-            {activeSubscription.payment_status === 'paid' ? 'LUNAS' : 'MENUNGGU'}
-          </Tag>
-        </Descriptions.Item>
-        <Descriptions.Item label="Metode Pembayaran">
-          {activeSubscription.payment_method || '-'}
-        </Descriptions.Item>
-      </Descriptions>
-      
-      {/* Tombol Pembatalan Langganan */}
-      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-        <Button 
-          danger 
-          onClick={() => handleCancelSubscription(activeSubscription.id)}
-          loading={loading}
-        >
-          Batalkan Langganan
-        </Button>
-      </div>
-    </Col>
-  </Row>
-) : (
+          <Row gutter={[24, 24]}>
+            <Col xs={24} sm={12} md={8}>
+              <Statistic
+                title="Sisa Waktu Langganan"
+                value={calculateRemainingDays(activeSubscription.end_date)}
+                suffix="hari"
+                valueStyle={{ color: '#3f8600' }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={16}>
+              <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+                <Descriptions.Item label="Mulai Langganan">
+                  {formatDate(activeSubscription.start_date)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Berakhir Pada">
+                  {formatDate(activeSubscription.end_date)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Status Pembayaran">
+                  <Tag color={activeSubscription.payment_status === 'paid' ? 'green' : 'orange'}>
+                    {activeSubscription.payment_status === 'paid' ? 'LUNAS' : 'MENUNGGU'}
+                  </Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="Metode Pembayaran">
+                  {activeSubscription.payment_method || '-'}
+                </Descriptions.Item>
+              </Descriptions>
+            </Col>
+          </Row>
+        ) : (
           <Result
             status="warning"
             title="Anda belum memiliki langganan aktif"

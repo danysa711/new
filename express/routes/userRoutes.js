@@ -1,13 +1,5 @@
 const express = require("express");
-const { 
-  getAllUsers, 
-  getUserById, 
-  createUser, 
-  updateUserRole, 
-  deleteUser, 
-  resetUserPassword,
-  refreshUserSubscriptionStatus
-} = require("../controllers/userController");
+const { getAllUsers, getUserById, createUser, updateUserRole, deleteUser, resetUserPassword } = require("../controllers/userController");
 const { authenticateUser, requireAdmin } = require("../middlewares/auth");
 
 const router = express.Router();
@@ -21,6 +13,5 @@ router.post("/users", createUser);
 router.put("/users/:id/role", updateUserRole);
 router.delete("/users/:id", deleteUser);
 router.put("/users/:id/reset-password", resetUserPassword);
-router.post("/users/:id/refresh-subscription-status", refreshUserSubscriptionStatus);
 
 module.exports = router;

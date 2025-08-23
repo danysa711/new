@@ -1,3 +1,6 @@
+// antml:artifact id="connection-settings-page" type="application/vnd.ant.code" language="javascript"
+// File: react/src/pages/ConnectionSettings.jsx
+
 import React, { useContext, useState } from 'react';
 import { 
   Form, Input, Button, Card, Typography, Alert, Space, 
@@ -11,18 +14,17 @@ import { LinkOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-des
 const { Title, Text, Paragraph } = Typography;
 
 const ConnectionSettings = () => {
-  const { backendUrl, updateBackendUrl, apiBaseUrl, updateApiBaseUrl, isConnected, connectionStatus } = useContext(ConnectionContext);
+  const { backendUrl, updateBackendUrl, isConnected, connectionStatus } = useContext(ConnectionContext);
   const { user, token } = useContext(AuthContext);
   const [form] = Form.useForm();
   const [testing, setTesting] = useState(false);
   const navigate = useNavigate();
   
   const handleSubmit = async (values) => {
-    const backendUrlValue = values.backendUrl.trim();
-    const apiBaseUrlValue = values.apiBaseUrl.trim();
+    const url = values.backendUrl.trim();
     
-    // Validasi URL format untuk backend URL
-    if (!backendUrlValue.startsWith('http://') && !backendUrlValue.startsWith('https://')) {
+    // Validasi URL format
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
       form.setFields([
         {
           name: 'backendUrl',
@@ -32,22 +34,8 @@ const ConnectionSettings = () => {
       return;
     }
     
-    // Validasi URL format untuk API Base URL
-    if (!apiBaseUrlValue.startsWith('http://') && !apiBaseUrlValue.startsWith('https://')) {
-      form.setFields([
-        {
-          name: 'apiBaseUrl',
-          errors: ['URL harus dimulai dengan http:// atau https://']
-        }
-      ]);
-      return;
-    }
-    
     // Update URL backend
-    updateBackendUrl(backendUrlValue);
-    
-    // Update API Base URL
-    updateApiBaseUrl(apiBaseUrlValue);
+    updateBackendUrl(url);
     
     // Redirect ke login jika belum login, atau ke halaman utama jika sudah login
     if (!token) {
@@ -98,7 +86,7 @@ const ConnectionSettings = () => {
       <Col xs={24} sm={20} md={16} lg={12}>
         <Card style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', borderRadius: '8px' }}>
           <Title level={2} style={{ textAlign: 'center', marginBottom: '24px' }}>
-            Pengaturan Koneksi
+            Pengaturan Koneksi Backend
           </Title>
           
           <div style={{ marginBottom: 20 }}>
@@ -145,21 +133,18 @@ const ConnectionSettings = () => {
           <Form
             form={form}
             layout="vertical"
-            initialValues={{ 
-              backendUrl,
-              apiBaseUrl
-            }}
+            initialValues={{ backendUrl }}
             onFinish={handleSubmit}
           >
             <Form.Item
               name="backendUrl"
               label="URL Backend"
               rules={[{ required: true, message: 'URL backend tidak boleh kosong' }]}
-              extra="Contoh: https://db.kinterstore.my.id"
+              extra="Contoh: http://localhost:3500"
             >
               <Input 
                 prefix={<LinkOutlined />} 
-                placeholder="https://db.kinterstore.my.id" 
+                placeholder="http://localhost:3500" 
                 addonAfter={
                   <Button 
                     type="link" 
@@ -171,18 +156,6 @@ const ConnectionSettings = () => {
                     Test
                   </Button>
                 }
-              />
-            </Form.Item>
-            
-            <Form.Item
-              name="apiBaseUrl"
-              label="URL API Publik"
-              rules={[{ required: true, message: 'URL API publik tidak boleh kosong' }]}
-              extra="Contoh: https://www.kinterstore.my.id"
-            >
-              <Input 
-                prefix={<LinkOutlined />} 
-                placeholder="https://www.kinterstore.my.id" 
               />
             </Form.Item>
             

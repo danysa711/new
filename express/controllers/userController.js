@@ -276,50 +276,11 @@ const resetUserPassword = async (req, res) => {
   }
 };
 
-// Tambahkan fungsi untuk memperbarui status langganan pengguna
-const refreshUserSubscriptionStatus = async (req, res) => {
-  try {
-    // Check if the requester is admin
-    if (req.userRole !== "admin") {
-      return res.status(403).json({ error: "Tidak memiliki izin" });
-    }
-
-    const { id } = req.params;
-    
-    // Cari user berdasarkan ID
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ error: "User tidak ditemukan" });
-    }
-
-    // Cek apakah user memiliki langganan aktif
-    const activeSubscription = await Subscription.findOne({
-      where: {
-        user_id: user.id,
-        status: 'active',
-        end_date: {
-          [db.Sequelize.Op.gt]: new Date()
-        }
-      }
-    });
-
-    // Tidak perlu update database, hanya mengembalikan status terkini
-    return res.status(200).json({ 
-      message: "Status langganan pengguna berhasil diperbarui",
-      hasActiveSubscription: !!activeSubscription
-    });
-  } catch (error) {
-    console.error("Error refreshing user subscription status:", error);
-    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
-  }
-};
-
 module.exports = {
   getAllUsers,
   getUserById,
   createUser,
   updateUserRole,
   deleteUser,
-  resetUserPassword,
-  refreshUserSubscriptionStatus
+  resetUserPassword
 };
