@@ -37,6 +37,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  
+
   useEffect(() => {
     // If token exists but no user data, fetch user profile
     if (token && !user) {
@@ -174,12 +176,51 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const tenantLogin = async (slug, username, password, remember) => {
+  try {
+    setLoading(true);
+    
+    const backendUrl = localStorage.getItem("backendUrl") || API_URL;
+    const res = await axios.post(`${backendUrl}/api/tenant/${slug}/login`, { username, password });
+    
+    const { token, refreshToken, user } = res.data;
+
+    setToken(token);
+    setRefreshToken(refreshToken);
+    setUser(user);
+
+    if (remember) {
+      localStorage.setItem("token", token);
+      localStorage.setItem("refreshToken", refreshToken);
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("remember", "true");
+    } else {
+      sessionStorage.setItem("token", token);
+      sessionStorage.setItem("refreshToken", refreshToken);
+      sessionStorage.setItem("user", JSON.stringify(user));
+      sessionStorage.setItem("remember", "false");
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Tenant login failed:", error);
+    return { 
+      success: false, 
+      error: error.response?.data?.error || "Login failed" 
+    };
+  } finally {
+    setLoading(false);
+  }
+};
+
+
   return (
     <AuthContext.Provider value={{ 
       refreshToken, 
       token, 
       user, 
       login, 
+      tenantLogin,
       logout, 
       register, 
       loading,

@@ -1,4 +1,3 @@
-// antml:artifact id="app-with-connection" type="application/vnd.ant.code" language="javascript"
 // File: react/src/app.jsx
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
@@ -12,6 +11,8 @@ import AdminLayout from "./components/layouts/AdminLayout";
 import ProtectedRoute from "./components/layouts/ProtectedRoute";
 import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman baru untuk pengaturan koneksi
 import { useContext } from "react";
+import TenantLogin from "./pages/TenantLogin";
+import TenantDemo from "./pages/TenantDemo";
 
 // Home redirect component
 const HomeRedirect = () => {
@@ -55,6 +56,9 @@ const App = () => {
             
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" replace />} />
+            // Kemudian tambahkan route baru di dalam Routes
+            <Route path="/tenant/:slug/login" element={<TenantLogin />} />
+            <Route path="/tenant/:slug/demo" element={<TenantDemo />} />
           </Routes>
         </Router>
       </ConnectionProvider>

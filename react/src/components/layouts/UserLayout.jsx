@@ -300,16 +300,24 @@ const UserLayout = () => {
        
        {/* API URL Banner */}
        <div style={{ 
-         padding: "8px 16px", 
-         background: "#f0f2f5", 
-         borderBottom: "1px solid #e8e8e8",
-         display: "flex",
-         alignItems: "center",
-         justifyContent: "space-between"
-       }}>
-         <Text strong>API URL: </Text>
-         <Paragraph copyable style={{ margin: 0 }}>{apiUrl}</Paragraph>
-       </div>
+  padding: "8px 16px", 
+  background: "#f0f2f5", 
+  borderBottom: "1px solid #e8e8e8",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between"
+}}>
+  <Space>
+    <Text strong>Tenant Login URL: </Text>
+    <Paragraph copyable style={{ margin: 0 }}>{`${window.location.origin}/tenant/${slug}/login`}</Paragraph>
+  </Space>
+  <Button 
+    type="primary" 
+    onClick={() => window.open(`/tenant/${slug}/login`, '_blank')}
+  >
+    Buka Login Tenant
+  </Button>
+</div>
        
        <Content
          style={{

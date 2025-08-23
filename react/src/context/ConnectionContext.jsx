@@ -86,6 +86,20 @@ export const ConnectionProvider = ({ children }) => {
   const getUserApiUrl = (slug) => {
     return `${apiBaseUrl}/api/user/${slug}`;
   };
+
+  TenantLoginUrl = (slug) => {
+  return `${backendUrl}/api/tenant/${slug}/login`;
+};
+
+// Fungsi untuk mendapatkan URL tenant refresh
+const getTenantRefreshUrl = (slug) => {
+  return `${backendUrl}/api/tenant/${slug}/refresh`;
+};
+
+// Fungsi untuk mendapatkan URL test tenant
+const getTenantTestUrl = (slug) => {
+  return `${backendUrl}/api/tenant/${slug}/test`;
+};
   
   return (
     <ConnectionContext.Provider 
@@ -95,6 +109,9 @@ export const ConnectionProvider = ({ children }) => {
         apiBaseUrl,
         updateApiBaseUrl,
         getUserApiUrl,
+        getTenantLoginUrl,   
+        getTenantRefreshUrl,
+        getTenantTestUrl,
         isConnected, 
         connectionStatus 
       }}
