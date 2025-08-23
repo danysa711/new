@@ -59,6 +59,6 @@ ubah API URL saat ini contoh https://www.db.kinterstore.my.id/api/user/queen-493
 
 Tambahkan setiap user memiliki url backend masing-masing contoh http://localhost:3500/api/username/id
 
-buatkan pada role user ketika langganan habis, menu produk,variasi produk,stok terputus oleh koneksi backend
+buatkan pada role user ketika langganan habis, menu produk,variasi produk,stok terputus oleh url backend,tetapi menu masih dapat di kelola oleh user
 gunakan struktur yang sudah ada jangan mengubahnya.
 berikan codingan versi lengkap tinggal copy paste

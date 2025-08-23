@@ -1,3 +1,4 @@
+// File: react/src/services/axios.js
 import axios from "axios";
 
 export const API_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
@@ -43,6 +44,16 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
+    
+    // Identifikasi tipe request berdasarkan URL
+    const url = config.url || '';
+    if (url.includes('/software') || url.includes('/software-versions') || url.includes('/licenses')) {
+      // Tambahkan header khusus untuk menandai request ke menu yang memerlukan langganan
+      config.headers["X-Menu-Type"] = url.includes('/software') ? 'software' : 
+                                     url.includes('/software-versions') ? 'version' : 
+                                     'license';
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -106,11 +117,22 @@ axiosInstance.interceptors.response.use(
       if (error.response.status === 403) {
         try {
           const { notification } = require('antd');
+          
+          // Cek header menu-type untuk menentukan menu yang terpengaruh
+          const menuType = originalRequest.headers["X-Menu-Type"];
+          
           notification.warning({
             message: 'Langganan Kedaluwarsa',
-            description: 'Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
+            description: menuType ? 
+              `Koneksi ke menu ${menuType === 'software' ? 'Produk' : menuType === 'version' ? 'Variasi Produk' : 'Stok'} terputus karena langganan Anda telah berakhir.` : 
+              'Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
             duration: 10,
           });
+          
+          // Update status koneksi menu jika tersedia
+          if (typeof window !== 'undefined' && window.updateMenuConnectionStatus && menuType) {
+            window.updateMenuConnectionStatus(menuType, 'disconnected');
+          }
           
           // Update user state if needed
           if (typeof window !== 'undefined' && window.updateUserSubscriptionStatus) {
@@ -181,5 +203,15 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Expose updateMenuConnectionStatus function globally
+if (typeof window !== 'undefined') {
+  window.updateMenuConnectionStatus = (menuType, status) => {
+    const event = new CustomEvent('menuConnectionStatusChanged', { 
+      detail: { menuType, status } 
+    });
+    window.dispatchEvent(event);
+  };
+}
 
 export default axiosInstance;
