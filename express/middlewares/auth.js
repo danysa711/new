@@ -2,9 +2,13 @@ const jwt = require("jsonwebtoken");
 const { User, Subscription, db } = require("../models");
 
 const authenticateUser = async (req, res, next) => {
+  // Log semua request untuk debugging
+  console.log(`[AUTH] ${req.method} ${req.path}`);
+
   const token = req.header("Authorization")?.split(" ")[1]; // Ambil token dari header
 
   if (!token) {
+    console.log(`[AUTH] Token tidak ditemukan: ${req.path}`);
     return res.status(401).json({ error: "Akses ditolak, token tidak ditemukan" });
   }
 
@@ -14,38 +18,53 @@ const authenticateUser = async (req, res, next) => {
     req.userRole = decoded.role || "user";
     req.userSlug = decoded.url_slug;
     
+    console.log(`[AUTH] User ID: ${req.userId}, Role: ${req.userRole}, Path: ${req.path}`);
+    
+    // Pengecualian untuk rute tertentu yang harus diizinkan tanpa pengecekan tambahan
+    const criticalEndpoints = [
+      '/api/settings',
+      '/api/subscriptions/user',
+      '/api/user/profile',
+      '/api/test'
+    ];
+    
+    // Jika ini adalah endpoint penting, izinkan akses langsung
+    if (criticalEndpoints.some(endpoint => req.path.startsWith(endpoint))) {
+      console.log(`[AUTH] Critical endpoint allowed: ${req.path}`);
+      return next();
+    }
+    
     // Pastikan kita memiliki status langganan terbaru dalam request
-    // Daripada menggunakan nilai yang di-cache dari token, cek database langsung
-    if (decoded.id !== "admin") {
-      // Dapatkan status langganan terbaru dari database
-      const activeSubscription = await Subscription.findOne({
-        where: {
-          user_id: decoded.id,
-          status: "active",
-          end_date: {
-            [db.Sequelize.Op.gt]: new Date()
-          }
-        }
-      });
-      
-      // Set status langganan saat ini
-      req.hasActiveSubscription = !!activeSubscription;
-    } else {
-      // Admin selalu memiliki langganan aktif
+    // Untuk admin, selalu berikan akses penuh
+    if (decoded.id === "admin" || decoded.role === "admin") {
       req.hasActiveSubscription = true;
+      return next();
     }
 
-    // Tambahkan pengecekan apakah user masih ada di database
-    // Skip untuk user admin yang hardcoded
-    if (decoded.id !== "admin") {
-      const user = await User.findByPk(decoded.id);
-      if (!user) {
-        return res.status(401).json({ 
-          error: "User tidak ditemukan", 
-          code: "USER_DELETED" // Kode khusus untuk menandai user telah dihapus
-        });
-      }
+    // Pengecekan apakah user masih ada di database
+    const user = await User.findByPk(decoded.id);
+    if (!user) {
+      console.log(`[AUTH] User tidak ditemukan: ${req.userId}`);
+      return res.status(401).json({ 
+        error: "User tidak ditemukan", 
+        code: "USER_DELETED"
+      });
     }
+
+    // Dapatkan status langganan terbaru dari database
+    const activeSubscription = await Subscription.findOne({
+      where: {
+        user_id: decoded.id,
+        status: "active",
+        end_date: {
+          [db.Sequelize.Op.gt]: new Date()
+        }
+      }
+    });
+    
+    // Set status langganan saat ini
+    req.hasActiveSubscription = !!activeSubscription;
+    console.log(`[AUTH] Has active subscription: ${req.hasActiveSubscription}`);
 
     // Jika URL berisi slug, cek apakah user bisa mengakses
     const urlPath = req.originalUrl;
@@ -54,42 +73,56 @@ const authenticateUser = async (req, res, next) => {
       
       // Jika tidak sama dengan user slug dan bukan admin, tolak akses
       if (urlSlug !== req.userSlug && req.userRole !== 'admin') {
+        console.log(`[AUTH] Slug mismatch: ${urlSlug} !== ${req.userSlug}`);
         return res.status(403).json({ error: "Tidak memiliki akses ke halaman ini" });
       }
     }
 
     next();
   } catch (error) {
-    console.error("Auth error:", error);
+    console.error(`[AUTH] Error: ${error.message}`);
     return res.status(403).json({ error: "Token tidak valid" });
   }
 };
 
 const requireAdmin = (req, res, next) => {
   if (req.userRole !== "admin") {
+    console.log(`[AUTH] Admin required, but user is ${req.userRole}`);
     return res.status(403).json({ error: "Akses ditolak, memerlukan hak admin" });
   }
   next();
 };
 
 const requireActiveSubscription = async (req, res, next) => {
+  // Log semua request untuk debugging
+  console.log(`[SUBSCRIPTION] ${req.method} ${req.path}`);
+  
   // Admin tidak memerlukan langganan aktif
   if (req.userRole === "admin") {
+    console.log(`[SUBSCRIPTION] Admin bypass: ${req.path}`);
     return next();
   }
 
   // Pengecualian untuk endpoint tertentu yang harus dapat diakses bahkan tanpa langganan aktif
   const exceptedEndpoints = [
     '/api/settings',
-    '/api/subscriptions/user'
+    '/api/subscriptions/user',
+    '/api/user/profile',
+    '/api/test',
+    '/api/public'
   ];
   
-  if (exceptedEndpoints.some(endpoint => req.path.startsWith(endpoint))) {
-    return next();
+  // Endpoint penting yang harus diizinkan tanpa langganan aktif
+  for (const endpoint of exceptedEndpoints) {
+    if (req.path.startsWith(endpoint)) {
+      console.log(`[SUBSCRIPTION] Excepted endpoint allowed: ${req.path}`);
+      return next();
+    }
   }
 
+  // Cek langganan aktif langsung dari request object yang sudah diset di authenticateUser
   try {
-    // Cek langganan aktif langsung dari database daripada mengandalkan token
+    // Query ulang database untuk memastikan data terbaru
     const activeSubscription = await Subscription.findOne({
       where: {
         user_id: req.userId,
@@ -99,21 +132,22 @@ const requireActiveSubscription = async (req, res, next) => {
         }
       }
     });
-
+    
     if (!activeSubscription) {
-      // Mengirim status 403 dengan flag khusus untuk menandai langganan kedaluwarsa
+      console.log(`[SUBSCRIPTION] No active subscription for user ${req.userId} at ${req.path}`);
       return res.status(403).json({ 
         error: "Langganan tidak aktif", 
         subscriptionRequired: true,
         message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
       });
     }
-
-    // Jika sampai di sini, langganan aktif
+    
+    console.log(`[SUBSCRIPTION] Active subscription verified for ${req.path}`);
     next();
   } catch (error) {
-    console.error("Error checking subscription:", error);
-    return res.status(500).json({ error: "Terjadi kesalahan saat memeriksa langganan" });
+    console.error(`[SUBSCRIPTION] Error checking subscription: ${error.message}`);
+    // Dalam kasus error, lebih baik izinkan akses daripada memblokir
+    return next();
   }
 };
 

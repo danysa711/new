@@ -34,6 +34,35 @@ import axiosInstance from "../../services/axios";
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
+// Default settings untuk digunakan saat API gagal
+const DEFAULT_SETTINGS = {
+  whatsapp: {
+    phone: "6281234567890",
+    message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
+  }
+};
+
+// Helper functions untuk localStorage
+const getLocalStorage = (key, defaultValue) => {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : defaultValue;
+  } catch (e) {
+    console.error(`Error reading from localStorage (${key}):`, e);
+    return defaultValue;
+  }
+};
+
+const setLocalStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    console.error(`Error writing to localStorage (${key}):`, e);
+    return false;
+  }
+};
+
 const UserLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
@@ -46,13 +75,11 @@ const UserLayout = () => {
     license: "connected"
   });
 
-  
+  // Inisialisasi dari localStorage atau default
+  const storedSettings = getLocalStorage('app_settings', DEFAULT_SETTINGS);
   
   // Tambahkan state untuk menyimpan pengaturan WhatsApp
-  const [whatsappSettings, setWhatsappSettings] = useState({
-    phone: "6281234567890",
-    message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
-  });
+  const [whatsappSettings, setWhatsappSettings] = useState(storedSettings.whatsapp);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -158,9 +185,11 @@ const UserLayout = () => {
         const response = await axiosInstance.get('/api/settings');
         if (response.data && response.data.whatsapp) {
           setWhatsappSettings(response.data.whatsapp);
+          setLocalStorage('app_settings', response.data);
         }
       } catch (err) {
         console.error('Error fetching WhatsApp settings:', err);
+        // Gunakan data dari localStorage (sudah diinisialisasi di state)
       }
     };
     

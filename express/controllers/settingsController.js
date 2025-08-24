@@ -25,20 +25,13 @@ const loadSettings = () => {
         email: "info@kinterstore.my.id"
       }
     };
-
-    // Path untuk file konfigurasi
-const configFilePath = path.join(__dirname, '../config/app_settings.json');
-
-// Fungsi untuk memuat pengaturan
-const loadSettings = () => {
-  try {
-    if (fs.existsSync(configFilePath)) {
-      const data = fs.readFileSync(configFilePath, 'utf8');
-      return JSON.parse(data);
-    }
     
-    // Default settings jika file tidak ada
-    const defaultSettings = {
+    // Buat file jika tidak ada
+    fs.writeFileSync(configFilePath, JSON.stringify(defaultSettings, null, 2));
+    return defaultSettings;
+  } catch (error) {
+    console.error("Error loading settings:", error);
+    return {
       whatsapp: {
         phone: "6281234567890",
         message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
@@ -47,32 +40,6 @@ const loadSettings = () => {
         name: "Kinterstore",
         address: "Jakarta, Indonesia",
         email: "info@kinterstore.my.id"
-      }
-    };
-    
-    // Buat file jika tidak ada
-    fs.writeFileSync(configFilePath, JSON.stringify(defaultSettings, null, 2));
-    return defaultSettings;
-  } catch (error) {
-    console.error("Error loading settings:", error);
-    return {
-      whatsapp: {
-        phone: "6281234567890",
-        message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
-      }
-    };
-  }
-};
-    
-    // Buat file jika tidak ada
-    fs.writeFileSync(configFilePath, JSON.stringify(defaultSettings, null, 2));
-    return defaultSettings;
-  } catch (error) {
-    console.error("Error loading settings:", error);
-    return {
-      whatsapp: {
-        phone: "6281234567890",
-        message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
       }
     };
   }

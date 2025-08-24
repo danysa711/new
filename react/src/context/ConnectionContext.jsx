@@ -89,6 +89,47 @@ export const ConnectionProvider = ({ children }) => {
     }
   }
 };
+
+// Fungsi untuk mengecek kesehatan API
+const checkApiHealth = async () => {
+  try {
+    const response = await fetch(`${backendUrl}/api/test`, { 
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 5000 // 5 detik timeout
+    });
+    
+    if (response.ok) {
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("API health check failed:", error);
+    return false;
+  }
+};
+
+// Di dalam useEffect di ConnectionContext
+useEffect(() => {
+  const checkIntervalId = setInterval(() => {
+    checkApiHealth().then(isHealthy => {
+      if (isHealthy !== isConnected) {
+        setIsConnected(isHealthy);
+        setConnectionStatus(isHealthy ? "connected" : "error");
+      }
+    });
+  }, 60000); // Check every minute
+  
+  // Initial check
+  checkApiHealth().then(isHealthy => {
+    setIsConnected(isHealthy);
+    setConnectionStatus(isHealthy ? "connected" : "error");
+  });
+  
+  return () => clearInterval(checkIntervalId);
+}, [backendUrl]);
   
   // Fungsi untuk mengubah URL backend
   const updateBackendUrl = (newUrl) => {

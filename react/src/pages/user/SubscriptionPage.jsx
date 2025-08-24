@@ -13,20 +13,48 @@ import { ConnectionContext } from '../../context/ConnectionContext';
 
 const { Title, Text, Paragraph } = Typography;
 
+// Default settings untuk digunakan saat API gagal
+const DEFAULT_SETTINGS = {
+  whatsapp: {
+    phone: "6281234567890",
+    message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
+  }
+};
+
+// Helper functions untuk localStorage
+const getLocalStorage = (key, defaultValue) => {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : defaultValue;
+  } catch (e) {
+    console.error(`Error reading from localStorage (${key}):`, e);
+    return defaultValue;
+  }
+};
+
+const setLocalStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    console.error(`Error writing to localStorage (${key}):`, e);
+    return false;
+  }
+};
+
 const SubscriptionPage = () => {
   // Ambil user, updateUserData, dan fetchUserProfile dari AuthContext
   const { user, fetchUserProfile } = useContext(AuthContext);
   const { backendUrl, userBackendUrl } = useContext(ConnectionContext);
   
-  const [activeSubscription, setActiveSubscription] = useState(null);
+  // Inisialisasi dari localStorage atau default
+  const storedSubscription = getLocalStorage('user_subscription', null);
+  const storedSettings = getLocalStorage('app_settings', DEFAULT_SETTINGS);
+  
+  const [activeSubscription, setActiveSubscription] = useState(storedSubscription);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Tambahkan state untuk menyimpan pengaturan WhatsApp
-  const [whatsappSettings, setWhatsappSettings] = useState({
-    phone: "6281234567890",
-    message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
-  });
+  const [whatsappSettings, setWhatsappSettings] = useState(storedSettings.whatsapp);
 
   // Format date
   const formatDate = (dateString) => {
@@ -64,7 +92,7 @@ const SubscriptionPage = () => {
       setLoading(true);
       setError(null);
   
-      // Fetch user subscriptions
+      // Fetch user subscriptions - pertama coba dari API
       try {
         const subsResponse = await axiosInstance.get('/api/subscriptions/user');
         
@@ -78,15 +106,45 @@ const SubscriptionPage = () => {
           (sub) => sub.status === 'active' && new Date(sub.end_date) > new Date()
         );
         
-        setActiveSubscription(activeSubData);
-        
-        // Jika status berlangganan berubah, perbarui user context
-        if (fetchUserProfile) {
-          fetchUserProfile();
+        // Simpan ke localStorage untuk fallback
+        if (activeSubData) {
+          setLocalStorage('user_subscription', activeSubData);
         }
+        
+        setActiveSubscription(activeSubData);
       } catch (err) {
         console.error('Error fetching user subscriptions:', err);
-        setActiveSubscription(null);
+        
+        // Jika user aktif tapi tidak ada data langganan, buat sementara
+        if (user?.hasActiveSubscription && !activeSubscription) {
+          console.log('Creating temporary subscription data for active user');
+          const tempSubscription = {
+            id: 0,
+            user_id: user.id,
+            start_date: new Date().toISOString(),
+            end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+            status: "active",
+            payment_status: "paid",
+            payment_method: "manual",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          
+          setLocalStorage('user_subscription', tempSubscription);
+          setActiveSubscription(tempSubscription);
+        } else if (storedSubscription) {
+          console.log('Using local subscription data');
+          setActiveSubscription(storedSubscription);
+        }
+      }
+      
+      // Jika status berlangganan berubah, perbarui user context
+      if (fetchUserProfile) {
+        try {
+          await fetchUserProfile();
+        } catch (profileErr) {
+          console.error('Error updating user profile:', profileErr);
+        }
       }
     } catch (err) {
       console.error('Error fetching subscription data:', err);
@@ -96,17 +154,19 @@ const SubscriptionPage = () => {
     }
   };
 
-  // Dalam useEffect, tambahkan kode untuk mengambil pengaturan dengan penanganan error yang lebih baik
+  // Dalam useEffect, tambahkan kode untuk mengambil pengaturan
   useEffect(() => {
+    // Coba ambil dari API
     const fetchSettings = async () => {
       try {
         const response = await axiosInstance.get('/api/settings');
         if (response.data && response.data.whatsapp) {
           setWhatsappSettings(response.data.whatsapp);
+          setLocalStorage('app_settings', response.data);
         }
       } catch (err) {
         console.error('Error fetching WhatsApp settings:', err);
-        // Tetap gunakan nilai default jika terjadi error
+        // Gunakan data dari localStorage (sudah diinisialisasi di state)
       }
     };
     

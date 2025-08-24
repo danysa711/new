@@ -1,11 +1,10 @@
-// File: express/routes/settingsRoutes.js
 const express = require("express");
 const { getSettings, updateWhatsAppSettings, updateCompanySettings } = require("../controllers/settingsController");
 const { authenticateUser, requireAdmin } = require("../middlewares/auth");
 
 const router = express.Router();
 
-// Route GET settings dapat diakses semua user yang terautentikasi
+// Route GET settings dapat diakses semua user yang terautentikasi - TANPA requireActiveSubscription
 router.get("/settings", authenticateUser, getSettings);
 
 // Routes untuk update settings memerlukan hak admin

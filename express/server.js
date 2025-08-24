@@ -19,12 +19,7 @@ const PORT = process.env.PORT || 3500;
 
 // Konfigurasi CORS - izinkan semua origin selama pengembangan
 app.use(cors({
-  origin: [
-    "https://kinterstore.my.id",
-    "https://www.kinterstore.my.id",
-    "https://db.kinterstore.my.id",
-    "http://localhost:5173" // Untuk development
-  ],
+  origin: '*', // Untuk development, bisa diganti dengan domain spesifik untuk production
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
