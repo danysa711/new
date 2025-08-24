@@ -26,6 +26,8 @@ router.get("/subscription-plans/:id", getSubscriptionPlanById);
 router.get("/subscriptions/user", authenticateUser, getUserSubscriptions);
 router.get("/subscriptions/:id", authenticateUser, getSubscriptionById);
 router.put("/subscriptions/:id/cancel", authenticateUser, cancelSubscription);
+router.get("/subscriptions/user/:id", authenticateUser, getUserSubscriptions);
+
 
 // Routes admin
 router.get("/subscriptions", authenticateUser, requireAdmin, getAllSubscriptions);

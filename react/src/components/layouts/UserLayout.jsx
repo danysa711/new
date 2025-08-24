@@ -34,6 +34,53 @@ import axiosInstance from "../../services/axios";
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
+// Komponen untuk menampilkan status langganan dengan lebih informatif
+const SubscriptionStatusBadge = ({ userProfile, activeSubscription }) => {
+  // Jika tidak ada langganan aktif
+  if (!userProfile.hasActiveSubscription || !activeSubscription) {
+    return (
+      <Tag color="error" style={{ marginLeft: 8 }}>
+        Tidak Aktif
+      </Tag>
+    );
+  }
+
+  // Kalkulasi sisa hari
+  const endDate = new Date(activeSubscription.end_date);
+  const today = new Date();
+  const diffTime = endDate - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  // Jika sudah kedaluwarsa
+  if (diffDays <= 0) {
+    return (
+      <Tag color="error" style={{ marginLeft: 8 }}>
+        Kedaluwarsa
+      </Tag>
+    );
+  }
+
+  // Jika hampir habis (kurang dari 7 hari)
+  if (diffDays <= 7) {
+    return (
+      <Tooltip title={`Berakhir dalam ${diffDays} hari pada ${endDate.toLocaleDateString('id-ID')}`}>
+        <Tag color="warning" style={{ marginLeft: 8 }}>
+          Segera Berakhir ({diffDays} hari)
+        </Tag>
+      </Tooltip>
+    );
+  }
+
+  // Jika masih aktif dengan banyak waktu tersisa
+  return (
+    <Tooltip title={`Berakhir pada ${endDate.toLocaleDateString('id-ID')}`}>
+      <Tag color="success" style={{ marginLeft: 8 }}>
+        Aktif ({diffDays} hari)
+      </Tag>
+    </Tooltip>
+  );
+};
+
 // Default settings untuk digunakan saat API gagal
 const DEFAULT_SETTINGS = {
   whatsapp: {
@@ -69,6 +116,7 @@ const UserLayout = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [profileFetched, setProfileFetched] = useState(false); // Flag untuk mencegah infinite updates
+  const [activeSubscription, setActiveSubscription] = useState(null);
   const [localMenuStatus, setLocalMenuStatus] = useState({
     software: "connected",
     version: "connected",
@@ -145,38 +193,53 @@ const UserLayout = () => {
 
   // Check if current user is authorized to view this page
   useEffect(() => {
-    if (!token) {
-      return;
-    }
-    
-    // If not the user's own page and not an admin, redirect to their own page
-    if (user?.url_slug !== slug && user?.role !== "admin") {
-      navigate(`/user/page/${user.url_slug}`);
-      return;
-    }
-    
-    // Only fetch profile if it hasn't been fetched yet or if slug changes
-    if (!profileFetched) {
-      // Load user profile data
-      const fetchUserProfile = async () => {
+  if (!token) {
+    return;
+  }
+  
+  // If not the user's own page and not an admin, redirect to their own page
+  if (user?.url_slug !== slug && user?.role !== "admin") {
+    navigate(`/user/page/${user.url_slug}`);
+    return;
+  }
+  
+  // Only fetch profile if it hasn't been fetched yet or if slug changes
+  if (!profileFetched) {
+    // Load user profile data
+    const fetchUserProfile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await axiosInstance.get(`/api/user/public/${slug}`);
+        setUserProfile(response.data.user);
+        setProfileFetched(true);  // Mark profile as fetched
+        
+        // Fetch active subscription
         try {
-          setLoading(true);
-          setError(null);
-          
-          const response = await axiosInstance.get(`/api/user/public/${slug}`);
-          setUserProfile(response.data.user);
-          setProfileFetched(true);  // Mark profile as fetched
-        } catch (err) {
-          console.error("Error fetching user profile:", err);
-          setError("Failed to load user profile");
-        } finally {
-          setLoading(false);
+          const subsResponse = await axiosInstance.get('/api/subscriptions/user');
+          const activeSubData = subsResponse.data.find(
+            (sub) => sub.status === 'active' && new Date(sub.end_date) > new Date()
+          );
+          if (activeSubData) {
+            setActiveSubscription(activeSubData);
+            setLocalStorage('user_subscription', activeSubData);
+          }
+        } catch (subsErr) {
+          console.error('Error fetching subscription:', subsErr);
+          setActiveSubscription(getLocalStorage('user_subscription', null));
         }
-      };
-      
-      fetchUserProfile();
-    }
-  }, [token, slug, user, navigate, profileFetched]);
+      } catch (err) {
+        console.error("Error fetching user profile:", err);
+        setError("Failed to load user profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserProfile();
+  }
+}, [token, slug, user, navigate, profileFetched]);
 
   // Dalam useEffect, tambahkan kode untuk mengambil pengaturan
   useEffect(() => {
@@ -272,20 +335,36 @@ const UserLayout = () => {
   
   // Force refresh subscription status
   const handleRefreshSubscription = async () => {
-    try {
-      if (fetchUserProfile) {
-        await fetchUserProfile();
-      }
-      
-      if (checkConnection) {
-        await checkConnection();
-      }
-      
-      message.success('Status langganan berhasil diperbarui');
-    } catch (error) {
-      message.error('Gagal memperbarui status langganan');
+  try {
+    if (fetchUserProfile) {
+      await fetchUserProfile();
     }
-  };
+    
+    // Juga coba ambil data langganan
+    try {
+      const subsResponse = await axiosInstance.get('/api/subscriptions/user');
+      const activeSubData = subsResponse.data.find(
+        (sub) => sub.status === 'active' && new Date(sub.end_date) > new Date()
+      );
+      if (activeSubData) {
+        setActiveSubscription(activeSubData);
+        setLocalStorage('user_subscription', activeSubData);
+      } else {
+        setActiveSubscription(null);
+      }
+    } catch (err) {
+      console.error('Error fetching subscription on refresh:', err);
+    }
+    
+    if (checkConnection) {
+      await checkConnection();
+    }
+    
+    message.success('Status langganan berhasil diperbarui');
+  } catch (error) {
+    message.error('Gagal memperbarui status langganan');
+  }
+};
 
   // Menu dengan status koneksi
   const menuItems = [
@@ -429,21 +508,17 @@ const UserLayout = () => {
               }}
             />
             <Title level={4} style={{ margin: 0, marginLeft: 16 }}>
-              {userProfile.username}'s Page
-            </Title>
-            {userProfile.hasActiveSubscription ? (
-              <Tag color="success" style={{ marginLeft: 8 }}>Active</Tag>
-            ) : (
-              <Tag color="error" style={{ marginLeft: 8 }}>Inactive</Tag>
-            )}
-            <Button 
-              type="link" 
-              icon={<ReloadOutlined />} 
-              onClick={handleRefreshSubscription} 
-              title="Refresh Subscription Status"
-            >
-              Refresh
-            </Button>
+            {userProfile.username}'s Page
+          </Title>
+          <SubscriptionStatusBadge userProfile={userProfile} activeSubscription={activeSubscription} />
+          <Button 
+            type="link" 
+            icon={<ReloadOutlined />} 
+            onClick={handleRefreshSubscription} 
+           title="Refresh Status Langganan"
+          >
+            Refresh
+          </Button>
           </div>
          
           {/* Dropdown untuk Request Trial dan Logout */}

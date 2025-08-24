@@ -321,75 +321,84 @@ axiosInstance.interceptors.response.use(
     }
     
     // Cek apakah error terkait langganan kedaluwarsa
-    if (error.response?.data?.subscriptionRequired) {
-      console.warn("Subscription expired");
-      
-      // Update user subscription status in local storage/session
-      try {
-        const token = getStoredToken();
-        if (token) {
-          const decoded = parseJwt(token);
-          if (decoded) {
-            // Read current user data
-            const remember = localStorage.getItem("remember") === "true";
-            const storage = remember ? localStorage : sessionStorage;
-            const userData = JSON.parse(storage.getItem("user") || "null");
+    // Cek apakah error terkait langganan kedaluwarsa
+if (error.response?.data?.subscriptionRequired) {
+  console.warn("Subscription expired");
+  
+  // Update user subscription status in local storage/session
+  try {
+    const token = getStoredToken();
+    if (token) {
+      const decoded = parseJwt(token);
+      if (decoded) {
+        // Read current user data
+        const remember = localStorage.getItem("remember") === "true";
+        const storage = remember ? localStorage : sessionStorage;
+        const userData = JSON.parse(storage.getItem("user") || "null");
+        
+        if (userData) {
+          // Update the subscription status
+          userData.hasActiveSubscription = false;
+          storage.setItem("user", JSON.stringify(userData));
+          
+          // Dispatch a custom event to notify components
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('userDataUpdated', {
+              detail: { user: userData }
+            }));
             
-            if (userData) {
-              // Update the subscription status
-              userData.hasActiveSubscription = false;
-              storage.setItem("user", JSON.stringify(userData));
+            window.dispatchEvent(new CustomEvent('subscriptionStatusChanged', { 
+              detail: { status: 'expired' } 
+            }));
+            
+            // Tampilkan notifikasi yang lebih jelas
+            try {
+              const { notification, Modal } = await import('antd');
+              const menuType = originalRequest.headers["X-Menu-Type"];
               
-              // Dispatch a custom event to notify components
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('userDataUpdated', {
-                  detail: { user: userData }
-                }));
-                
-                window.dispatchEvent(new CustomEvent('subscriptionStatusChanged', { 
-                  detail: { status: 'expired' } 
-                }));
-              }
+              // Tampilkan modal untuk notifikasi yang lebih mencolok
+              Modal.warning({
+                title: 'Langganan Anda Telah Kedaluwarsa',
+                content: 'Beberapa fitur tidak tersedia karena langganan Anda telah berakhir. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
+                okText: 'Mengerti',
+              });
               
-              // Show notification
-              try {
-                const { notification } = await import('antd');
-                const menuType = originalRequest.headers["X-Menu-Type"];
-                
-                notification.warning({
-                  message: 'Langganan Kedaluwarsa',
-                  description: menuType ? 
-                    `Koneksi ke menu ${menuType === 'software' ? 'Produk' : menuType === 'version' ? 'Variasi Produk' : 'Stok'} terputus karena langganan Anda telah berakhir.` : 
-                    'Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
-                  duration: 10,
-                });
-              } catch (e) {
-                console.error("Failed to show notification:", e);
-              }
-              
-              // Update status koneksi menu jika tersedia
-              if (typeof window !== 'undefined' && menuType) {
-                window.updateMenuConnectionStatus(menuType, 'disconnected');
-              }
+              notification.warning({
+                message: 'Langganan Kedaluwarsa',
+                description: menuType ? 
+                  `Koneksi ke menu ${menuType === 'software' ? 'Produk' : menuType === 'version' ? 'Variasi Produk' : 'Stok'} terputus karena langganan Anda telah berakhir.` : 
+                  'Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
+                duration: 10,
+              });
+            } catch (e) {
+              console.error("Failed to show notification:", e);
+            }
+            
+            // Update status koneksi menu jika tersedia
+            if (typeof window !== 'undefined' && originalRequest.headers["X-Menu-Type"]) {
+              const menuType = originalRequest.headers["X-Menu-Type"];
+              window.updateMenuConnectionStatus(menuType, 'disconnected');
             }
           }
         }
-      } catch (err) {
-        console.error("Error handling subscription expired:", err);
       }
-      
-      // Untuk URL yang seharusnya bisa diakses tanpa langganan aktif
-      // Coba akses dengan rute alternatif
-      const url = originalRequest.url;
-      if (url.includes('/api/settings') || url.includes('/api/subscriptions/user') || url.includes('/api/user/profile')) {
-        console.log("Trying alternative access for:", url);
-        // Jangan tolak error, coba ulang request
-        delete originalRequest.headers["X-Menu-Type"];
-        return axiosInstance(originalRequest);
-      }
-      
-      return Promise.reject(error);
     }
+  } catch (err) {
+    console.error("Error handling subscription expired:", err);
+  }
+  
+  // Untuk URL yang seharusnya bisa diakses tanpa langganan aktif
+  // Coba akses dengan rute alternatif
+  const url = originalRequest.url;
+  if (url.includes('/api/settings') || url.includes('/api/subscriptions/user') || url.includes('/api/user/profile')) {
+    console.log("Trying alternative access for:", url);
+    // Jangan tolak error, coba ulang request
+    delete originalRequest.headers["X-Menu-Type"];
+    return axiosInstance(originalRequest);
+  }
+  
+  return Promise.reject(error);
+}
 
     if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
       const refreshToken = getStoredRefreshToken();

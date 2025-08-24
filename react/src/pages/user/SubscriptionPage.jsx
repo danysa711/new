@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   Card, Row, Col, Typography, Button, Statistic, 
-  Alert, Spin, Empty, Space
+  Alert, Spin, Empty, Space, Progress, Tag, Tooltip, Modal
 } from 'antd';
 import { 
-  WhatsAppOutlined, ClockCircleOutlined, LinkOutlined
+  WhatsAppOutlined, ClockCircleOutlined, LinkOutlined,
+  ExclamationCircleOutlined, ReloadOutlined, CalendarOutlined
 } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
@@ -45,7 +46,7 @@ const setLocalStorage = (key, value) => {
 const SubscriptionPage = () => {
   // Ambil user, updateUserData, dan fetchUserProfile dari AuthContext
   const { user, fetchUserProfile } = useContext(AuthContext);
-  const { backendUrl, userBackendUrl } = useContext(ConnectionContext);
+  const { backendUrl, userBackendUrl, checkConnection } = useContext(ConnectionContext);
   
   // Inisialisasi dari localStorage atau default
   const storedSubscription = getLocalStorage('user_subscription', null);
@@ -55,6 +56,7 @@ const SubscriptionPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [whatsappSettings, setWhatsappSettings] = useState(storedSettings.whatsapp);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Format date
   const formatDate = (dateString) => {
@@ -74,6 +76,24 @@ const SubscriptionPage = () => {
     return diffDays > 0 ? diffDays : 0;
   };
   
+  // Calculate percentage of subscription used
+  const calculateProgressPercentage = (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const today = new Date();
+    
+    const totalDuration = end - start;
+    const elapsed = today - start;
+    
+    // Jika sudah lewat tanggal akhir
+    if (today > end) return 100;
+    
+    // Jika belum mencapai tanggal mulai
+    if (today < start) return 0;
+    
+    return Math.floor((elapsed / totalDuration) * 100);
+  };
+  
   // Perbarui fungsi requestSubscription
   const requestSubscription = () => {
     // Format pesan dengan mengganti variabel
@@ -85,6 +105,38 @@ const SubscriptionPage = () => {
     
     const waLink = `https://wa.me/${whatsappSettings.phone}?text=${encodeURIComponent(message)}`;
     window.open(waLink, '_blank');
+  };
+
+  const handleRefreshSubscription = async () => {
+    try {
+      setRefreshing(true);
+      
+      // Refresh user profile untuk mendapatkan status langganan terbaru
+      if (fetchUserProfile) {
+        await fetchUserProfile();
+      }
+      
+      // Re-fetch subscription data
+      await fetchData();
+      
+      // Re-check connection status
+      if (checkConnection) {
+        await checkConnection();
+      }
+      
+      Modal.success({
+        title: 'Status Berhasil Diperbarui',
+        content: 'Status langganan Anda telah berhasil diperbarui.',
+      });
+    } catch (error) {
+      console.error("Error refreshing subscription status:", error);
+      Modal.error({
+        title: 'Gagal Memperbarui Status',
+        content: 'Terjadi kesalahan saat memperbarui status langganan. Silakan coba lagi nanti.',
+      });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const fetchData = async () => {
@@ -211,36 +263,104 @@ const SubscriptionPage = () => {
         </Space>
       </Card>
 
-      {/* Active Subscription Section */}
+      {/* Status Langganan Section */}
       <Card 
-        title={<Title level={4}>Status Langganan</Title>} 
+        title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Title level={4}>Status Langganan</Title>
+            <Button 
+              icon={<ReloadOutlined />} 
+              onClick={handleRefreshSubscription}
+              loading={refreshing}
+            >
+              Refresh Status
+            </Button>
+          </div>
+        } 
         style={{ marginBottom: 24 }}
       >
         {activeSubscription ? (
           <Row gutter={[24, 24]}>
-            <Col span={24}>
-              <Statistic
-                title="Sisa Waktu Langganan"
-                value={calculateRemainingDays(activeSubscription.end_date)}
-                suffix="hari"
-                valueStyle={{ color: '#3f8600' }}
-                prefix={<ClockCircleOutlined />}
-              />
-              <div style={{ marginTop: 16 }}>
-                <Text strong>Mulai: </Text> 
-                <Text>{formatDate(activeSubscription.start_date)}</Text>
+            <Col xs={24} md={12}>
+              <Card bordered={false} style={{ background: '#f9f9f9' }}>
+                <Statistic
+                  title="Sisa Waktu Langganan"
+                  value={calculateRemainingDays(activeSubscription.end_date)}
+                  suffix="hari"
+                  valueStyle={{ color: '#3f8600' }}
+                  prefix={<ClockCircleOutlined />}
+                />
+                <Progress 
+                  percent={calculateProgressPercentage(
+                    activeSubscription.start_date, 
+                    activeSubscription.end_date
+                  )} 
+                  status={
+                    calculateRemainingDays(activeSubscription.end_date) <= 7 
+                      ? "exception" 
+                      : "active"
+                  }
+                  style={{ marginTop: 16 }}
+                />
+              </Card>
+            </Col>
+            
+            <Col xs={24} md={12}>
+              <div style={{ marginBottom: 16 }}>
+                <Space align="center">
+                  <CalendarOutlined />
+                  <Text strong>Tanggal Mulai: </Text> 
+                  <Text>{formatDate(activeSubscription.start_date)}</Text>
+                </Space>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <Space align="center">
+                  <CalendarOutlined />
+                  <Text strong>Tanggal Berakhir: </Text> 
+                  <Text>{formatDate(activeSubscription.end_date)}</Text>
+                </Space>
               </div>
               <div>
-                <Text strong>Berakhir: </Text> 
-                <Text>{formatDate(activeSubscription.end_date)}</Text>
+                <Space align="center">
+                  <Text strong>Status Pembayaran: </Text> 
+                  <Tag color={
+                    activeSubscription.payment_status === 'paid' ? 'success' : 
+                    activeSubscription.payment_status === 'pending' ? 'warning' : 'error'
+                  }>
+                    {activeSubscription.payment_status === 'paid' ? 'LUNAS' : 
+                     activeSubscription.payment_status === 'pending' ? 'MENUNGGU' : 'GAGAL'}
+                  </Tag>
+                </Space>
               </div>
             </Col>
+            
+            {calculateRemainingDays(activeSubscription.end_date) <= 7 && (
+              <Col span={24}>
+                <Alert
+                  message="Langganan Akan Segera Berakhir"
+                  description={`Langganan Anda akan berakhir dalam ${calculateRemainingDays(activeSubscription.end_date)} hari. Silakan perbarui langganan Anda untuk menghindari gangguan layanan.`}
+                  type="warning"
+                  showIcon
+                  icon={<ExclamationCircleOutlined />}
+                  style={{ marginTop: 16 }}
+                />
+              </Col>
+            )}
           </Row>
         ) : (
-          <Empty 
-            description="Anda belum memiliki langganan aktif"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
+          <div>
+            <Empty 
+              description="Anda belum memiliki langganan aktif"
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+            <Alert
+              message="Langganan Tidak Aktif"
+              description="Beberapa fitur aplikasi tidak tersedia karena Anda belum berlangganan. Silakan hubungi admin untuk mengaktifkan langganan."
+              type="error"
+              showIcon
+              style={{ marginTop: 16, marginBottom: 16 }}
+            />
+          </div>
         )}
         
         <div style={{ marginTop: 24, textAlign: 'center' }}>
