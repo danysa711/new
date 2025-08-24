@@ -78,6 +78,16 @@ const requireActiveSubscription = async (req, res, next) => {
     return next();
   }
 
+  // Pengecualian untuk endpoint tertentu yang harus dapat diakses bahkan tanpa langganan aktif
+  const exceptedEndpoints = [
+    '/api/settings',
+    '/api/subscriptions/user'
+  ];
+  
+  if (exceptedEndpoints.some(endpoint => req.path.startsWith(endpoint))) {
+    return next();
+  }
+
   try {
     // Cek langganan aktif langsung dari database daripada mengandalkan token
     const activeSubscription = await Subscription.findOne({

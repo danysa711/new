@@ -22,6 +22,12 @@ const SubscriptionPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Tambahkan state untuk menyimpan pengaturan WhatsApp
+  const [whatsappSettings, setWhatsappSettings] = useState({
+    phone: "6281234567890",
+    message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
+  });
+
   // Format date
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -30,11 +36,6 @@ const SubscriptionPage = () => {
       day: 'numeric',
     });
   };
-
-  const [whatsappSettings, setWhatsappSettings] = useState({
-  phone: "6281234567890",
-  message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
-  });
 
   // Calculate remaining days
   const calculateRemainingDays = (endDate) => {
@@ -45,11 +46,16 @@ const SubscriptionPage = () => {
     return diffDays > 0 ? diffDays : 0;
   };
   
-  // Fungsi untuk membuka WhatsApp dengan pesan request langganan
+  // Perbarui fungsi requestSubscription
   const requestSubscription = () => {
-    // Pesan WhatsApp dengan format yang berisi informasi user
-    const message = `Halo, saya ${user.username} (${user.email}) ingin berlangganan. URL Slug: ${user.url_slug}`;
-    const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(message)}`;
+    // Format pesan dengan mengganti variabel
+    const message = whatsappSettings.message
+      .replace('{username}', user?.username || '')
+      .replace('{email}', user?.email || '')
+      .replace('{purpose}', 'berlangganan')
+      .replace('{url_slug}', user?.url_slug || '');
+    
+    const waLink = `https://wa.me/${whatsappSettings.phone}?text=${encodeURIComponent(message)}`;
     window.open(waLink, '_blank');
   };
 
@@ -90,8 +96,32 @@ const SubscriptionPage = () => {
     }
   };
 
+  // Dalam useEffect, tambahkan kode untuk mengambil pengaturan dengan penanganan error yang lebih baik
   useEffect(() => {
-    fetchData();
+    const fetchSettings = async () => {
+      try {
+        const response = await axiosInstance.get('/api/settings');
+        if (response.data && response.data.whatsapp) {
+          setWhatsappSettings(response.data.whatsapp);
+        }
+      } catch (err) {
+        console.error('Error fetching WhatsApp settings:', err);
+        // Tetap gunakan nilai default jika terjadi error
+      }
+    };
+    
+    const fetchSubscriptions = async () => {
+      try {
+        await fetchData();
+      } catch (err) {
+        console.error('Error in fetchData:', err);
+        setLoading(false);
+      }
+    };
+    
+    // Panggil kedua fungsi secara terpisah agar jika salah satu gagal, yang lain tetap berjalan
+    fetchSettings();
+    fetchSubscriptions();
   }, []);
 
   // API URL

@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { db } = require("./models");
 
+// Import semua routes
 const licenseRoutes = require("./routes/licenseRoutes");
 const softwareRoutes = require("./routes/softwareRoutes");
 const softwareVersionRoutes = require("./routes/softwareVersionRoutes");
@@ -16,29 +17,34 @@ const settingsRoutes = require("./routes/settingsRoutes");
 const app = express();
 const PORT = process.env.PORT || 3500;
 
-// CORS configuration - allow all origins during development
+// Konfigurasi CORS - izinkan semua origin selama pengembangan
 app.use(cors({
-  origin: "*",
+  origin: [
+    "https://kinterstore.my.id",
+    "https://www.kinterstore.my.id",
+    "https://db.kinterstore.my.id",
+    "http://localhost:5173" // Untuk development
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true // Tambahkan ini jika menggunakan cookies
+  credentials: true
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Log all incoming requests
+// Log semua request yang masuk
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Test endpoint
+// Endpoint test
 app.get("/api/test", (req, res) => {
   res.json({ message: "API is working", timestamp: new Date().toISOString() });
 });
 
-// Routes
+// Registrasi semua routes dengan prefix /api
 app.use("/api", licenseRoutes);
 app.use("/api", softwareRoutes);
 app.use("/api", softwareVersionRoutes);

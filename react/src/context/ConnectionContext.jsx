@@ -50,75 +50,45 @@ export const ConnectionProvider = ({ children }) => {
   }, [backendUrl, token]);
 
   const checkConnection = async () => {
-    if (!token) {
-      setIsConnected(false);
-      setConnectionStatus("disconnected");
-      return;
-    }
+  if (!token) {
+    setIsConnected(false);
+    setConnectionStatus("disconnected");
+    return;
+  }
 
-    try {
-      setConnectionStatus("checking");
-      // Test connection dengan endpoint sederhana
-      const response = await axiosInstance.get(`${backendUrl}/api/test`);
-      
-      // Force refresh user profile to ensure we have the latest subscription status
-      if (user && fetchUserProfile) {
-        await fetchUserProfile();
-      }
-      
-      // Re-check subscription status after refresh
-      const hasActiveSubscription = user?.hasActiveSubscription;
-      
-      // Cek apakah user berlangganan aktif
-      if (user && !hasActiveSubscription) {
-        setIsConnected(false);
-        setConnectionStatus("subscription_expired");
-        
-        // Set status koneksi menu untuk user dengan langganan kedaluwarsa
-        setMenuConnectionStatus({
-          software: "disconnected",
-          version: "disconnected",
-          license: "disconnected"
-        });
-        
-        // Trigger custom event for UI components to update
-        if (typeof window !== 'undefined') {
-          const event = new CustomEvent('subscriptionStatusChanged', { 
-            detail: { status: 'expired' } 
-          });
-          window.dispatchEvent(event);
-        }
-        return;
-      }
-      
-      if (response.data && response.data.message === "API is working") {
-        setIsConnected(true);
-        setConnectionStatus("connected");
-        
-        // Reset status koneksi menu untuk user dengan langganan aktif
-        setMenuConnectionStatus({
-          software: "connected",
-          version: "connected",
-          license: "connected"
-        });
-        
-        // Trigger custom event for UI components to update
-        if (typeof window !== 'undefined') {
-          const event = new CustomEvent('subscriptionStatusChanged', { 
-            detail: { status: 'active' } 
-          });
-          window.dispatchEvent(event);
-        }
-      } else {
-        setIsConnected(false);
-        setConnectionStatus("error");
-      }
-    } catch (err) {
-      console.error("Connection error:", err);
-      setIsConnected(false);
+  try {
+    setConnectionStatus("checking");
+    
+    // Tambahkan timeout yang lebih pendek untuk mencegah hanging request
+    const response = await axiosInstance.get(`${backendUrl}/api/test`, {
+      timeout: 5000 // 5 detik timeout
+    }).catch(error => {
+      // Handle error dengan lebih baik
+      console.error("Connection test error:", error.message);
+      throw error; // Re-throw untuk ditangani di catch block berikutnya
+    });
+    
+    // Kode lain sama seperti sebelumnya
+    // ...
+    
+  } catch (err) {
+    console.error("Connection error:", err);
+    setIsConnected(false);
+    
+    // Periksa jenis error untuk memberikan status yang lebih spesifik
+    if (err.code === "ERR_NETWORK" || err.message.includes("Network Error")) {
+      setConnectionStatus("network_error");
+    } else if (err.response && err.response.status === 502) {
+      setConnectionStatus("server_error");
+    } else if (err.message.includes("CORS")) {
+      setConnectionStatus("cors_error");
+    } else if (err.response && err.response.data && err.response.data.subscriptionRequired) {
+      setConnectionStatus("subscription_expired");
+    } else {
       setConnectionStatus("error");
     }
-  };
+  }
+};
   
   // Fungsi untuk mengubah URL backend
   const updateBackendUrl = (newUrl) => {

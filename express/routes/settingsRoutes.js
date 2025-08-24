@@ -5,11 +5,11 @@ const { authenticateUser, requireAdmin } = require("../middlewares/auth");
 
 const router = express.Router();
 
-// Semua routes ini memerlukan autentikasi dan hak admin
-router.use(authenticateUser, requireAdmin);
+// Route GET settings dapat diakses semua user yang terautentikasi
+router.get("/settings", authenticateUser, getSettings);
 
-router.get("/settings", getSettings);
-router.put("/settings/whatsapp", updateWhatsAppSettings);
-router.put("/settings/company", updateCompanySettings);
+// Routes untuk update settings memerlukan hak admin
+router.put("/settings/whatsapp", authenticateUser, requireAdmin, updateWhatsAppSettings);
+router.put("/settings/company", authenticateUser, requireAdmin, updateCompanySettings);
 
 module.exports = router;

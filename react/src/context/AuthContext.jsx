@@ -68,13 +68,19 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   const fetchUserProfile = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${API_URL}/api/user/profile`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+  try {
+    setLoading(true);
+    
+    // Tambahkan timeout yang lebih pendek
+    const res = await axios.get(`${API_URL}/api/user/profile`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      timeout: 5000 // 5 detik timeout
+    }).catch(error => {
+      console.error("Profile fetch error:", error.message);
+      throw error;
+    });
       const userData = res.data.user;
       
       // Check if subscription status has changed
@@ -114,6 +120,11 @@ export const AuthProvider = ({ children }) => {
       return userData;
     } catch (error) {
       console.error("Failed to fetch user profile:", error);
+      
+      if (error.code === "ERR_NETWORK" || error.message.includes("Network Error")) {
+      // Jangan logout pada network error, biarkan retry
+      return null;
+    }
       // If fetch fails due to invalid token, logout
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
         logout();

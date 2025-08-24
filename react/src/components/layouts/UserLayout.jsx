@@ -45,6 +45,14 @@ const UserLayout = () => {
     version: "connected",
     license: "connected"
   });
+
+  
+  
+  // Tambahkan state untuk menyimpan pengaturan WhatsApp
+  const [whatsappSettings, setWhatsappSettings] = useState({
+    phone: "6281234567890",
+    message: "Halo, saya {username} ({email}) ingin {purpose}. URL Slug: {url_slug}"
+  });
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -143,6 +151,22 @@ const UserLayout = () => {
     }
   }, [token, slug, user, navigate, profileFetched]);
 
+  // Dalam useEffect, tambahkan kode untuk mengambil pengaturan
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await axiosInstance.get('/api/settings');
+        if (response.data && response.data.whatsapp) {
+          setWhatsappSettings(response.data.whatsapp);
+        }
+      } catch (err) {
+        console.error('Error fetching WhatsApp settings:', err);
+      }
+    };
+    
+    fetchSettings();
+  }, []);
+
   // Force refresh when user subscription status changes in auth context
   useEffect(() => {
     if (user && userProfile) {
@@ -204,11 +228,16 @@ const UserLayout = () => {
   // API URL yang dapat digunakan orang lain untuk mengakses data halaman ini
   const apiUrl = userBackendUrl || `${backendUrl}/api/user/${slug}`;
 
-  // Fungsi untuk membuka WhatsApp dengan pesan request trial
+  // Perbarui fungsi requestTrial
   const requestTrial = () => {
-    // Pesan WhatsApp dengan format yang berisi informasi user
-    const message = `Halo, saya ${user.username} (${user.email}) ingin request trial untuk langganan. URL Slug: ${user.url_slug}`;
-    const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(message)}`;
+    // Format pesan dengan mengganti variabel
+    const message = whatsappSettings.message
+      .replace('{username}', user.username || '')
+      .replace('{email}', user.email || '')
+      .replace('{purpose}', 'request trial untuk langganan')
+      .replace('{url_slug}', user.url_slug || '');
+    
+    const waLink = `https://wa.me/${whatsappSettings.phone}?text=${encodeURIComponent(message)}`;
     window.open(waLink, '_blank');
   };
   
