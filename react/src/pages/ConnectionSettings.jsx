@@ -1,8 +1,10 @@
+// antml:artifact id="connection-settings-page" type="application/vnd.ant.code" language="javascript"
 // File: react/src/pages/ConnectionSettings.jsx
+
 import React, { useContext, useState } from 'react';
 import { 
   Form, Input, Button, Card, Typography, Alert, Space, 
-  Row, Col, Divider, Spin, Result, List
+  Row, Col, Divider, Spin, Result
 } from 'antd';
 import { ConnectionContext } from '../context/ConnectionContext';
 import { AuthContext } from '../context/AuthContext';
@@ -12,7 +14,7 @@ import { LinkOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-des
 const { Title, Text, Paragraph } = Typography;
 
 const ConnectionSettings = () => {
-  const { backendUrl, updateBackendUrl, isConnected, connectionStatus, userBackendUrl } = useContext(ConnectionContext);
+  const { backendUrl, updateBackendUrl, isConnected, connectionStatus } = useContext(ConnectionContext);
   const { user, token } = useContext(AuthContext);
   const [form] = Form.useForm();
   const [testing, setTesting] = useState(false);
@@ -136,7 +138,7 @@ const ConnectionSettings = () => {
           >
             <Form.Item
               name="backendUrl"
-              label="URL Backend Utama"
+              label="URL Backend"
               rules={[{ required: true, message: 'URL backend tidak boleh kosong' }]}
               extra="Contoh: http://localhost:3500"
             >
@@ -156,30 +158,6 @@ const ConnectionSettings = () => {
                 }
               />
             </Form.Item>
-            
-            {user && user.id && (
-              <>
-                <Divider orientation="left">URL Backend Khusus User</Divider>
-                <Alert
-                  message="URL Khusus User"
-                  description={
-                    <div>
-                      <p>URL backend khusus untuk akun Anda adalah:</p>
-                      <Text copyable strong>
-                        {userBackendUrl || `${backendUrl}/api/user/${user.id}`}
-                      </Text>
-                      <p style={{ marginTop: 10 }}>
-                        URL ini secara otomatis digunakan untuk menu Produk, Variasi Produk, dan Stok
-                        saat langganan Anda aktif.
-                      </p>
-                    </div>
-                  }
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-              </>
-            )}
             
             <Divider />
             

@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback } from "react";
+import { createContext, useState, useEffect } from "react";
 import { API_URL } from "../services/axios";
 import axios from "axios";
 
@@ -16,20 +16,6 @@ export const AuthProvider = ({ children }) => {
     JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user") || "null")
   );
   const [loading, setLoading] = useState(false);
-
-  // Listen for subscription status updates from other components
-  useEffect(() => {
-    const handleUserDataUpdated = (event) => {
-      const { user: updatedUser } = event.detail;
-      setUser(updatedUser);
-    };
-    
-    window.addEventListener('userDataUpdated', handleUserDataUpdated);
-    
-    return () => {
-      window.removeEventListener('userDataUpdated', handleUserDataUpdated);
-    };
-  }, []);
 
   useEffect(() => {
     const savedToken = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -67,47 +53,15 @@ export const AuthProvider = ({ children }) => {
     return () => clearInterval(checkInterval);
   }, [token]);
 
-  const fetchUserProfile = useCallback(async () => {
-  try {
-    setLoading(true);
-    
-    // Tambahkan timeout yang lebih pendek
-    const res = await axios.get(`${API_URL}/api/user/profile`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
-      timeout: 5000 // 5 detik timeout
-    }).catch(error => {
-      console.error("Profile fetch error:", error.message);
-      throw error;
-    });
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API_URL}/api/user/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       const userData = res.data.user;
-      
-      // Check if subscription status has changed
-      if (user && user.hasActiveSubscription !== userData.hasActiveSubscription) {
-        console.log('Subscription status changed:', 
-          user.hasActiveSubscription ? 'active → inactive' : 'inactive → active');
-        
-        // Dispatch event for ConnectionContext to update
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('subscriptionStatusChanged', { 
-            detail: { 
-              status: userData.hasActiveSubscription ? 'active' : 'expired' 
-            } 
-          }));
-        }
-      }
-      
-      // If we got a new token in the response, update it
-      if (res.data.token) {
-        setToken(res.data.token);
-        if (localStorage.getItem("remember") === "true") {
-          localStorage.setItem("token", res.data.token);
-        } else {
-          sessionStorage.setItem("token", res.data.token);
-        }
-      }
-      
       setUser(userData);
       
       // Save user data to storage
@@ -120,11 +74,6 @@ export const AuthProvider = ({ children }) => {
       return userData;
     } catch (error) {
       console.error("Failed to fetch user profile:", error);
-      
-      if (error.code === "ERR_NETWORK" || error.message.includes("Network Error")) {
-      // Jangan logout pada network error, biarkan retry
-      return null;
-    }
       // If fetch fails due to invalid token, logout
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
         logout();
@@ -133,7 +82,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, user]);
+  };
 
   const register = async (username, email, password) => {
     try {

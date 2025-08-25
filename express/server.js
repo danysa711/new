@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const { db } = require("./models");
 
-// Import semua routes
 const licenseRoutes = require("./routes/licenseRoutes");
 const softwareRoutes = require("./routes/softwareRoutes");
 const softwareVersionRoutes = require("./routes/softwareVersionRoutes");
@@ -12,34 +11,33 @@ const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const tripayRoutes = require("./routes/tripayRoutes");
 const publicApiRoutes = require("./routes/publicApiRoutes");
-const settingsRoutes = require("./routes/settingsRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3500;
 
-// Konfigurasi CORS - izinkan semua origin selama pengembangan
+// CORS configuration - allow all origins during development
 app.use(cors({
-  origin: '*', // Untuk development, bisa diganti dengan domain spesifik untuk production
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
+  credentials: true // Tambahkan ini jika menggunakan cookies
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Log semua request yang masuk
+// Log all incoming requests
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Endpoint test
+// Test endpoint
 app.get("/api/test", (req, res) => {
   res.json({ message: "API is working", timestamp: new Date().toISOString() });
 });
 
-// Registrasi semua routes dengan prefix /api
+// Routes
 app.use("/api", licenseRoutes);
 app.use("/api", softwareRoutes);
 app.use("/api", softwareVersionRoutes);
@@ -49,7 +47,6 @@ app.use("/api", userRoutes);
 app.use("/api", subscriptionRoutes);
 app.use("/api/tripay", tripayRoutes);
 app.use("/api/public", publicApiRoutes);
-app.use("/api", settingsRoutes);
 
 // Start server
 app.listen(PORT, async () => {

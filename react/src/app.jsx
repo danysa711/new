@@ -1,25 +1,21 @@
+// antml:artifact id="app-with-connection" type="application/vnd.ant.code" language="javascript"
+// File: react/src/app.jsx
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
-import { ConnectionProvider } from "./context/ConnectionContext";
+import { ConnectionProvider } from "./context/ConnectionContext"; // Import ConnectionProvider
 import MainLayout from "./components/layouts/MainLayout";
 import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
 import ProtectedRoute from "./components/layouts/ProtectedRoute";
-import ConnectionSettings from "./pages/ConnectionSettings";
-import { useContext, useEffect } from "react";
+import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman baru untuk pengaturan koneksi
+import { useContext } from "react";
 
 // Home redirect component
 const HomeRedirect = () => {
-  const { user, fetchUserProfile } = useContext(AuthContext);
-  
-  // Force refresh user profile on app load to ensure subscription status is up-to-date
-  useEffect(() => {
-    if (user) {
-      fetchUserProfile();
-    }
-  }, [user, fetchUserProfile]);
+  const { user } = useContext(AuthContext);
   
   if (!user) {
     return <Navigate to="/login" />;
@@ -35,13 +31,13 @@ const HomeRedirect = () => {
 const App = () => {
   return (
     <AuthProvider>
-      <ConnectionProvider>
+      <ConnectionProvider> {/* Tambahkan ConnectionProvider */}
         <Router>
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/connection-settings" element={<ConnectionSettings />} />
+            <Route path="/connection-settings" element={<ConnectionSettings />} /> {/* Tambahkan rute untuk pengaturan koneksi */}
             
             {/* Root route redirects based on user role */}
             <Route path="/" element={<HomeRedirect />} />

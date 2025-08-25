@@ -21,23 +21,23 @@ const router = express.Router();
 router.get("/subscription-plans", getAllSubscriptionPlans);
 router.get("/subscription-plans/:id", getSubscriptionPlanById);
 
-// Routes untuk pengguna yang hanya memerlukan autentikasi
-// PENTING: JANGAN gunakan requireActiveSubscription di sini
-router.get("/subscriptions/user", authenticateUser, getUserSubscriptions);
-router.get("/subscriptions/:id", authenticateUser, getSubscriptionById);
-router.put("/subscriptions/:id/cancel", authenticateUser, cancelSubscription);
-router.get("/subscriptions/user/:id", authenticateUser, getUserSubscriptions);
+// Routes yang memerlukan autentikasi
+router.use(authenticateUser);
 
+// User subscription routes
+router.get("/subscriptions/user", getUserSubscriptions);
+router.get("/subscriptions/:id", getSubscriptionById);
+router.put("/subscriptions/:id/cancel", cancelSubscription);
 
 // Routes admin
-router.get("/subscriptions", authenticateUser, requireAdmin, getAllSubscriptions);
-router.post("/subscriptions", authenticateUser, requireAdmin, createSubscription);
-router.put("/subscriptions/:id/status", authenticateUser, requireAdmin, updateSubscriptionStatus);
-router.put("/subscriptions/:id/extend", authenticateUser, requireAdmin, extendSubscription);
+router.get("/subscriptions", requireAdmin, getAllSubscriptions);
+router.post("/subscriptions", requireAdmin, createSubscription);
+router.put("/subscriptions/:id/status", requireAdmin, updateSubscriptionStatus);
+router.put("/subscriptions/:id/extend", requireAdmin, extendSubscription);
 
 // Subscription plan management (admin only)
-router.post("/subscription-plans", authenticateUser, requireAdmin, createSubscriptionPlan);
-router.put("/subscription-plans/:id", authenticateUser, requireAdmin, updateSubscriptionPlan);
-router.delete("/subscription-plans/:id", authenticateUser, requireAdmin, deleteSubscriptionPlan);
+router.post("/subscription-plans", requireAdmin, createSubscriptionPlan);
+router.put("/subscription-plans/:id", requireAdmin, updateSubscriptionPlan);
+router.delete("/subscription-plans/:id", requireAdmin, deleteSubscriptionPlan);
 
 module.exports = router;
