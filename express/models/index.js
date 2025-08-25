@@ -1,5 +1,3 @@
-// Tambahkan model baru ke dalam index.js
-
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 const { Sequelize } = require("sequelize");
@@ -17,106 +15,8 @@ const User = sequelize.define(
       allowNull: false,
       unique: true,
     },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true,
-      validate: {
-        isEmail: true,
-      },
-    },
     password: {
       type: DataTypes.STRING,
-      allowNull: false,
-    },
-    role: {
-      type: DataTypes.ENUM("user", "admin"),
-      defaultValue: "user",
-      allowNull: false,
-    },
-    url_slug: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-const Subscription = sequelize.define(
-  "Subscription",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    user_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: "Users",
-        key: "id",
-      },
-    },
-    start_date: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    end_date: {
-      type: DataTypes.DATE,
-      allowNull: false,
-    },
-    status: {
-      type: DataTypes.ENUM("active", "expired", "canceled"),
-      defaultValue: "active",
-      allowNull: false,
-    },
-    payment_status: {
-      type: DataTypes.ENUM("pending", "paid", "failed"),
-      defaultValue: "pending",
-      allowNull: false,
-    },
-    payment_method: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-const SubscriptionPlan = sequelize.define(
-  "SubscriptionPlan",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    name: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    duration_days: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    price: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    is_active: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true,
       allowNull: false,
     },
   },
@@ -132,14 +32,6 @@ const Software = sequelize.define(
     name: { type: DataTypes.STRING(255), allowNull: false },
     requires_license: { type: DataTypes.BOOLEAN, defaultValue: false },
     search_by_version: { type: DataTypes.BOOLEAN, defaultValue: false },
-    user_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: "Users",
-        key: "id"
-      }
-    }
   },
   { timestamps: true }
 );
@@ -152,14 +44,6 @@ const SoftwareVersion = sequelize.define(
     version: { type: DataTypes.STRING(50), allowNull: false },
     os: { type: DataTypes.STRING(50), allowNull: false },
     download_link: { type: DataTypes.TEXT, allowNull: false },
-    user_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: "Users",
-        key: "id"
-      }
-    }
   },
   { timestamps: true }
 );
@@ -181,14 +65,6 @@ const License = sequelize.define(
     license_key: { type: DataTypes.STRING(255), allowNull: false, unique: true },
     is_active: { type: DataTypes.BOOLEAN, defaultValue: false },
     used_at: { type: DataTypes.DATE, allowNull: true },
-    user_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: "Users",
-        key: "id"
-      }
-    }
   },
   { timestamps: true }
 );
@@ -203,14 +79,6 @@ const Order = sequelize.define(
     version: { type: DataTypes.STRING(50), allowNull: true },
     license_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
     status: { type: DataTypes.ENUM("pending", "processed"), defaultValue: "pending" },
-    user_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: "Users",
-        key: "id"
-      }
-    }
   },
   { timestamps: true }
 );
@@ -234,8 +102,6 @@ const db = {
   License,
   Order,
   OrderLicense,
-  Subscription,
-  SubscriptionPlan,
 };
 
 Object.keys(db).forEach((modelName) => {
@@ -259,20 +125,4 @@ License.belongsTo(SoftwareVersion, { foreignKey: "software_version_id" });
 Order.belongsToMany(License, { through: OrderLicense, foreignKey: "order_id" });
 License.belongsToMany(Order, { through: OrderLicense, foreignKey: "license_id" });
 
-User.hasMany(Subscription, { foreignKey: "user_id" });
-Subscription.belongsTo(User, { foreignKey: "user_id" });
-
-// Tambahkan asosiasi baru sesuai Langkah 10
-User.hasMany(Software, { foreignKey: "user_id" });
-Software.belongsTo(User, { foreignKey: "user_id" });
-
-User.hasMany(SoftwareVersion, { foreignKey: "user_id" });
-SoftwareVersion.belongsTo(User, { foreignKey: "user_id" });
-
-User.hasMany(License, { foreignKey: "user_id" });
-License.belongsTo(User, { foreignKey: "user_id" });
-
-User.hasMany(Order, { foreignKey: "user_id" });
-Order.belongsTo(User, { foreignKey: "user_id" });
-
-module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, db };
+module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, db };

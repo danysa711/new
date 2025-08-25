@@ -62,3 +62,6 @@ Tambahkan setiap user memiliki url backend masing-masing contoh http://localhost
 buatkan pada role user ketika langganan habis, menu produk,variasi produk,stok terputus oleh url backend,tetapi menu masih dapat di kelola oleh user
 gunakan struktur yang sudah ada jangan mengubahnya.
 berikan codingan versi lengkap tinggal copy paste
+
+buat codingan saya pada role user / admin dapat terhubung dengan aplikasi 
+mulai dari Pengambilan Data Pesanan dari Backend, siklus pengambilan data dll
