@@ -56,8 +56,14 @@ const UserLayout = () => {
       return;
     }
     
-    // If not the user's own page and not an admin, redirect to their own page
+    // Jika bukan halaman user sendiri dan bukan admin, redirect ke halaman user sendiri
     if (user?.url_slug !== slug && user?.role !== "admin") {
+      navigate(`/user/page/${user.url_slug}`);
+      return;
+    }
+    
+    // Jika mencoba akses halaman langganan tapi bukan admin, redirect ke halaman utama
+    if (location.pathname.includes('/subscription') && user?.role !== "admin") {
       navigate(`/user/page/${user.url_slug}`);
       return;
     }
@@ -79,7 +85,7 @@ const UserLayout = () => {
    };
    
    fetchUserProfile();
- }, [token, slug, user, navigate]);
+ }, [token, slug, user, navigate, location.pathname]);
 
  if (!token) {
    return <Navigate to="/login" />;
@@ -137,6 +143,25 @@ const UserLayout = () => {
    window.open(waLink, '_blank');
  };
 
+ // Membuat array item menu berdasarkan role pengguna
+ const menuItems = [
+   { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Home" },
+   // Hanya tampilkan menu Langganan dan Request Trial untuk admin
+   ...(user.role === "admin" ? [
+     { key: `/user/page/${slug}/subscription`, icon: <ShoppingOutlined />, label: "Langganan" },
+   ] : []),
+   { key: `/user/page/${slug}/orders`, icon: <VideoCameraOutlined />, label: "Pesanan" },
+   { key: `/user/page/${slug}/software`, icon: <AppstoreOutlined />, label: "Produk" },
+   { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
+   { key: `/user/page/${slug}/license`, icon: <KeyOutlined />, label: "Stok" },
+   { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
+   // Hanya tampilkan Request Trial untuk admin
+   ...(user.role === "admin" ? [
+     { key: "trial", icon: <WhatsAppOutlined />, label: "Request Trial" },
+   ] : []),
+   { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
+ ];
+
  return (
    <Layout style={{ minHeight: "100vh" }}>
      <Sider
@@ -180,17 +205,7 @@ const UserLayout = () => {
              navigate(key);
            }
          }}
-         items={[
-           { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Home" },
-           { key: `/user/page/${slug}/subscription`, icon: <ShoppingOutlined />, label: "Langganan" },
-           { key: `/user/page/${slug}/orders`, icon: <VideoCameraOutlined />, label: "Pesanan" },
-           { key: `/user/page/${slug}/software`, icon: <AppstoreOutlined />, label: "Produk" },
-           { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
-           { key: `/user/page/${slug}/license`, icon: <KeyOutlined />, label: "Stok" },
-           { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
-           { key: "trial", icon: <WhatsAppOutlined />, label: "Request Trial" },
-           { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
-         ]}
+         items={menuItems}
        />
      </Sider>
      <Layout style={{ flex: 1 }}>
@@ -224,16 +239,16 @@ const UserLayout = () => {
            )}
          </div>
          
-         {/* Dropdown untuk Request Trial dan Logout */}
+         {/* Dropdown untuk Request Trial dan Logout - sesuaikan dengan role */}
          <Dropdown
            menu={{
              items: [
-               {
+               ...(user.role === "admin" ? [{
                  key: '1',
                  label: 'Request Trial',
                  icon: <WhatsAppOutlined />,
                  onClick: requestTrial
-               },
+               }] : []),
                {
                  key: '2',
                  label: 'Pengaturan Koneksi',
@@ -322,7 +337,7 @@ const UserLayout = () => {
        >
          <Routes>
            <Route path="/" element={<HomeView />} />
-           <Route path="/subscription" element={<SubscriptionPage />} />
+           {user.role === "admin" && <Route path="/subscription" element={<SubscriptionPage />} />}
            <Route path="/orders" element={<OrderTable />} />
            <Route path="/software" element={<SoftwareTable />} />
            <Route path="/version" element={<VersionTable />} />
