@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Popconfirm, message, Input, Tag } from "antd";
 import MainTable from "./MainTable";
-import { getAllOrders, deleteOrder } from "../../services/api";
+import { deleteOrder, getAllOrders } from "../../services/api";
 
 const OrderTable = () => {
   const [orders, setOrders] = useState([]);

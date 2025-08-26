@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getAllSoftwareVersion, 
-  addSoftwareVersion, 
-  updateSoftwareVersion, 
-  deleteSoftwareVersion, 
-  getAllSoftware 
-} from '../../services/api'; // Sesuaikan dengan path file API
+import { getAllSoftwareVersion, addSoftwareVersion, updateSoftwareVersion, deleteSoftwareVersion, getAllSoftware } from '../../services/api'; // Sesuaikan dengan path file API
 import MainTable from './MainTable';
 import { Button, Form, message, Modal, Popconfirm, Input, Select } from "antd";
 
