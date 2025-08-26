@@ -3,15 +3,7 @@ const { Op } = require("sequelize");
 
 const getAllSoftwareVersions = async (req, res) => {
   try {
-    const userId = req.userId;
-    
-    // Filter kondisi berdasarkan role
-    const whereCondition = req.userRole === "admin" 
-      ? {} 
-      : { user_id: userId };
-      
     const versions = await SoftwareVersion.findAll({
-      where: whereCondition,
       include: [{ model: Software, attributes: ["name"] }],
     });
     return res.status(200).json(versions);
@@ -24,19 +16,12 @@ const getAllSoftwareVersions = async (req, res) => {
 const getSoftwareVersionById = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.userId;
-    
     const version = await SoftwareVersion.findByPk(id, {
       include: [{ model: Software, attributes: ["name"] }],
     });
 
     if (!version) {
       return res.status(404).json({ message: "Software version tidak ditemukan" });
-    }
-    
-    // Cek akses untuk non-admin
-    if (req.userRole !== "admin" && version.user_id !== userId) {
-      return res.status(403).json({ message: "Anda tidak memiliki akses ke versi software ini" });
     }
 
     return res.status(200).json(version);
@@ -48,19 +33,8 @@ const getSoftwareVersionById = async (req, res) => {
 
 const getSoftwareVersionBySoftwareId = async (req, res) => {
   try {
-    const userId = req.userId;
-    const softwareId = req.params.software_id;
-    
-    // Cek kepemilikan software jika bukan admin
-    if (req.userRole !== "admin") {
-      const software = await Software.findByPk(softwareId);
-      if (!software || software.user_id !== userId) {
-        return res.status(403).json({ message: "Anda tidak memiliki akses ke software ini" });
-      }
-    }
-    
     const versions = await SoftwareVersion.findAll({
-      where: { software_id: softwareId },
+      where: { software_id: req.params.software_id },
     });
     res.json(versions);
   } catch (error) {
@@ -68,20 +42,57 @@ const getSoftwareVersionBySoftwareId = async (req, res) => {
   }
 };
 
+// const createSoftwareVersion = async (req, res) => {
+//   try {
+//     const { software_id, version, os, download_link } = req.body;
+
+//     const software = await Software.findByPk(software_id);
+//     if (!software) {
+//       return res.status(400).json({ message: "Software ID tidak valid" });
+//     }
+
+//     const newVersion = await SoftwareVersion.create({ software_id, version, os, download_link });
+
+//     return res.status(201).json({ message: "Software version berhasil ditambahkan", version: newVersion });
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ message: "Terjadi kesalahan pada server" });
+//   }
+// };
+
+// const updateSoftwareVersion = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { software_id, version, os, download_link } = req.body;
+
+//     const softwareVersion = await SoftwareVersion.findByPk(id);
+//     if (!softwareVersion) {
+//       return res.status(404).json({ message: "Software version tidak ditemukan" });
+//     }
+
+//     if (software_id) {
+//       const software = await Software.findByPk(software_id);
+//       if (!software) {
+//         return res.status(400).json({ message: "Software ID tidak valid" });
+//       }
+//     }
+
+//     await softwareVersion.update({ software_id, version, os, download_link });
+
+//     return res.status(200).json({ message: "Software version berhasil diperbarui", version: softwareVersion });
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ message: "Terjadi kesalahan pada server" });
+//   }
+// };
+
 const createSoftwareVersion = async (req, res) => {
   try {
     const { software_id, version, os, download_link } = req.body;
-    const userId = req.userId;
 
-    // Cek software
     const software = await Software.findByPk(software_id);
     if (!software) {
       return res.status(400).json({ message: "Software ID tidak valid" });
-    }
-    
-    // Cek kepemilikan software jika bukan admin
-    if (req.userRole !== "admin" && software.user_id !== userId) {
-      return res.status(403).json({ message: "Anda tidak memiliki akses ke software ini" });
     }
 
     const newVersion = await SoftwareVersion.create({
@@ -89,8 +100,7 @@ const createSoftwareVersion = async (req, res) => {
       version,
       os,
       download_link,
-      user_id: userId, // Tambahkan user_id
-      createdAt: new Date(),
+      createdAt: new Date(), // Set createdAt saat pembuatan
     });
 
     return res.status(201).json({ message: "Software version berhasil ditambahkan", version: newVersion });
@@ -104,38 +114,25 @@ const updateSoftwareVersion = async (req, res) => {
   try {
     const { id } = req.params;
     const { software_id, version, os, download_link } = req.body;
-    const userId = req.userId;
 
-    // Cek version
     const softwareVersion = await SoftwareVersion.findByPk(id);
     if (!softwareVersion) {
       return res.status(404).json({ message: "Software version tidak ditemukan" });
     }
-    
-    // Cek kepemilikan version jika bukan admin
-    if (req.userRole !== "admin" && softwareVersion.user_id !== userId) {
-      return res.status(403).json({ message: "Anda tidak memiliki akses untuk mengubah versi software ini" });
-    }
 
-    // Cek software jika ada perubahan software_id
-    if (software_id && software_id !== softwareVersion.software_id) {
+    if (software_id) {
       const software = await Software.findByPk(software_id);
       if (!software) {
         return res.status(400).json({ message: "Software ID tidak valid" });
       }
-      
-      // Cek kepemilikan software jika bukan admin
-      if (req.userRole !== "admin" && software.user_id !== userId) {
-        return res.status(403).json({ message: "Anda tidak memiliki akses ke software ini" });
-      }
     }
 
     await softwareVersion.update({
-      software_id: software_id || softwareVersion.software_id,
+      software_id,
       version,
       os,
       download_link,
-      updatedAt: new Date(),
+      updatedAt: new Date(), // Set updatedAt saat update
     });
 
     return res.status(200).json({ message: "Software version berhasil diperbarui", version: softwareVersion });
@@ -148,16 +145,10 @@ const updateSoftwareVersion = async (req, res) => {
 const deleteSoftwareVersion = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.userId;
 
     const softwareVersion = await SoftwareVersion.findByPk(id);
     if (!softwareVersion) {
       return res.status(404).json({ message: "Software version tidak ditemukan" });
-    }
-    
-    // Cek kepemilikan version jika bukan admin
-    if (req.userRole !== "admin" && softwareVersion.user_id !== userId) {
-      return res.status(403).json({ message: "Anda tidak memiliki akses untuk menghapus versi software ini" });
     }
 
     await softwareVersion.destroy();
@@ -172,28 +163,23 @@ const deleteSoftwareVersion = async (req, res) => {
 const getSoftwareVersionCount = async (req, res) => {
   try {
     const { startDate, endDate } = req.body;
-    const userId = req.userId;
 
     const today = new Date();
     let defaultStartDate = new Date();
     defaultStartDate.setDate(today.getDate() - 30);
 
+    // const finalStartDate = startDate ? new Date(startDate) : defaultStartDate;
+    // const finalEndDate = endDate ? new Date(endDate) : today;
+
     const finalStartDate = startDate ? new Date(`${startDate}T00:00:00.000Z`) : defaultStartDate;
     const finalEndDate = endDate ? new Date(`${endDate}T23:59:59.999Z`) : today;
 
-    // Filter berdasarkan user_id jika bukan admin
-    const whereCondition = {
-      createdAt: {
-        [Op.between]: [finalStartDate, finalEndDate],
-      }
-    };
-    
-    if (req.userRole !== "admin") {
-      whereCondition.user_id = userId;
-    }
-    
     const totalVersions = await SoftwareVersion.count({
-      where: whereCondition
+      where: {
+        createdAt: {
+          [Op.between]: [finalStartDate, finalEndDate],
+        },
+      },
     });
 
     res.json({ totalSoftwareVersions: totalVersions });
