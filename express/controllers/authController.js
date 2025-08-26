@@ -1,14 +1,46 @@
-const { User } = require("../models");
+const { User, Subscription, db } = require("../models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+
+// Helper function to generate unique URL slug
+const generateUniqueSlug = async (username) => {
+  const baseSlug = username.toLowerCase().replace(/[^a-z0-9]/g, "");
+  
+  // Generate a random string
+  const randomString = crypto.randomBytes(4).toString("hex");
+  
+  const slug = `${baseSlug}-${randomString}`;
+  
+  // Check if slug exists
+  const existingUser = await User.findOne({ where: { url_slug: slug } });
+  if (existingUser) {
+    // If exists, try again with a different random string
+    return generateUniqueSlug(username);
+  }
+  
+  return slug;
+};
 
 const register = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
     // Validasi input kosong
-    if (!username || !password) {
-      return res.status(400).json({ error: "Username dan password harus diisi" });
+    if (!username || !password || !email) {
+      return res.status(400).json({ error: "Username, email, dan password harus diisi" });
+    }
+
+    // Check if username already exists
+    const existingUsername = await User.findOne({ where: { username } });
+    if (existingUsername) {
+      return res.status(400).json({ error: "Username sudah digunakan" });
+    }
+
+    // Check if email already exists
+    const existingEmail = await User.findOne({ where: { email } });
+    if (existingEmail) {
+      return res.status(400).json({ error: "Email sudah digunakan" });
     }
 
     // Validasi panjang password (min. 8 karakter, harus ada huruf dan angka)
@@ -17,13 +49,49 @@ const register = async (req, res) => {
       return res.status(400).json({ error: "Password harus minimal 8 karakter dan mengandung huruf serta angka" });
     }
 
+    // Generate unique URL slug
+    const url_slug = await generateUniqueSlug(username);
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Simpan user
-    const user = await User.create({ username, password: hashedPassword });
+    // Set default role to user
+    const role = "user";
 
-    res.status(201).json({ message: "User registered", user });
+    // Simpan user
+    const user = await User.create({ 
+      username, 
+      email, 
+      password: hashedPassword, 
+      role,
+      url_slug 
+    });
+
+    // Generate tokens
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, url_slug: user.url_slug },
+      process.env.JWT_SECRET || "mysecretkey",
+      { expiresIn: "3d" }
+    );
+    
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      process.env.REFRESH_SECRET || "mysecretkey",
+      { expiresIn: "7d" }
+    );
+
+    res.status(201).json({
+      message: "User registered successfully",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        url_slug: user.url_slug
+      },
+      token,
+      refreshToken
+    });
   } catch (error) {
     console.error("Error registering user:", error);
     res.status(400).json({ error: error.message || "Terjadi kesalahan" });
@@ -37,10 +105,14 @@ const refreshToken = async (req, res) => {
 
   try {
     // Verifikasi Refresh Token
-    const decoded = jwt.verify(token, process.env.REFRESH_SECRET);
+    const decoded = jwt.verify(token, process.env.REFRESH_SECRET || "mysecretkey");
 
-    if (decoded.id === "secret") {
-      const newAccessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: "3d" });
+    if (decoded.id === "admin") {
+      const newAccessToken = jwt.sign(
+        { id: decoded.id, role: "admin" }, 
+        process.env.JWT_SECRET || "mysecretkey", 
+        { expiresIn: "3d" }
+      );
 
       res.json({ token: newAccessToken });
     } else {
@@ -50,8 +122,12 @@ const refreshToken = async (req, res) => {
         return res.status(403).json({ error: "Refresh Token tidak valid!" });
       }
 
-      // Generate Access Token baru (15 menit)
-      const newAccessToken = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "3d" });
+      // Generate Access Token baru (3 hari)
+      const newAccessToken = jwt.sign(
+        { id: user.id, username: user.username, role: user.role, url_slug: user.url_slug },
+        process.env.JWT_SECRET || "mysecretkey",
+        { expiresIn: "3d" }
+      );
 
       res.json({ token: newAccessToken });
     }
@@ -63,6 +139,7 @@ const refreshToken = async (req, res) => {
 
 const login = async (req, res) => {
   try {
+    console.log("Login request received:", req.body);
     const { username, password } = req.body;
 
     // Validasi input kosong
@@ -70,28 +147,107 @@ const login = async (req, res) => {
       return res.status(400).json({ error: "Username dan password harus diisi" });
     }
 
-    if (username === "secret" && password === "rahasia") {
-      const token = jwt.sign({ id: username }, process.env.JWT_SECRET, { expiresIn: "3d" });
-      const refreshToken = jwt.sign({ id: username }, process.env.REFRESH_SECRET, { expiresIn: "7d" });
+    // Special admin login
+    if (username === "admin" && password === "Admin123!") {
+      console.log("Admin login successful");
+      const token = jwt.sign(
+        { id: "admin", username: "admin", role: "admin", url_slug: "admin" }, 
+        process.env.JWT_SECRET || "mysecretkey", 
+        { expiresIn: "3d" }
+      );
+      const refreshToken = jwt.sign(
+        { id: "admin" }, 
+        process.env.REFRESH_SECRET || "mysecretkey", 
+        { expiresIn: "7d" }
+      );
 
-      res.json({ token, refreshToken });
-    } else {
-      // Cari user
-      const user = await User.findOne({ where: { username } });
+      console.log("Admin token generated:", token.substring(0, 20) + "...");
+      return res.status(200).json({ 
+        token, 
+        refreshToken,
+        user: {
+          id: "admin",
+          username: "admin",
+          email: "admin@example.com",
+          role: "admin",
+          url_slug: "admin",
+          hasActiveSubscription: true
+        }
+      });
+    } 
 
-      // Jika user tidak ditemukan atau password salah
-      if (!user || !(await bcrypt.compare(password, user.password))) {
-        return res.status(401).json({ error: "Username atau password salah" });
+    // Regular user login
+    console.log("Searching for user:", username);
+    const user = await User.findOne({
+      where: {
+        [db.Sequelize.Op.or]: [
+          { username: username },
+          { email: username }
+        ]
       }
+    });
 
-      // Generate Access Token (expire 15 menit)
-      const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "3d" });
+    console.log("User found:", user ? "Yes" : "No");
 
-      // Generate Refresh Token (expire 7 hari)
-      const refreshToken = jwt.sign({ id: user.id }, process.env.REFRESH_SECRET, { expiresIn: "7d" });
-
-      res.json({ token, refreshToken });
+    // Jika user tidak ditemukan
+    if (!user) {
+      return res.status(401).json({ error: "Username atau password salah" });
     }
+
+    // Cek password
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log("Password match:", isMatch);
+
+    if (!isMatch) {
+      return res.status(401).json({ error: "Username atau password salah" });
+    }
+
+    // Periksa apakah user memiliki langganan aktif
+    const activeSubscription = await Subscription.findOne({
+      where: {
+        user_id: user.id,
+        status: "active",
+        end_date: {
+          [db.Sequelize.Op.gt]: new Date()
+        }
+      }
+    });
+
+    console.log("Has active subscription:", activeSubscription ? "Yes" : "No");
+
+    // Generate Access Token (expire 3 hari)
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        username: user.username, 
+        role: user.role, 
+        url_slug: user.url_slug,
+        hasActiveSubscription: !!activeSubscription
+      },
+      process.env.JWT_SECRET || "mysecretkey",
+      { expiresIn: "3d" }
+    );
+
+    // Generate Refresh Token (expire 7 hari)
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      process.env.REFRESH_SECRET || "mysecretkey",
+      { expiresIn: "7d" }
+    );
+
+    console.log("Login successful, sending response");
+    return res.status(200).json({ 
+      token, 
+      refreshToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        url_slug: user.url_slug,
+        hasActiveSubscription: !!activeSubscription
+      }
+    });
   } catch (error) {
     console.error("Error logging in:", error);
     res.status(500).json({ error: "Terjadi kesalahan, coba lagi nanti" });
@@ -148,4 +304,89 @@ const verifyPassword = async (req, res) => {
   }
 };
 
-module.exports = { register, login, refreshToken, updateUser, verifyPassword };
+const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'username', 'email', 'role', 'url_slug', 'createdAt'],
+      include: [{
+        model: Subscription,
+        where: {
+          status: 'active',
+          end_date: {
+            [db.Sequelize.Op.gt]: new Date()
+          }
+        },
+        required: false
+      }]
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
+
+    const hasActiveSubscription = user.Subscriptions && user.Subscriptions.length > 0;
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        url_slug: user.url_slug,
+        createdAt: user.createdAt,
+        hasActiveSubscription: hasActiveSubscription,
+        subscription: hasActiveSubscription ? {
+          id: user.Subscriptions[0].id,
+          startDate: user.Subscriptions[0].start_date,
+          endDate: user.Subscriptions[0].end_date,
+          status: user.Subscriptions[0].status,
+          paymentStatus: user.Subscriptions[0].payment_status
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({ error: "Terjadi kesalahan, coba lagi nanti" });
+  }
+};
+
+const getPublicUserProfile = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const user = await User.findOne({
+      where: { url_slug: slug },
+      attributes: ['id', 'username', 'url_slug', 'createdAt'],
+      include: [{
+        model: Subscription,
+        where: {
+          status: 'active',
+          end_date: {
+            [db.Sequelize.Op.gt]: new Date()
+          }
+        },
+        required: false
+      }]
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
+
+    res.json({
+      user: {
+        username: user.username,
+        url_slug: user.url_slug,
+        createdAt: user.createdAt,
+        hasActiveSubscription: user.Subscriptions && user.Subscriptions.length > 0
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching public user profile:", error);
+    res.status(500).json({ error: "Terjadi kesalahan, coba lagi nanti" });
+  }
+};
+
+module.exports = { register, login, refreshToken, updateUser, verifyPassword, getUserProfile, getPublicUserProfile };

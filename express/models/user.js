@@ -4,9 +4,7 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
-      // Jika ada relasi ke tabel lain, definisikan di sini
-      // Contoh: User bisa memiliki banyak Order (jika ada tabel Order)
-      // this.hasMany(models.Order, { foreignKey: "user_id" });
+      this.hasMany(models.Subscription, { foreignKey: "user_id" });
     }
   }
 
@@ -17,15 +15,33 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         unique: true,
       },
+      email: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+        validate: {
+          isEmail: true,
+        },
+      },
       password: {
         type: DataTypes.STRING,
         allowNull: false,
+      },
+      role: {
+        type: DataTypes.ENUM("user", "admin"),
+        defaultValue: "user",
+        allowNull: false,
+      },
+      url_slug: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
       },
     },
     {
       sequelize,
       modelName: "User",
-      timestamps: true, // Secara default akan menambahkan `createdAt` dan `updatedAt`
+      timestamps: true,
     }
   );
 
