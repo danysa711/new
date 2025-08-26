@@ -1,0 +1,28 @@
+Gunakan bahasa indonesia
+kirimkan full versi codingan tinggal copy paste
+beserta intruksi dan urutan baris codingan
+konfigurasi semua baik dari api,axios,const,app.jsx,main.jsx,package.json,server.json dll
+url backend saya saat ini https://db.kinterstore.my.id
+url frontend saya saat ini https://kinterstore.my.id
+dan sinkronisasi dengan mysql
+tambahkan permintaan saya di bawah tanpa mengubah struktur yang sudah ada
+
+1. Buatkan Register di menu login username,email,password,verify password
+2. Buatkan setiap user memiliki page pribadi masing-masing,1 user 1 page contoh ketika user A membuat atau menambahkan produk itu tidak akan terlihat pada user B
+3. Buat setiap user yang login / baru register tidak dapat masuk ke domain utama contoh kinterstore.my.id tetapi langsung masuk ke page mereka masing-masing
+4. Buat setiap user memiliki url sendiri contoh kinterstore.my.id/api/user/id user (acak id), buat url setiap user ini terhubung pada url backend utama saya
+5. pengguna lain atau user tidak dapat masuk ke user lain hanya dengan mengganti url
+6. Tampilkan URL setiap user di halaman user bagian atas
+7. Tambahkan Menu Trial Langganan request pada halaman user request via wa
+8. Tambahkan ketika akun user di hapus oleh admin,user otomatis logout dari akun dan kembali ke Login page
+
+Detail Role User 
+Tampilan Home,Langganan,Pesanan,Produk,Variasi Produk,Stok,Ganti Password,Keluar
+tombol logout di kanan atas pada role user ubah menjadi tombol trial
+Tampilkan profile user dikiri atas
+
+
+1. Tambahkan Menu Panel Admin untuk kontrol user
+- Tambahkan Menu Panel Admin - Kelola User untuk mengetahui username,password,email,url page,delete user beserta ubah role dari admin ke user dan sebaliknya
+- Tambahkan kontrol WA pada panel admin untuk mengubah nomor dan isi pesan
+- urutan halaman role admin Home(saat ini),Kelola User,Ganti Password,Keluar

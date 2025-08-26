@@ -1,7 +1,14 @@
 const { Sequelize } = require("sequelize");
 const config = require("./config.js");
 
-const dbConfig = config.development;
+// Tambahkan penanganan error jika config.development tidak ada
+const dbConfig = config.development || {
+  username: process.env.DB_USER || 'root',
+  password: process.env.DB_PASS || 'Danysa711@@@',
+  database: process.env.DB_NAME || 'db_shopee_bot',
+  host: process.env.DB_HOST || '127.0.0.1',
+  dialect: "mysql",
+};
 
 const sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
   host: dbConfig.host,

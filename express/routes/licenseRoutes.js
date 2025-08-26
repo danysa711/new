@@ -1,5 +1,5 @@
 const express = require("express");
-const authenticateToken = require("../middlewares/auth");
+const { authenticateUser } = require("../middlewares/auth"); // Ubah import menjadi destructuring
 
 const {
   getAllLicenses,
@@ -19,18 +19,19 @@ const {
 
 const router = express.Router();
 
-router.get("/licenses", authenticateToken, getAllLicenses);
-router.get("/licenses/:id", authenticateToken, getLicenseById);
-router.get("/licenses/available", authenticateToken, getAvailableLicenses);
-router.get("/licenses/available/all", authenticateToken, getAllAvailableLicenses);
-router.post("/licenses", authenticateToken, createLicense);
-router.post("/licenses/count", authenticateToken, getLicenseCount);
-router.post("/licenses/available/all/count", authenticateToken, getAvailableLicensesCount);
-router.post("/licenses-bulk", authenticateToken, createMultipleLicenses);
-router.put("/licenses/:id", authenticateToken, updateLicense);
-router.put("/licenses-bulk", authenticateToken, updateLicenseMultiply);
-router.delete("/licenses/:id", authenticateToken, deleteLicense);
-router.post("/licenses/delete-multiple", authenticateToken, deleteMultipleLicenses);
-router.patch("/licenses/:id/activate", authenticateToken, activateLicense);
+// Ganti semua authenticateToken menjadi authenticateUser
+router.get("/licenses", authenticateUser, getAllLicenses);
+router.get("/licenses/:id", authenticateUser, getLicenseById);
+router.get("/licenses/available", authenticateUser, getAvailableLicenses);
+router.get("/licenses/available/all", authenticateUser, getAllAvailableLicenses);
+router.post("/licenses", authenticateUser, createLicense);
+router.post("/licenses/count", authenticateUser, getLicenseCount);
+router.post("/licenses/available/all/count", authenticateUser, getAvailableLicensesCount);
+router.post("/licenses-bulk", authenticateUser, createMultipleLicenses);
+router.put("/licenses/:id", authenticateUser, updateLicense);
+router.put("/licenses-bulk", authenticateUser, updateLicenseMultiply);
+router.delete("/licenses/:id", authenticateUser, deleteLicense);
+router.post("/licenses/delete-multiple", authenticateUser, deleteMultipleLicenses);
+router.patch("/licenses/:id/activate", authenticateUser, activateLicense);
 
 module.exports = router;

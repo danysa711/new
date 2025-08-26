@@ -11,7 +11,13 @@ export default defineConfig(({ command, mode }) => {
       __BACKEND_URL__: JSON.stringify(env.VITE_BACKEND_URL),
     },
     server: {
-      allowedHosts: ["www.kinterstore.my.id", "kinterstore.my.id", "db.kinterstore.my.id", "tes.kinterstore.my.id", "db1.kinterstore.my.id"],
+      allowedHosts: [
+        "www.kinterstore.my.id", 
+        "kinterstore.my.id", 
+        "db.kinterstore.my.id", 
+        "tes.kinterstore.my.id", 
+        "db1.kinterstore.my.id"
+      ],
     },
   };
 });

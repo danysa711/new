@@ -7,42 +7,51 @@ const softwareRoutes = require("./routes/softwareRoutes");
 const softwareVersionRoutes = require("./routes/softwareVersionRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const tripayRoutes = require("./routes/tripayRoutes");
+const publicApiRoutes = require("./routes/publicApiRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 3500;
 
-const allowedOrigins = ["https://kinterstore.my.id", "http://172.30.174.75:5200", "http://192.168.0.24:5200", "https://www.kinterstore.my.id"];
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
+// CORS configuration - allow all origins during development
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true // Tambahkan ini jika menggunakan cookies
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Log all incoming requests
 app.use((req, res, next) => {
-  console.log(`Incoming Request: ${req.method} ${req.url}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
+// Test endpoint
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API is working", timestamp: new Date().toISOString() });
+});
+
+// Routes
 app.use("/api", licenseRoutes);
 app.use("/api", softwareRoutes);
 app.use("/api", softwareVersionRoutes);
 app.use("/api", orderRoutes);
 app.use("/api", authRoutes);
+app.use("/api", userRoutes);
+app.use("/api", subscriptionRoutes);
+app.use("/api/tripay", tripayRoutes);
+app.use("/api/public", publicApiRoutes);
 
+// Start server
 app.listen(PORT, async () => {
   try {
-    await db.sequelize.sync();
+    await db.sequelize.authenticate();
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
   } catch (error) {
     console.error("❌ Gagal menyambungkan database:", error);
