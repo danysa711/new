@@ -16,7 +16,7 @@ export default defineConfig(({ command, mode }) => {
         "kinterstore.my.id", 
         "db.kinterstore.my.id", 
         "tes.kinterstore.my.id", 
-        "db1.kinterstore.my.id"
+        "proxy.kinterstore.my.id"
       ],
     },
   };

@@ -1,10 +1,9 @@
-// antml:artifact id="connection-settings-page" type="application/vnd.ant.code" language="javascript"
 // File: react/src/pages/ConnectionSettings.jsx
 
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { 
   Form, Input, Button, Card, Typography, Alert, Space, 
-  Row, Col, Divider, Spin, Result
+  Row, Col, Divider, Spin, Result, Radio, Checkbox
 } from 'antd';
 import { ConnectionContext } from '../context/ConnectionContext';
 import { AuthContext } from '../context/AuthContext';
@@ -14,14 +13,22 @@ import { LinkOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-des
 const { Title, Text, Paragraph } = Typography;
 
 const ConnectionSettings = () => {
-  const { backendUrl, updateBackendUrl, isConnected, connectionStatus } = useContext(ConnectionContext);
+  const { backendUrl, updateBackendUrl, isConnected, connectionStatus, proxyEnabled, setProxyEnabled } = useContext(ConnectionContext);
   const { user, token } = useContext(AuthContext);
   const [form] = Form.useForm();
   const [testing, setTesting] = useState(false);
   const navigate = useNavigate();
   
+  // Perbarui form ketika backendUrl berubah
+  useEffect(() => {
+    form.setFieldsValue({ 
+      backendUrl,
+      useProxy: proxyEnabled
+    });
+  }, [backendUrl, proxyEnabled, form]);
+  
   const handleSubmit = async (values) => {
-    const url = values.backendUrl.trim();
+    let url = values.backendUrl.trim();
     
     // Validasi URL format
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -37,6 +44,9 @@ const ConnectionSettings = () => {
     // Update URL backend
     updateBackendUrl(url);
     
+    // Update pengaturan proxy
+    setProxyEnabled(values.useProxy);
+    
     // Redirect ke login jika belum login, atau ke halaman utama jika sudah login
     if (!token) {
       navigate('/login');
@@ -48,9 +58,20 @@ const ConnectionSettings = () => {
   const testConnection = async () => {
     setTesting(true);
     const url = form.getFieldValue('backendUrl');
+    const useProxy = form.getFieldValue('useProxy');
     
     try {
-      const response = await fetch(`${url}/api/test`);
+      let testUrl = url;
+      
+      // Jika proxy diaktifkan, gunakan domain frontend + /api
+      if (useProxy) {
+        const currentDomain = window.location.origin;
+        testUrl = `${currentDomain}/api/test`;
+      } else {
+        testUrl = `${url}/api/test`;
+      }
+      
+      const response = await fetch(testUrl);
       const data = await response.json();
       
       if (data && data.message === "API is working") {
@@ -133,18 +154,21 @@ const ConnectionSettings = () => {
           <Form
             form={form}
             layout="vertical"
-            initialValues={{ backendUrl }}
+            initialValues={{ 
+              backendUrl,
+              useProxy: proxyEnabled
+            }}
             onFinish={handleSubmit}
           >
             <Form.Item
               name="backendUrl"
               label="URL Backend"
               rules={[{ required: true, message: 'URL backend tidak boleh kosong' }]}
-              extra="Contoh: http://localhost:3500"
+              extra="Contoh: https://db.kinterstore.my.id"
             >
               <Input 
                 prefix={<LinkOutlined />} 
-                placeholder="http://localhost:3500" 
+                placeholder="https://db.kinterstore.my.id" 
                 addonAfter={
                   <Button 
                     type="link" 
@@ -157,6 +181,19 @@ const ConnectionSettings = () => {
                   </Button>
                 }
               />
+            </Form.Item>
+            
+            <Form.Item
+              name="useProxy"
+              valuePropName="checked"
+            >
+              <Checkbox>
+                Gunakan API Proxy Domain Frontend
+                <Paragraph type="secondary" style={{ fontSize: '12px', margin: 0, marginTop: '4px' }}>
+                  Aktifkan opsi ini jika backend API Anda memblokir akses langsung dari browser (CORS).
+                  API akan diakses melalui domain frontend yang sama.
+                </Paragraph>
+              </Checkbox>
             </Form.Item>
             
             <Divider />

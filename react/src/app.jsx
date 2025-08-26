@@ -1,4 +1,3 @@
-// antml:artifact id="app-with-connection" type="application/vnd.ant.code" language="javascript"
 // File: react/src/app.jsx
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
@@ -11,6 +10,7 @@ import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
 import ProtectedRoute from "./components/layouts/ProtectedRoute";
 import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman baru untuk pengaturan koneksi
+import ApiProxy from "./pages/ApiProxy"; // Tambahkan komponen proxy API
 import { useContext } from "react";
 
 // Home redirect component
@@ -47,6 +47,9 @@ const App = () => {
             
             {/* Admin routes */}
             <Route path="/admin/*" element={<AdminLayout />} />
+            
+            {/* API Proxy Route untuk mengakses API dari domain frontend */}
+            <Route path="/api/*" element={<ApiProxy />} />
             
             {/* Legacy Protected Routes */}
             <Route element={<ProtectedRoute />}>

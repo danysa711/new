@@ -64,3 +64,7 @@ berikan codingan versi lengkap tinggal copy paste
 
 buat codingan saya pada role user / admin dapat terhubung dengan aplikasi 
 mulai dari Pengambilan Data Pesanan dari Backend, siklus pengambilan data dll
+
+ubah api url user menjadi domain frontend,dan api url user dapat terhubung dengan url backend utama untuk login,mengambil data atau menulis data
+
+berikan codingan tinggal copy paste,jangan merubah struktur yang sudah ada
