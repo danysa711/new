@@ -17,8 +17,18 @@ const { authenticateUser, requireAdmin } = require("../middlewares/auth");
 
 const router = express.Router();
 
-// Routes publik (tanpa auth)
-router.get("/subscription-plans", getAllSubscriptionPlans);
+// Modifikasi rute ini untuk menerima parameter admin=true
+router.get("/subscription-plans", (req, res, next) => {
+  // Jika request dengan parameter admin=true, periksa autentikasi dan hak admin
+  if (req.query.admin === 'true') {
+    return authenticateUser(req, res, () => {
+      return requireAdmin(req, res, next);
+    });
+  }
+  // Jika tidak, lanjutkan tanpa autentikasi
+  return next();
+}, getAllSubscriptionPlans);
+
 router.get("/subscription-plans/:id", getSubscriptionPlanById);
 
 // Routes yang memerlukan autentikasi
@@ -30,10 +40,22 @@ router.get("/subscriptions/:id", getSubscriptionById);
 router.put("/subscriptions/:id/cancel", cancelSubscription);
 
 // Routes admin
-router.get("/subscriptions", requireAdmin, getAllSubscriptions);
-router.post("/subscriptions", requireAdmin, createSubscription);
-router.put("/subscriptions/:id/status", requireAdmin, updateSubscriptionStatus);
-router.put("/subscriptions/:id/extend", requireAdmin, extendSubscription);
+// Ubah semua route admin untuk memeriksa parameter admin=true
+router.get("/subscriptions", (req, res, next) => {
+  return requireAdmin(req, res, next);
+}, getAllSubscriptions);
+
+router.post("/subscriptions", (req, res, next) => {
+  return requireAdmin(req, res, next);
+}, createSubscription);
+
+router.put("/subscriptions/:id/status", (req, res, next) => {
+  return requireAdmin(req, res, next);
+}, updateSubscriptionStatus);
+
+router.put("/subscriptions/:id/extend", (req, res, next) => {
+  return requireAdmin(req, res, next);
+}, extendSubscription);
 
 // Subscription plan management (admin only)
 router.post("/subscription-plans", requireAdmin, createSubscriptionPlan);

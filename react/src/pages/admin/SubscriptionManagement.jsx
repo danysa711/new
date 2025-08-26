@@ -39,6 +39,7 @@ const SubscriptionManagement = () => {
       
       // Fetch subscriptions
       const subsResponse = await axiosInstance.get('/api/subscriptions');
+      console.log('Subscriptions response:', subsResponse.data);
       setSubscriptions(subsResponse.data);
       
       // Calculate stats
@@ -55,17 +56,24 @@ const SubscriptionManagement = () => {
       
       setStats({ total, active, expired, canceled });
       
-      // Fetch users
-      const usersResponse = await axiosInstance.get('/api/users');
+      // Fetch users dengan parameter admin=true
+      const usersResponse = await axiosInstance.get('/api/users?admin=true');
+      console.log('Users response:', usersResponse.data);
       setUsers(usersResponse.data);
       
-      // Fetch subscription plans
-      const plansResponse = await axiosInstance.get('/api/subscription-plans');
+      // Fetch subscription plans dengan parameter admin=true
+      const plansResponse = await axiosInstance.get('/api/subscription-plans?admin=true');
+      console.log('Plans response:', plansResponse.data);
       setPlans(plansResponse.data);
       
     } catch (error) {
       console.error('Error fetching data:', error);
-      message.error('Failed to load subscription data');
+      message.error('Gagal memuat data langganan. Periksa koneksi backend atau login kembali.');
+      
+      // Jika ada error khusus, tampilkan pesannya
+      if (error.response?.data?.error) {
+        message.error(`Error: ${error.response.data.error}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -103,14 +111,16 @@ const SubscriptionManagement = () => {
        payload.custom_days = values.custom_days;
      }
      
-     await axiosInstance.post('/api/subscriptions', payload);
-     message.success('Subscription created successfully');
+     // Tambahkan parameter admin=true
+     const response = await axiosInstance.post('/api/subscriptions?admin=true', payload);
+     console.log('Create subscription response:', response.data);
+     message.success('Langganan berhasil dibuat');
      
      setModalVisible(false);
      fetchData();
    } catch (error) {
      console.error('Error creating subscription:', error);
-     message.error(error.response?.data?.error || 'Failed to create subscription');
+     message.error(error.response?.data?.error || 'Gagal membuat langganan');
    } finally {
      setLoading(false);
    }
@@ -121,17 +131,19 @@ const SubscriptionManagement = () => {
      const values = await extendForm.validateFields();
      setLoading(true);
      
-     await axiosInstance.put(
-       `/api/subscriptions/${selectedSubscription.id}/extend`, 
+     // Tambahkan parameter admin=true
+     const response = await axiosInstance.put(
+       `/api/subscriptions/${selectedSubscription.id}/extend?admin=true`, 
        { days: values.days }
      );
+     console.log('Extend subscription response:', response.data);
      
-     message.success('Subscription extended successfully');
+     message.success('Langganan berhasil diperpanjang');
      setExtendModalVisible(false);
      fetchData();
    } catch (error) {
      console.error('Error extending subscription:', error);
-     message.error(error.response?.data?.error || 'Failed to extend subscription');
+     message.error(error.response?.data?.error || 'Gagal memperpanjang langganan');
    } finally {
      setLoading(false);
    }
@@ -145,12 +157,14 @@ const SubscriptionManagement = () => {
        payload.payment_status = payment_status;
      }
      
-     await axiosInstance.put(`/api/subscriptions/${id}/status`, payload);
-     message.success('Subscription status updated successfully');
+     // Tambahkan parameter admin=true
+     const response = await axiosInstance.put(`/api/subscriptions/${id}/status?admin=true`, payload);
+     console.log('Update status response:', response.data);
+     message.success('Status langganan berhasil diperbarui');
      fetchData();
    } catch (error) {
      console.error('Error updating subscription status:', error);
-     message.error('Failed to update subscription status');
+     message.error('Gagal memperbarui status langganan');
    } finally {
      setLoading(false);
    }

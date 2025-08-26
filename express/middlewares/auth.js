@@ -15,7 +15,13 @@ const authenticateUser = async (req, res, next) => {
     req.userSlug = decoded.url_slug;
     req.hasActiveSubscription = decoded.hasActiveSubscription;
 
-    // Tambahkan pengecekan apakah user masih ada di database
+    // Tambahkan debug log
+    console.log("Token decoded successfully:", { 
+      userId: req.userId, 
+      userRole: req.userRole,
+      path: req.originalUrl
+    });
+
     // Skip untuk user admin yang hardcoded
     if (decoded.id !== "admin") {
       const user = await User.findByPk(decoded.id);
@@ -27,13 +33,18 @@ const authenticateUser = async (req, res, next) => {
       }
     }
 
+    // Langsung next() jika user adalah admin
+    if (req.userRole === "admin" || req.userId === "admin") {
+      return next();
+    }
+
     // Jika URL berisi slug, cek apakah user bisa mengakses
     const urlPath = req.originalUrl;
     if (urlPath.includes('/user/page/')) {
       const urlSlug = urlPath.split('/user/page/')[1]?.split('/')[0];
       
       // Jika tidak sama dengan user slug dan bukan admin, tolak akses
-      if (urlSlug !== req.userSlug && req.userRole !== 'admin') {
+      if (urlSlug !== req.userSlug) {
         return res.status(403).json({ error: "Tidak memiliki akses ke halaman ini" });
       }
     }
@@ -46,15 +57,28 @@ const authenticateUser = async (req, res, next) => {
 };
 
 const requireAdmin = (req, res, next) => {
-  if (req.userRole !== "admin") {
-    return res.status(403).json({ error: "Akses ditolak, memerlukan hak admin" });
+  // Tambahkan debug log
+  console.log("Checking admin rights:", { 
+    userRole: req.userRole, 
+    userId: req.userId,
+    path: req.originalUrl,
+    query: req.query,
+    headers: req.headers
+  });
+
+  // Khusus untuk user hardcoded "admin" atau user dengan role "admin"
+  if (req.userId === "admin" || req.userRole === "admin") {
+    console.log("Admin access granted");
+    return next();
   }
-  next();
+  
+  console.log("Admin access denied");
+  return res.status(403).json({ error: "Akses ditolak, memerlukan hak admin" });
 };
 
 const requireActiveSubscription = async (req, res, next) => {
   // Admin tidak memerlukan langganan aktif
-  if (req.userRole === "admin") {
+  if (req.userRole === "admin" || req.userId === "admin") {
     return next();
   }
 
@@ -76,8 +100,6 @@ const requireActiveSubscription = async (req, res, next) => {
 
       if (!activeSubscription) {
         // Mengirim status 403 dengan flag khusus untuk menandai langganan kedaluwarsa
-        // Middleware akan memblokir akses ke API, tetapi di frontend pengguna tetap dapat
-        // melihat halaman user mereka, hanya saja koneksi API yang terputus
         return res.status(403).json({ 
           error: "Langganan tidak aktif", 
           subscriptionRequired: true,

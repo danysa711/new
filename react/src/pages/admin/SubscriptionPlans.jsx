@@ -21,17 +21,18 @@ const SubscriptionPlans = () => {
   const [form] = Form.useForm();
 
   const fetchPlans = async () => {
-    try {
-      setLoading(true);
-      const response = await axiosInstance.get('/api/subscription-plans');
-      setPlans(response.data);
-    } catch (error) {
-      console.error('Error fetching subscription plans:', error);
-      message.error('Failed to load subscription plans');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    // Tambahkan parameter admin=true untuk menandai request dari admin
+    const response = await axiosInstance.get('/api/subscription-plans?admin=true');
+    setPlans(response.data);
+  } catch (error) {
+    console.error('Error fetching subscription plans:', error);
+    message.error('Gagal memuat paket langganan. Silakan coba lagi.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchPlans();

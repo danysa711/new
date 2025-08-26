@@ -2,6 +2,11 @@ const { Subscription, SubscriptionPlan, User, db } = require("../models");
 
 const getAllSubscriptionPlans = async (req, res) => {
   try {
+    console.log("Get all subscription plans called, user:", {
+      userId: req.userId || 'no user id',
+      userRole: req.userRole || 'no user role'
+    });
+    
     const plans = await SubscriptionPlan.findAll({
       where: { is_active: true },
       order: [['duration_days', 'ASC']]

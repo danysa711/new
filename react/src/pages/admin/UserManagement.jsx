@@ -1,3 +1,5 @@
+// File: react/src/pages/admin/UserManagement.jsx
+
 import React, { useState, useEffect } from 'react';
 import { 
   Table, Button, Space, Tag, Modal, Form, Input, 
@@ -23,11 +25,14 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get('/api/users');
+      console.log("Fetching users with admin parameter...");
+      // Tambahkan parameter admin=true
+      const response = await axiosInstance.get('/api/users?admin=true');
+      console.log("Users response:", response.data);
       setUsers(response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
-      message.error('Failed to load users');
+      message.error('Gagal memuat data pengguna');
     } finally {
       setLoading(false);
     }
@@ -60,13 +65,16 @@ const UserManagement = () => {
       setLoading(true);
       
       if (modalType === 'add') {
-        await axiosInstance.post('/api/users', values);
+        // Tambahkan parameter admin=true
+        await axiosInstance.post('/api/users?admin=true', values);
         message.success('User created successfully');
       } else if (modalType === 'edit') {
-        await axiosInstance.put(`/api/users/${selectedUser.id}/role`, { role: values.role });
+        // Tambahkan parameter admin=true
+        await axiosInstance.put(`/api/users/${selectedUser.id}/role?admin=true`, { role: values.role });
         message.success('User role updated successfully');
       } else if (modalType === 'reset') {
-        await axiosInstance.put(`/api/users/${selectedUser.id}/reset-password`, { 
+        // Tambahkan parameter admin=true
+        await axiosInstance.put(`/api/users/${selectedUser.id}/reset-password?admin=true`, { 
           newPassword: values.newPassword 
         });
         message.success('Password reset successfully');
@@ -85,7 +93,8 @@ const UserManagement = () => {
   const handleDelete = async (userId) => {
     try {
       setLoading(true);
-      await axiosInstance.delete(`/api/users/${userId}`);
+      // Tambahkan parameter admin=true
+      await axiosInstance.delete(`/api/users/${userId}?admin=true`);
       message.success('User deleted successfully');
       fetchUsers();
     } catch (error) {

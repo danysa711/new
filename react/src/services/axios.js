@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const API_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
+export const API_URL = localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
 
 console.log("Using API URL:", API_URL);
 
@@ -43,6 +43,14 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
+    
+    // Untuk debugging
+    console.log(`Request to ${config.url}`, {
+      headers: config.headers,
+      method: config.method,
+      baseURL: config.baseURL
+    });
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -65,6 +73,13 @@ const onRefreshed = (token) => {
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Log untuk debugging
+    console.error(`Error response from ${error.config?.url}:`, {
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
+    
     const originalRequest = error.config;
 
     // Cek apakah error terkait user dihapus
@@ -123,6 +138,7 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Untuk admin, coba periksa token dan refresh jika diperlukan
     if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
       const refreshToken = getStoredRefreshToken();
 
@@ -151,29 +167,47 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        console.log("Attempting to refresh token...");
         const refreshResponse = await axios.post(`${API_URL}/api/user/refresh`, { token: refreshToken });
+        console.log("Refresh token response:", refreshResponse.data);
 
         const newAccessToken = refreshResponse.data.token;
-        // const newRefreshToken = refreshResponse.data.refreshToken;
+        
+        // Save token based on remember preference
+        saveToken(newAccessToken, "");
 
-        // saveToken(newAccessToken, newRefreshToken); // Simpan token sesuai remember
-        saveToken(newAccessToken, ""); // Simpan token sesuai remember
-
+        // Update Authorization header
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
 
         onRefreshed(newAccessToken);
         isRefreshing = false;
 
+        // Retry the original request with the new token
         return axiosInstance(originalRequest);
       } catch (refreshError) {
-        console.warn("Refresh token expired, redirecting to login...");
+        console.warn("Refresh token expired or error:", refreshError);
         localStorage.removeItem("token");
         sessionStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
         sessionStorage.removeItem("refreshToken");
         localStorage.removeItem("remember");
         sessionStorage.removeItem("remember");
-        window.location.href = "/login";
+        
+        // Beri notifikasi kepada user
+        try {
+          const { notification } = require('antd');
+          notification.error({
+            message: 'Sesi Berakhir',
+            description: 'Sesi Anda telah berakhir. Silakan login kembali.',
+            duration: 5,
+            onClose: () => {
+              window.location.href = "/login";
+            }
+          });
+        } catch (err) {
+          window.location.href = "/login";
+        }
+        
         return Promise.reject(refreshError);
       }
     }
