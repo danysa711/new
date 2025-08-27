@@ -8,10 +8,21 @@ export const ConnectionContext = createContext();
 
 export const ConnectionProvider = ({ children }) => {
   const { user, token } = useContext(AuthContext);
-  const [backendUrl, setBackendUrl] = useState(localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL);
+  const [backendUrl, setBackendUrl] = useState(() => {
+    // Prioritaskan backend URL dari user jika tersedia
+    return user?.backend_url || localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL;
+  });
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("checking");
   const [proxyEnabled, setProxyEnabled] = useState(localStorage.getItem("useProxyApi") === "true");
+  
+  // Update backendUrl ketika user berubah
+  useEffect(() => {
+    if (user?.backend_url) {
+      setBackendUrl(user.backend_url);
+      localStorage.setItem("backendUrl", user.backend_url);
+    }
+  }, [user]);
   
   // Simpan URL dan proxyEnabled di localStorage saat berubah
   useEffect(() => {
@@ -100,9 +111,36 @@ export const ConnectionProvider = ({ children }) => {
   }, [backendUrl, token, user, proxyEnabled]);
   
   // Fungsi untuk mengubah URL backend
-  const updateBackendUrl = (newUrl) => {
+  const updateBackendUrl = async (newUrl) => {
     if (newUrl && newUrl.trim() !== "") {
       setBackendUrl(newUrl);
+      
+      // Jika ada fungsi updateBackendUrl di AuthContext, panggil untuk menyimpan ke server
+      if (user && token) {
+        try {
+          // Panggil API untuk memperbarui backend URL di server
+          await axiosInstance.put('/api/user/backend-url', { backend_url: newUrl });
+          
+          // Perbarui user data dengan backend URL baru
+          if (user) {
+            user.backend_url = newUrl;
+            
+            // Perbarui di storage lokal
+            const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+            storedUser.backend_url = newUrl;
+            
+            if (localStorage.getItem('user')) {
+              localStorage.setItem('user', JSON.stringify(storedUser));
+            }
+            
+            if (sessionStorage.getItem('user')) {
+              sessionStorage.setItem('user', JSON.stringify(storedUser));
+            }
+          }
+        } catch (error) {
+          console.error('Error updating backend URL on server:', error);
+        }
+      }
     }
   };
   

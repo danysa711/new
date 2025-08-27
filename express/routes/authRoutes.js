@@ -11,5 +11,6 @@ router.post("/user/password", authenticateUser, verifyPassword);
 router.post("/user/refresh", refreshToken);
 router.get("/user/profile", authenticateUser, getUserProfile);
 router.get("/user/public/:slug", getPublicUserProfile);
+router.put("/user/backend-url", authenticateUser, updateBackendUrl);
 
 module.exports = router;

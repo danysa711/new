@@ -17,18 +17,8 @@ const { authenticateUser, requireAdmin } = require("../middlewares/auth");
 
 const router = express.Router();
 
-// Modifikasi rute ini untuk menerima parameter admin=true
-router.get("/subscription-plans", (req, res, next) => {
-  // Jika request dengan parameter admin=true, periksa autentikasi dan hak admin
-  if (req.query.admin === 'true') {
-    return authenticateUser(req, res, () => {
-      return requireAdmin(req, res, next);
-    });
-  }
-  // Jika tidak, lanjutkan tanpa autentikasi
-  return next();
-}, getAllSubscriptionPlans);
-
+// Route publik untuk paket langganan (tidak memerlukan autentikasi)
+router.get("/subscription-plans", getAllSubscriptionPlans);
 router.get("/subscription-plans/:id", getSubscriptionPlanById);
 
 // Routes yang memerlukan autentikasi
@@ -39,23 +29,11 @@ router.get("/subscriptions/user", getUserSubscriptions);
 router.get("/subscriptions/:id", getSubscriptionById);
 router.put("/subscriptions/:id/cancel", cancelSubscription);
 
-// Routes admin
-// Ubah semua route admin untuk memeriksa parameter admin=true
-router.get("/subscriptions", (req, res, next) => {
-  return requireAdmin(req, res, next);
-}, getAllSubscriptions);
-
-router.post("/subscriptions", (req, res, next) => {
-  return requireAdmin(req, res, next);
-}, createSubscription);
-
-router.put("/subscriptions/:id/status", (req, res, next) => {
-  return requireAdmin(req, res, next);
-}, updateSubscriptionStatus);
-
-router.put("/subscriptions/:id/extend", (req, res, next) => {
-  return requireAdmin(req, res, next);
-}, extendSubscription);
+// Admin routes dengan middleware requireAdmin
+router.get("/subscriptions", requireAdmin, getAllSubscriptions);
+router.post("/subscriptions", requireAdmin, createSubscription);
+router.put("/subscriptions/:id/status", requireAdmin, updateSubscriptionStatus);
+router.put("/subscriptions/:id/extend", requireAdmin, extendSubscription);
 
 // Subscription plan management (admin only)
 router.post("/subscription-plans", requireAdmin, createSubscriptionPlan);

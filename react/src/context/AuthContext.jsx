@@ -174,6 +174,41 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Tambahkan fungsi updateBackendUrl
+const updateBackendUrl = async (backendUrl) => {
+  try {
+    setLoading(true);
+    const response = await axiosInstance.put('/api/user/backend-url', { backend_url: backendUrl });
+    
+    if (response.status === 200) {
+      // Update user data
+      const updatedUser = { ...user, backend_url: backendUrl };
+      setUser(updatedUser);
+      
+      // Update di storage
+      if (localStorage.getItem("remember") === "true") {
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      } else {
+        sessionStorage.setItem("user", JSON.stringify(updatedUser));
+      }
+      
+      // Perbarui axiosInstance baseURL jika perlu
+      axiosInstance.defaults.baseURL = backendUrl;
+      
+      return { success: true };
+    }
+    return { success: false };
+  } catch (error) {
+    console.error("Error updating backend URL:", error);
+    return { 
+      success: false, 
+      error: error.response?.data?.error || "Failed to update backend URL" 
+    };
+  } finally {
+    setLoading(false);
+  }
+};
+
   return (
     <AuthContext.Provider value={{ 
       refreshToken, 
@@ -184,7 +219,8 @@ export const AuthProvider = ({ children }) => {
       register, 
       loading,
       updateUserData,
-      fetchUserProfile 
+      fetchUserProfile,
+      updateBackendUrl
     }}>
       {children}
     </AuthContext.Provider>

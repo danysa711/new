@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { useState, useEffect, useContext } from 'react';
 import axiosInstance from '../../services/axios';
 import { AuthContext } from '../../context/AuthContext';
+import UserApiInfo from '../../components/UserApiInfo';
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -83,6 +84,12 @@ const UserHomeView = () => {
           <Option value="30">30 Hari Terakhir</Option>
           <Option value="90">90 Hari Terakhir</Option>
         </Select>
+      </Row>
+
+       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col span={24}>
+          <UserApiInfo user={user} />
+        </Col>
       </Row>
 
       <Row gutter={[16, 16]}>

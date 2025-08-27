@@ -144,9 +144,11 @@ const getAllSubscriptions = async (req, res) => {
   try {
     // Check if the requester is admin
     if (req.userRole !== "admin") {
+      console.log("Permintaan ditolak: user bukan admin", req.userRole);
       return res.status(403).json({ error: "Tidak memiliki izin" });
     }
 
+    console.log("Mengambil semua langganan dengan hak admin");
     const subscriptions = await Subscription.findAll({
       include: [{ model: User, attributes: ['id', 'username', 'email', 'url_slug'] }],
       order: [['createdAt', 'DESC']]
@@ -154,7 +156,7 @@ const getAllSubscriptions = async (req, res) => {
 
     return res.status(200).json(subscriptions);
   } catch (error) {
-    console.error("Error getting all subscriptions:", error);
+    console.error("Error mendapatkan semua langganan:", error);
     return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };

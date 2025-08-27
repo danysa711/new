@@ -9,7 +9,7 @@ import axiosInstance from '../../services/axios';
 const { Title, Text, Paragraph } = Typography;
 
 const TripaySettings = () => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm(); // Deklarasi hook useForm
   const [loading, setLoading] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [testResult, setTestResult] = useState(null);
@@ -106,6 +106,7 @@ const TripaySettings = () => {
         </div>
       ) : (
         <Card>
+          {/* PENTING: Tambahkan prop form di sini untuk menghubungkan Form dengan instance form */}
           <Form
             form={form}
             layout="vertical"

@@ -304,12 +304,36 @@ const verifyPassword = async (req, res) => {
   }
 };
 
+// Tambahkan fungsi untuk mengatur backend URL
+const updateBackendUrl = async (req, res) => {
+  try {
+    const { backend_url } = req.body;
+    const userId = req.userId;
+
+    // Validasi URL
+    if (!backend_url || !backend_url.match(/^https?:\/\/.+/)) {
+      return res.status(400).json({ error: "URL backend tidak valid. Harus dimulai dengan http:// atau https://" });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+
+    await user.update({ backend_url });
+
+    res.json({ message: "URL backend berhasil diperbarui", backend_url });
+  } catch (error) {
+    console.error("Error updating backend URL:", error);
+    res.status(500).json({ error: "Terjadi kesalahan, coba lagi nanti" });
+  }
+};
+
+// Update fungsi getUserProfile untuk menyertakan backend_url
 const getUserProfile = async (req, res) => {
   try {
     const userId = req.userId;
 
     const user = await User.findByPk(userId, {
-      attributes: ['id', 'username', 'email', 'role', 'url_slug', 'createdAt'],
+      attributes: ['id', 'username', 'email', 'role', 'url_slug', 'backend_url', 'createdAt'],
       include: [{
         model: Subscription,
         where: {
@@ -335,6 +359,7 @@ const getUserProfile = async (req, res) => {
         email: user.email,
         role: user.role,
         url_slug: user.url_slug,
+        backend_url: user.backend_url,
         createdAt: user.createdAt,
         hasActiveSubscription: hasActiveSubscription,
         subscription: hasActiveSubscription ? {
@@ -389,4 +414,4 @@ const getPublicUserProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, refreshToken, updateUser, verifyPassword, getUserProfile, getPublicUserProfile };
+module.exports = { register, login, refreshToken, updateUser, verifyPassword, getUserProfile, getPublicUserProfile, updateBackendUrl, };

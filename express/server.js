@@ -18,9 +18,13 @@ const PORT = process.env.PORT || 3500;
 // Definisikan corsOptions dengan semua domain yang diizinkan
 const corsOptions = {
   origin: [
+    "*", // Izinkan semua origins
     "https://kinterstore.my.id",       // Tambahkan domain tanpa www
     "https://www.kinterstore.my.id", 
-    "http://db.kinterstore.my.id"
+    "https://db.kinterstore.my.id",
+    "http://localhost:3000",           // Untuk development
+    "http://localhost:5173",           // Untuk Vite
+    "http://localhost:5174"            // Untuk alternatif port Vite
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],

@@ -25,9 +25,11 @@ const getAllUsers = async (req, res) => {
   try {
     // Check if the requester is admin
     if (req.userRole !== "admin") {
+      console.log("Permintaan ditolak: user bukan admin", req.userRole);
       return res.status(403).json({ error: "Tidak memiliki izin" });
     }
 
+    console.log("Mengambil semua user dengan hak admin");
     const users = await User.findAll({
       attributes: ['id', 'username', 'email', 'role', 'url_slug', 'createdAt'],
       include: [{
@@ -61,7 +63,7 @@ const getAllUsers = async (req, res) => {
 
     return res.status(200).json(formattedUsers);
   } catch (error) {
-    console.error("Error getting users:", error);
+    console.error("Error mendapatkan user:", error);
     return res.status(500).json({ error: "Terjadi kesalahan pada server" });
   }
 };

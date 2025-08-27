@@ -33,6 +33,12 @@ const authenticateUser = async (req, res, next) => {
       }
     }
 
+    // Cek apakah ini permintaan ke /api/orders/find - BERIKAN AKSES LANGSUNG
+    if (req.originalUrl === '/api/orders/find') {
+      console.log("Mengizinkan akses langsung ke /api/orders/find");
+      return next();
+    }
+
     // Langsung next() jika user adalah admin
     if (req.userRole === "admin" || req.userId === "admin") {
       return next();
@@ -79,6 +85,12 @@ const requireAdmin = (req, res, next) => {
 const requireActiveSubscription = async (req, res, next) => {
   // Admin tidak memerlukan langganan aktif
   if (req.userRole === "admin" || req.userId === "admin") {
+    return next();
+  }
+  
+  // Cek apakah ini permintaan ke /api/orders/find - BERIKAN AKSES LANGSUNG
+  if (req.originalUrl === '/api/orders/find') {
+    console.log("Bypass subscription check for /api/orders/find");
     return next();
   }
 

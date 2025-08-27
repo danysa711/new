@@ -11,6 +11,8 @@ router.post("/orders", authenticateUser, createOrder);
 router.put("/orders/:id", authenticateUser, updateOrder);
 router.delete("/orders/:id", authenticateUser, deleteOrder);
 router.post("/orders/process", authenticateUser, processOrder);
+
+// PENTING: Ubah route ini untuk memberikan akses ke semua user
 router.post("/orders/find", authenticateUser, findOrder);
 
 module.exports = router;

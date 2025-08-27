@@ -1,3 +1,5 @@
+// File: react/src/components/layouts/UserLayout.jsx
+
 import React, { useContext, useState, useEffect } from "react";
 import {
   MenuFoldOutlined,
@@ -14,9 +16,10 @@ import {
   WhatsAppOutlined,
   DownOutlined,
   LinkOutlined,
-  WarningOutlined
+  WarningOutlined,
+  CopyOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal } from "antd";
+import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Row, Col } from "antd";
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { ConnectionContext } from "../../context/ConnectionContext"; // Import ConnectionContext
@@ -27,6 +30,7 @@ import SubscriptionPage from "../../pages/user/SubscriptionPage";
 import SoftwareTable from "../tables/SoftwareTable";
 import VersionTable from "../tables/VersionTable";
 import LicenseTable from "../tables/LicenseTable";
+import BackendSettings from "../../pages/user/BackendSettings"; // Impor halaman BackendSettings (buat setelah ini)
 import axiosInstance from "../../services/axios";
 
 const { Header, Sider, Content } = Layout;
@@ -127,7 +131,7 @@ const UserLayout = () => {
  }
 
  // API URL yang dapat digunakan orang lain untuk mengakses data halaman ini
- const apiUrl = `https://www.db.kinterstore.my.id/api/user/${slug}`;
+ const apiUrl = `${backendUrl || 'https://db.kinterstore.my.id'}/api/public/user/${slug}`;
 
  // Fungsi untuk membuka WhatsApp dengan pesan request trial
  const requestTrial = () => {
@@ -187,6 +191,7 @@ const UserLayout = () => {
            { key: `/user/page/${slug}/software`, icon: <AppstoreOutlined />, label: "Produk" },
            { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
            { key: `/user/page/${slug}/license`, icon: <KeyOutlined />, label: "Stok" },
+           { key: `/user/page/${slug}/backend-settings`, icon: <LinkOutlined />, label: "Pengaturan Backend" }, // Tambahkan menu ini
            { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
            { key: "trial", icon: <WhatsAppOutlined />, label: "Request Trial" },
            { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
@@ -270,13 +275,23 @@ const UserLayout = () => {
        }}>
          <Space>
            <Text strong>Backend URL: </Text>
-           <Paragraph copyable style={{ margin: 0 }}>{backendUrl || "Not configured"}</Paragraph>
+           <Paragraph copyable={{ icon: <CopyOutlined /> }} style={{ margin: 0 }}>
+             {user?.backend_url || backendUrl || 'https://db.kinterstore.my.id'}
+           </Paragraph>
          </Space>
          <Space>
            <Text>Status: </Text>
            <Tag color={isConnected ? "success" : "error"}>
              {isConnected ? "Terhubung" : "Terputus"}
            </Tag>
+           <Button 
+             type="link" 
+             size="small" 
+             icon={<SettingOutlined />}
+             onClick={() => navigate(`/user/page/${slug}/backend-settings`)}
+           >
+             Ubah
+           </Button>
          </Space>
        </div>
        
@@ -308,7 +323,7 @@ const UserLayout = () => {
          justifyContent: "space-between"
        }}>
          <Text strong>API URL: </Text>
-         <Paragraph copyable style={{ margin: 0 }}>{apiUrl}</Paragraph>
+         <Paragraph copyable={{ icon: <CopyOutlined /> }} style={{ margin: 0 }}>{apiUrl}</Paragraph>
        </div>
        
        <Content
@@ -327,6 +342,7 @@ const UserLayout = () => {
            <Route path="/software" element={<SoftwareTable />} />
            <Route path="/version" element={<VersionTable />} />
            <Route path="/license" element={<LicenseTable />} />
+           <Route path="/backend-settings" element={<BackendSettings />} /> {/* Tambahkan rute ini */}
            <Route path="/change-password" element={<ChangePass />} />
          </Routes>
        </Content>

@@ -7,7 +7,7 @@ const getUserPublicData = async (req, res) => {
     // Cari user berdasarkan slug
     const user = await User.findOne({
       where: { url_slug: slug },
-      attributes: ['id', 'username', 'url_slug', 'createdAt', 'role'],
+      attributes: ['id', 'username', 'url_slug', 'backend_url', 'createdAt', 'role'],
     });
 
     if (!user) {
@@ -36,6 +36,7 @@ const getUserPublicData = async (req, res) => {
     const response = {
       username: user.username,
       url_slug: user.url_slug,
+      backend_url: user.backend_url,
       createdAt: user.createdAt,
       hasActiveSubscription: !!activeSubscription,
       stats: {

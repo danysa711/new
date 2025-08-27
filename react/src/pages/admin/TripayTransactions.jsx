@@ -234,16 +234,16 @@ const TripayTransactions = () => {
       <Card style={{ marginBottom: 16 }}>
         <Space style={{ marginBottom: 16 }}>
           <RangePicker 
-            value={dateRange} 
-            onChange={setDateRange} 
-            style={{ width: 300 }}
-            ranges={{
-              'Hari Ini': [moment().startOf('day'), moment().endOf('day')],
-              'Minggu Ini': [moment().startOf('week'), moment().endOf('week')],
-              'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
-              '30 Hari Terakhir': [moment().subtract(30, 'days'), moment()],
-            }}
-          />
+  value={dateRange} 
+  onChange={setDateRange} 
+  style={{ width: 300 }}
+  presets={[
+    { label: 'Hari Ini', value: [moment().startOf('day'), moment().endOf('day')] },
+    { label: 'Minggu Ini', value: [moment().startOf('week'), moment().endOf('week')] },
+    { label: 'Bulan Ini', value: [moment().startOf('month'), moment().endOf('month')] },
+    { label: '30 Hari Terakhir', value: [moment().subtract(30, 'days'), moment()] },
+  ]}
+/>
           
           <Select 
             value={status} 

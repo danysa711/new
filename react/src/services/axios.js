@@ -46,6 +46,15 @@ axiosInstance.interceptors.request.use(
       config.headers["Authorization"] = `Bearer ${token}`;
     }
     
+    // PERBAIKAN: Pastikan baseURL lengkap
+    // Jika URL yang diminta tidak dimulai dengan http, tambahkan baseURL
+    if (config.url && !config.url.startsWith('http')) {
+      // Pastikan baseURL diakhiri dengan / jika url tidak dimulai dengan /
+      if (!config.baseURL.endsWith('/') && !config.url.startsWith('/')) {
+        config.url = '/' + config.url;
+      }
+    }
+    
     // Untuk pencatatan
     console.log(`Permintaan ke ${config.url}`, {
       headers: config.headers,
@@ -57,6 +66,7 @@ axiosInstance.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
 
 // Cegah multiple refresh requests
 let isRefreshing = false;

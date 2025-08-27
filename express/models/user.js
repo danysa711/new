@@ -1,3 +1,5 @@
+// File: express/models/user.js
+
 "use strict";
 const { Model } = require("sequelize");
 
@@ -37,6 +39,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         unique: true,
       },
+      backend_url: {  // Tambahkan kolom baru ini
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: process.env.BACKEND_URL || "https://db.kinterstore.my.id"
+      }
     },
     {
       sequelize,

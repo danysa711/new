@@ -215,6 +215,12 @@ const findOrder = async (req, res) => {
   let transaction;
   const userId = req.userId;
 
+  console.log("findOrder diakses oleh:", {
+    userId: userId,
+    role: req.userRole,
+    body: req.body
+  });
+
   try {
     transaction = await db.sequelize.transaction({
       isolationLevel: db.Sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED,
@@ -229,23 +235,17 @@ const findOrder = async (req, res) => {
       return res.status(404).json({ message: "Software tidak ditemukan" });
     }
     
-    // Cek kepemilikan software jika bukan admin
-    if (req.userRole !== "admin" && software.user_id !== userId) {
-      await transaction.rollback();
-      return res.status(403).json({ message: "Anda tidak memiliki akses ke software ini" });
-    }
-
+    // PENTING: Hapus pengecekan user_id untuk /api/orders/find
+    // Ini memungkinkan semua user untuk mengakses data software
+    
     // Cari softwareVersion berdasarkan software_id, os, version
     const softwareVersion = await SoftwareVersion.findOne({
       where: { software_id: software.id, os, version },
       transaction,
     });
     
-    // Cek kepemilikan version jika bukan admin dan version ditemukan
-    if (softwareVersion && req.userRole !== "admin" && softwareVersion.user_id !== userId) {
-      await transaction.rollback();
-      return res.status(403).json({ message: "Anda tidak memiliki akses ke versi software ini" });
-    }
+    // PENTING: Hapus pengecekan user_id untuk softwareVersion
+    // Ini memungkinkan semua user untuk mengakses data versi software
 
     let licenses = [];
     let licenseInfo = [];
@@ -277,10 +277,8 @@ const findOrder = async (req, res) => {
     // Mencari lisensi
     let licenseQuery = { software_id: software.id, is_active: false };
 
-    // Tambahkan filter user_id jika bukan admin
-    if (req.userRole !== "admin") {
-      licenseQuery.user_id = userId;
-    }
+    // PENTING: Hapus filter user_id agar semua lisensi dapat diakses
+    // Ini memungkinkan semua user untuk mengakses lisensi dari semua user
 
     if (software.search_by_version) {
       // Jika software butuh lisensi & butuh versi spesifik, gunakan software_version_id
