@@ -132,8 +132,8 @@ const UserLayout = () => {
  // Fungsi untuk membuka WhatsApp dengan pesan request trial
  const requestTrial = () => {
    // Pesan WhatsApp dengan format yang berisi informasi user
-   const message = `Halo, saya ${user.username} (${user.email}) ingin request trial untuk langganan. URL Slug: ${user.url_slug}`;
-   const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(message)}`;
+   const message = `Halo, saya ${user.username} (${user.email}) ingin request trial dengan URL: ${user.url_slug}`;
+   const waLink = `https://wa.me/6281284712684?text=${encodeURIComponent(message)}`;
    window.open(waLink, '_blank');
  };
 
