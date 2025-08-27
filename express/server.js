@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3500;
 
 // CORS configuration - allow all origins during development
 app.use(cors({
-  origin: "*",
+  origin: ["https://kinterstore.my.id", "http://kinterstore.my.id", "http://db.kinterstore.my.id"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true // Tambahkan ini jika menggunakan cookies
