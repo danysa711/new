@@ -9,11 +9,10 @@ import MainLayout from "./components/layouts/MainLayout";
 import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
 import ProtectedRoute from "./components/layouts/ProtectedRoute";
-import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman baru untuk pengaturan koneksi
-import ApiProxy from "./pages/ApiProxy"; // Tambahkan komponen proxy API
+import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman untuk pengaturan koneksi
 import { useContext } from "react";
 
-// Home redirect component
+// Komponen pengalihan beranda
 const HomeRedirect = () => {
   const { user } = useContext(AuthContext);
   
@@ -34,29 +33,26 @@ const App = () => {
       <ConnectionProvider> {/* Tambahkan ConnectionProvider */}
         <Router>
           <Routes>
-            {/* Public routes */}
+            {/* Rute publik */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/connection-settings" element={<ConnectionSettings />} /> {/* Tambahkan rute untuk pengaturan koneksi */}
+            <Route path="/connection-settings" element={<ConnectionSettings />} /> {/* Rute untuk pengaturan koneksi */}
             
-            {/* Root route redirects based on user role */}
+            {/* Rute akar mengarahkan berdasarkan peran pengguna */}
             <Route path="/" element={<HomeRedirect />} />
             
-            {/* User routes */}
+            {/* Rute pengguna */}
             <Route path="/user/page/:slug/*" element={<UserLayout />} />
             
-            {/* Admin routes */}
+            {/* Rute admin */}
             <Route path="/admin/*" element={<AdminLayout />} />
             
-            {/* API Proxy Route untuk mengakses API dari domain frontend */}
-            <Route path="/api/*" element={<ApiProxy />} />
-            
-            {/* Legacy Protected Routes */}
+            {/* Rute yang Dilindungi Lama */}
             <Route element={<ProtectedRoute />}>
               <Route path="/legacy/*" element={<MainLayout />} />
             </Route>
             
-            {/* Catch-all route */}
+            {/* Rute penangkap semua */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>

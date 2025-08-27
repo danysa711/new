@@ -3,7 +3,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { 
   Form, Input, Button, Card, Typography, Alert, Space, 
-  Row, Col, Divider, Spin, Result, Radio, Checkbox
+  Row, Col, Divider, Spin
 } from 'antd';
 import { ConnectionContext } from '../context/ConnectionContext';
 import { AuthContext } from '../context/AuthContext';
@@ -13,7 +13,7 @@ import { LinkOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-des
 const { Title, Text, Paragraph } = Typography;
 
 const ConnectionSettings = () => {
-  const { backendUrl, updateBackendUrl, isConnected, connectionStatus, proxyEnabled, setProxyEnabled } = useContext(ConnectionContext);
+  const { backendUrl, updateBackendUrl, isConnected, connectionStatus } = useContext(ConnectionContext);
   const { user, token } = useContext(AuthContext);
   const [form] = Form.useForm();
   const [testing, setTesting] = useState(false);
@@ -22,15 +22,14 @@ const ConnectionSettings = () => {
   // Perbarui form ketika backendUrl berubah
   useEffect(() => {
     form.setFieldsValue({ 
-      backendUrl,
-      useProxy: proxyEnabled
+      backendUrl
     });
-  }, [backendUrl, proxyEnabled, form]);
+  }, [backendUrl, form]);
   
   const handleSubmit = async (values) => {
     let url = values.backendUrl.trim();
     
-    // Validasi URL format
+    // Validasi format URL
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       form.setFields([
         {
@@ -41,13 +40,10 @@ const ConnectionSettings = () => {
       return;
     }
     
-    // Update URL backend
+    // Perbarui URL backend
     updateBackendUrl(url);
     
-    // Update pengaturan proxy
-    setProxyEnabled(values.useProxy);
-    
-    // Redirect ke login jika belum login, atau ke halaman utama jika sudah login
+    // Arahkan ke halaman login jika belum login, atau ke halaman utama jika sudah login
     if (!token) {
       navigate('/login');
     } else {
@@ -58,18 +54,9 @@ const ConnectionSettings = () => {
   const testConnection = async () => {
     setTesting(true);
     const url = form.getFieldValue('backendUrl');
-    const useProxy = form.getFieldValue('useProxy');
     
     try {
-      let testUrl = url;
-      
-      // Jika proxy diaktifkan, gunakan domain frontend + /api
-      if (useProxy) {
-        const currentDomain = window.location.origin;
-        testUrl = `${currentDomain}/api/test`;
-      } else {
-        testUrl = `${url}/api/test`;
-      }
+      let testUrl = `${url}/api/test`;
       
       const response = await fetch(testUrl);
       const data = await response.json();
@@ -155,8 +142,7 @@ const ConnectionSettings = () => {
             form={form}
             layout="vertical"
             initialValues={{ 
-              backendUrl,
-              useProxy: proxyEnabled
+              backendUrl
             }}
             onFinish={handleSubmit}
           >
@@ -183,19 +169,6 @@ const ConnectionSettings = () => {
               />
             </Form.Item>
             
-            <Form.Item
-              name="useProxy"
-              valuePropName="checked"
-            >
-              <Checkbox>
-                Gunakan API Proxy Domain Frontend
-                <Paragraph type="secondary" style={{ fontSize: '12px', margin: 0, marginTop: '4px' }}>
-                  Aktifkan opsi ini jika backend API Anda memblokir akses langsung dari browser (CORS).
-                  API akan diakses melalui domain frontend yang sama.
-                </Paragraph>
-              </Checkbox>
-            </Form.Item>
-            
             <Divider />
             
             <Form.Item>
@@ -218,3 +191,4 @@ const ConnectionSettings = () => {
 };
 
 export default ConnectionSettings;
+

@@ -5,24 +5,9 @@ import axios from "axios";
 // Ambil URL backend dari localStorage atau env
 export const API_URL = localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
 
-// Cek apakah proxy API diaktifkan
-const useProxyApi = localStorage.getItem("useProxyApi") === "true";
-
-// Tentukan baseURL berdasarkan pengaturan proxy
-let baseURL;
-if (useProxyApi) {
-  // Gunakan domain frontend saat ini jika proxy diaktifkan
-  baseURL = window.location.origin;
-} else {
-  // Gunakan API_URL langsung jika proxy tidak diaktifkan
-  baseURL = API_URL;
-}
-
-console.log("Axios baseURL:", baseURL);
-console.log("Proxy enabled:", useProxyApi);
-
+// Buat instance axios dengan baseURL yang benar
 const axiosInstance = axios.create({
-  baseURL,
+  baseURL: API_URL,
   timeout: 90000,
   headers: {
     "Content-Type": "application/json",
@@ -53,18 +38,6 @@ const getStoredRefreshToken = () => {
   return remember ? localStorage.getItem("refreshToken") : sessionStorage.getItem("refreshToken");
 };
 
-// Modifikasi path jika menggunakan proxy
-const getProxyUrl = (url) => {
-  if (!useProxyApi) return url;
-  
-  // Jika URL dimulai dengan /api, tidak perlu tambahan
-  if (url.startsWith('/api')) return url;
-  
-  // Jika tidak, tambahkan /api di depan
-  // Contoh: /licenses menjadi /api/licenses
-  return url.startsWith('/') ? `/api${url}` : `/api/${url}`;
-};
-
 // Tambahkan token ke setiap request
 axiosInstance.interceptors.request.use(
   (config) => {
@@ -73,17 +46,11 @@ axiosInstance.interceptors.request.use(
       config.headers["Authorization"] = `Bearer ${token}`;
     }
     
-    // Modifikasi URL jika menggunakan proxy
-    if (useProxyApi && !config.url.startsWith('/api') && !config.url.startsWith('http')) {
-      config.url = getProxyUrl(config.url);
-    }
-    
-    // Untuk debugging
-    console.log(`Request to ${config.url}`, {
+    // Untuk pencatatan
+    console.log(`Permintaan ke ${config.url}`, {
       headers: config.headers,
       method: config.method,
-      baseURL: config.baseURL,
-      useProxy: useProxyApi
+      baseURL: config.baseURL
     });
     
     return config;
@@ -204,13 +171,8 @@ axiosInstance.interceptors.response.use(
       try {
         console.log("Attempting to refresh token...");
         
-        // Tentukan URL refresh token
-        let refreshUrl;
-        if (useProxyApi) {
-          refreshUrl = `${baseURL}/api/user/refresh`;
-        } else {
-          refreshUrl = `${API_URL}/api/user/refresh`;
-        }
+        // URL untuk refresh token
+        const refreshUrl = `${API_URL}/api/user/refresh`;
         
         const refreshResponse = await axios.post(refreshUrl, { token: refreshToken }, {
           headers: {
