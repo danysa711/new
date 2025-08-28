@@ -51,13 +51,9 @@ const getAllAvailableLicenses = async (req, res) => {
     const userId = req.userId;
     
     // Filter kondisi berdasarkan role
-    const whereCondition = {
-      is_active: false
-    };
-    
-    if (req.userRole !== "admin") {
-      whereCondition.user_id = userId;
-    }
+    const whereCondition = req.userRole === "admin" 
+  ? {} 
+  : { user_id: userId };
     
     const licenses = await License.findAll({
       where: whereCondition,

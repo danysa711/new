@@ -7,8 +7,8 @@ const getAllSoftwareVersions = async (req, res) => {
     
     // Filter kondisi berdasarkan role
     const whereCondition = req.userRole === "admin" 
-      ? {} 
-      : { user_id: userId };
+  ? {} 
+  : { user_id: userId };
       
     const versions = await SoftwareVersion.findAll({
       where: whereCondition,
