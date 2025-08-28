@@ -1,13 +1,3 @@
-// File: src/services/api.js
-
-import axios from 'axios';
-import { 
-  getBackendUrlForEndpoint, 
-  getAuthHeaders, 
-  axiosConfig,
-  MAIN_BACKEND_URL
-} from './api-config';
-
 // File: src/services/api-config.js
 
 /**

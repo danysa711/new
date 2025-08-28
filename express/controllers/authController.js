@@ -163,15 +163,16 @@ const login = async (req, res) => {
 
       console.log("Admin token generated:", token.substring(0, 20) + "...");
       return res.status(200).json({ 
-        token, 
-        refreshToken,
-        user: {
-          id: "admin",
-          username: "admin",
-          email: "admin@example.com",
-          role: "admin",
-          url_slug: "admin",
-          hasActiveSubscription: true
+      token, 
+      refreshToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        url_slug: user.url_slug,
+        backend_url: user.backend_url, // Tambahkan ini
+        hasActiveSubscription: !!activeSubscription
         }
       });
     } 

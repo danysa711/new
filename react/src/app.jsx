@@ -11,6 +11,7 @@ import AdminLayout from "./components/layouts/AdminLayout";
 import ProtectedRoute from "./components/layouts/ProtectedRoute";
 import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman untuk pengaturan koneksi
 import { useContext } from "react";
+import OrderSearch from './components/OrderSearch';
 
 // Komponen pengalihan beranda
 const HomeRedirect = () => {
@@ -54,6 +55,8 @@ const App = () => {
             
             {/* Rute penangkap semua */}
             <Route path="*" element={<Navigate to="/" replace />} />
+
+            <Route path="/user/page/:slug/orders/search" element={<OrderSearch />} />
           </Routes>
         </Router>
       </ConnectionProvider>

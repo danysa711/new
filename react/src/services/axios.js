@@ -1,13 +1,32 @@
-// File: react/src/services/axios.js
+// File: src/services/axios.js
 
 import axios from "axios";
 
-// Ambil URL backend dari localStorage atau env
-export const API_URL = localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "http://localhost:3500";
+// Fungsi untuk mendapatkan backend URL
+const getBackendUrl = () => {
+  // Urutan prioritas:
+  // 1. URL backend dari user yang sedang login (dari localStorage/sessionStorage)
+  // 2. URL backend yang tersimpan di localStorage
+  // 3. URL default dari environment variable
+  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
+  let user = null;
+  
+  try {
+    if (userStr) {
+      user = JSON.parse(userStr);
+    }
+  } catch (err) {
+    console.error("Error parsing user data:", err);
+  }
+  
+  return user?.backend_url || 
+         localStorage.getItem("backendUrl") || 
+         import.meta.env.VITE_BACKEND_URL || 
+         "https://db.kinterstore.my.id";
+};
 
-// Buat instance axios dengan baseURL yang benar
+// Buat instance axios dengan baseURL yang dinamis
 const axiosInstance = axios.create({
-  baseURL: API_URL,
   timeout: 90000,
   headers: {
     "Content-Type": "application/json",
@@ -38,16 +57,18 @@ const getStoredRefreshToken = () => {
   return remember ? localStorage.getItem("refreshToken") : sessionStorage.getItem("refreshToken");
 };
 
-// Tambahkan token ke setiap request
+// Tambahkan token dan baseURL ke setiap request
 axiosInstance.interceptors.request.use(
   (config) => {
+    // Set baseURL dinamis untuk setiap request
+    config.baseURL = getBackendUrl();
+    
     const token = getStoredToken();
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
     
-    // PERBAIKAN: Pastikan baseURL lengkap
-    // Jika URL yang diminta tidak dimulai dengan http, tambahkan baseURL
+    // Pastikan URL lengkap
     if (config.url && !config.url.startsWith('http')) {
       // Pastikan baseURL diakhiri dengan / jika url tidak dimulai dengan /
       if (!config.baseURL.endsWith('/') && !config.url.startsWith('/')) {
@@ -56,17 +77,15 @@ axiosInstance.interceptors.request.use(
     }
     
     // Untuk pencatatan
-    console.log(`Permintaan ke ${config.url}`, {
+    console.log(`Permintaan ke ${config.baseURL}${config.url}`, {
       headers: config.headers,
-      method: config.method,
-      baseURL: config.baseURL
+      method: config.method
     });
     
     return config;
   },
   (error) => Promise.reject(error)
 );
-
 
 // Cegah multiple refresh requests
 let isRefreshing = false;
@@ -93,6 +112,7 @@ axiosInstance.interceptors.response.use(
     });
     
     const originalRequest = error.config;
+    const currentBackendUrl = getBackendUrl();
 
     // Cek apakah error terkait user dihapus
     if (error.response?.data?.code === "USER_DELETED") {
@@ -107,21 +127,9 @@ axiosInstance.interceptors.response.use(
       localStorage.removeItem("remember");
       sessionStorage.removeItem("remember");
       
-      // Tampilkan pesan
-      if (typeof window !== 'undefined') {
-        // Gunakan Modal dari antd untuk menampilkan pesan
-        // Import ini perlu ditambahkan di bagian atas file
-        const { Modal } = require('antd');
-        Modal.warning({
-          title: 'Akun Dihapus',
-          content: 'Akun Anda telah dihapus oleh admin.',
-          onOk() {
-            window.location.href = "/login";
-          }
-        });
-      } else {
-        window.location.href = "/login";
-      }
+      // Tampilkan pesan dan arahkan ke login
+      alert('Akun Anda telah dihapus oleh admin.');
+      window.location.href = "/login";
       return Promise.reject(error);
     }
     
@@ -131,21 +139,7 @@ axiosInstance.interceptors.response.use(
       // Jangan mengarahkan ulang ke halaman login, biarkan pengguna tetap di halaman user
       // Hanya perbarui status koneksi dan tampilkan notifikasi
       if (error.response.status === 403) {
-        try {
-          const { notification } = require('antd');
-          notification.warning({
-            message: 'Langganan Kedaluwarsa',
-            description: 'Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda untuk mengakses semua fitur.',
-            duration: 10,
-          });
-          
-          // Update user state if needed
-          if (typeof window !== 'undefined' && window.updateUserSubscriptionStatus) {
-            window.updateUserSubscriptionStatus(false);
-          }
-        } catch (err) {
-          console.error("Error handling subscription expired:", err);
-        }
+        alert('Langganan Kedaluwarsa: Koneksi ke API terputus karena langganan Anda telah berakhir.');
       }
       return Promise.reject(error);
     }
@@ -181,8 +175,8 @@ axiosInstance.interceptors.response.use(
       try {
         console.log("Attempting to refresh token...");
         
-        // URL untuk refresh token
-        const refreshUrl = `${API_URL}/api/user/refresh`;
+        // URL untuk refresh token dengan backend URL saat ini
+        const refreshUrl = `${currentBackendUrl}/api/user/refresh`;
         
         const refreshResponse = await axios.post(refreshUrl, { token: refreshToken }, {
           headers: {
@@ -214,20 +208,9 @@ axiosInstance.interceptors.response.use(
         localStorage.removeItem("remember");
         sessionStorage.removeItem("remember");
         
-        // Beri notifikasi kepada user
-        try {
-          const { notification } = require('antd');
-          notification.error({
-            message: 'Sesi Berakhir',
-            description: 'Sesi Anda telah berakhir. Silakan login kembali.',
-            duration: 5,
-            onClose: () => {
-              window.location.href = "/login";
-            }
-          });
-        } catch (err) {
-          window.location.href = "/login";
-        }
+        // Arahkan ke halaman login
+        alert('Sesi Anda telah berakhir. Silakan login kembali.');
+        window.location.href = "/login";
         
         return Promise.reject(refreshError);
       }
@@ -236,5 +219,63 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Fungsi khusus untuk orders/find yang akan bekerja dengan backend URL spesifik
+export const findOrders = async (orderData, specificBackendUrl = null) => {
+  try {
+    // Gunakan backend URL yang spesifik jika disediakan, atau gunakan default
+    const url = specificBackendUrl || getBackendUrl();
+    
+    console.log(`Mencari pesanan dengan backend URL: ${url}`);
+    
+    // Buat request langsung ke backend yang ditentukan
+    const response = await axios.post(`${url}/api/orders/find`, orderData, {
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getStoredToken()}`
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error("Error finding orders:", error);
+    throw error;
+  }
+};
+
+// Fungsi khusus untuk membuat permintaan dengan backend URL spesifik
+export const makeRequestWithSpecificBackend = async (method, endpoint, data = null, specificBackendUrl = null) => {
+  try {
+    // Gunakan backend URL yang spesifik jika disediakan, atau gunakan default
+    const url = specificBackendUrl || getBackendUrl();
+    
+    console.log(`Making ${method} request to ${url}${endpoint}`);
+    
+    const config = {
+      method,
+      url: `${url}${endpoint}`,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getStoredToken()}`
+      }
+    };
+    
+    if (data && (method.toLowerCase() !== 'get')) {
+      config.data = data;
+    } else if (data && method.toLowerCase() === 'get') {
+      config.params = data;
+    }
+    
+    const response = await axios(config);
+    return response.data;
+  } catch (error) {
+    console.error(`Error making ${method} request to ${endpoint}:`, error);
+    throw error;
+  }
+};
+
+// Expose URL functions
+export const API_URL = getBackendUrl();
+export const getApiUrl = getBackendUrl;
 
 export default axiosInstance;
