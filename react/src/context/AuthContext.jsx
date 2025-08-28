@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
   const createAxiosInstance = (url) => {
     return axios.create({
       baseURL: url,
-      timeout: 10000,
+      timeout: 30000, // Meningkatkan timeout menjadi 30 detik
       headers: {
         "Content-Type": "application/json",
       },
@@ -92,6 +92,14 @@ export const AuthProvider = ({ children }) => {
       if (userData.backend_url && userData.backend_url !== backendUrl) {
         setBackendUrl(userData.backend_url);
         localStorage.setItem("backendUrl", userData.backend_url);
+      }
+      
+      // Pastikan field hasActiveSubscription selalu ada
+      if (userData.subscription) {
+        userData.hasActiveSubscription = true;
+      } else if (userData.hasActiveSubscription === undefined) {
+        // Jika tidak ada informasi langganan, cek dari data subscription
+        userData.hasActiveSubscription = Boolean(userData.Subscriptions && userData.Subscriptions.length > 0);
       }
       
       setUser(userData);
@@ -178,6 +186,14 @@ export const AuthProvider = ({ children }) => {
       console.log("Login response:", res.data);
       
       const { token, refreshToken, user } = res.data;
+
+      // Pastikan field hasActiveSubscription selalu ada
+      if (user) {
+        if (user.hasActiveSubscription === undefined) {
+          // Jika tidak ada informasi langganan, cek dari data subscription
+          user.hasActiveSubscription = Boolean(user.Subscriptions && user.Subscriptions.length > 0);
+        }
+      }
 
       // Update state
       setToken(token);

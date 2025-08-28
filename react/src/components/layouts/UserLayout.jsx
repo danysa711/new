@@ -141,6 +141,10 @@ const UserLayout = () => {
    window.open(waLink, '_blank');
  };
 
+ // Force isConnected to true if user has active subscription
+ const effectiveIsConnected = user.hasActiveSubscription ? true : isConnected;
+ const effectiveConnectionStatus = user.hasActiveSubscription ? "connected" : connectionStatus;
+
  return (
    <Layout style={{ minHeight: "100vh" }}>
      <Sider
@@ -281,8 +285,8 @@ const UserLayout = () => {
          </Space>
          <Space>
            <Text>Status: </Text>
-           <Tag color={isConnected ? "success" : "error"}>
-             {isConnected ? "Terhubung" : "Terputus"}
+           <Tag color={effectiveIsConnected ? "success" : "error"}>
+             {effectiveIsConnected ? "Terhubung" : "Terputus"}
            </Tag>
            <Button 
              type="link" 
@@ -296,7 +300,7 @@ const UserLayout = () => {
        </div>
        
        {/* Tampilkan peringatan jika langganan kedaluwarsa, tapi tetap izinkan akses ke halaman */}
-       {connectionStatus === 'subscription_expired' && (
+       {effectiveConnectionStatus === 'subscription_expired' && (
          <Alert
            message="Langganan Kedaluwarsa"
            description="Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda."

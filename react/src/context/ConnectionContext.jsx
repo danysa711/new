@@ -8,7 +8,7 @@ export const ConnectionProvider = ({ children }) => {
   const { user, token } = useContext(AuthContext);
   const [backendUrl, setBackendUrl] = useState(() => {
     // Prioritaskan backend URL dari user jika tersedia
-    return user?.backend_url || localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL;
+    return user?.backend_url || localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "https://db.kinterstore.my.id";
   });
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("checking");
@@ -65,43 +65,84 @@ export const ConnectionProvider = ({ children }) => {
           testUrl = `${backendUrl}/api/test`;
         }
         
-        const response = await fetch(testUrl);
+        console.log("Memeriksa koneksi ke:", testUrl);
+
+        const response = await fetch(testUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
-        // Cek apakah user berlangganan aktif
-        if (user && !user.hasActiveSubscription) {
-          setIsConnected(false);
-          setConnectionStatus("subscription_expired");
-          return;
-        }
+        console.log("Status respons:", response.status);
         
+        // Jika respons OK, koneksi berhasil
         if (response.ok) {
           const data = await response.json();
+          console.log("Data respons:", data);
+          
           if (data && data.message === "API is working") {
             setIsConnected(true);
             setConnectionStatus("connected");
+            console.log("Koneksi berhasil!");
           } else {
             setIsConnected(false);
             setConnectionStatus("error");
+            console.log("Format respons tidak valid");
           }
         } else {
+          // Periksa jika ini masalah langganan kedaluwarsa
+          if (response.status === 403) {
+            try {
+              const errorData = await response.json();
+              if (errorData && errorData.subscriptionRequired) {
+                setIsConnected(false);
+                setConnectionStatus("subscription_expired");
+                console.log("Langganan kedaluwarsa");
+                return;
+              }
+            } catch (e) {
+              console.error("Gagal parse respons error:", e);
+            }
+          }
+          
+          // Jika bukan masalah langganan, set sebagai error umum
           setIsConnected(false);
           setConnectionStatus("error");
+          console.log("Koneksi gagal dengan status:", response.status);
         }
       } catch (err) {
-        console.error("Connection error:", err);
+        console.error("Error koneksi:", err);
         setIsConnected(false);
         setConnectionStatus("error");
       }
     };
 
-    if (backendUrl) {
+    // Jika user dan token ada, cek status langganan
+    if (user && token) {
+      // Jika user memiliki langganan aktif, abaikan masalah koneksi backend
+      if (user.hasActiveSubscription) {
+        console.log("User memiliki langganan aktif, mengatur koneksi ke connected");
+        setIsConnected(true);
+        setConnectionStatus("connected");
+      } else {
+        // Jika tidak berlangganan, cek koneksi seperti biasa
+        checkConnection();
+      }
+    } else if (backendUrl) {
+      // Jika tidak ada user/token tapi ada backendUrl, tetap cek koneksi
       checkConnection();
     }
     
     // Set interval untuk cek koneksi secara berkala (setiap 1 menit)
     const intervalId = setInterval(() => {
-      if (backendUrl) {
-        checkConnection();
+      if (backendUrl && token) {
+        // Jika user memiliki langganan aktif, abaikan cek koneksi berkala
+        if (user && user.hasActiveSubscription) {
+          setIsConnected(true);
+          setConnectionStatus("connected");
+        } else {
+          checkConnection();
+        }
       }
     }, 60000);
     

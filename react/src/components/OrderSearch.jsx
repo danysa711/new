@@ -1,9 +1,7 @@
-// File: src/components/OrderSearch.jsx
-
 import React, { useState, useEffect } from 'react';
-import { findOrders, getUserBackendUrl } from '../services/auth';
 import { Card, Form, Input, Button, Alert, Spin, Typography, Divider, Tag, Space } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import axiosInstance from '../services/axios';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -25,8 +23,18 @@ const OrderSearch = () => {
   
   // Ambil URL backend user saat komponen dimuat
   useEffect(() => {
-    const url = getUserBackendUrl();
-    setBackendUrl(url);
+    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        setBackendUrl(userData.backend_url || localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id');
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+        setBackendUrl(localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id');
+      }
+    } else {
+      setBackendUrl(localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id');
+    }
   }, []);
   
   // Menangani perubahan pada form input
@@ -61,9 +69,9 @@ const OrderSearch = () => {
       }
       
       // Panggil API untuk mencari pesanan di backend spesifik user
-      const response = await findOrders(orderData);
+      const response = await axiosInstance.post('/api/orders/find', orderData);
       
-      setResults(response);
+      setResults(response.data);
     } catch (err) {
       console.error('Error searching for order:', err);
       setError(err.message || 'Gagal mencari pesanan. Silakan coba lagi.');

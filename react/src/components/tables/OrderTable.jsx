@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Popconfirm, message, Input, Tag } from "antd";
-import MainTable from "./MainTable";
-import { getAllOrders, deleteOrder } from "../../services/api"; // Pastikan impor dari api.js, bukan yang lain
+import MainTable from "../../components/tables/MainTable";
+import axiosInstance from "../../services/axios";
 
 const OrderTable = () => {
   const [orders, setOrders] = useState([]);
@@ -14,7 +14,8 @@ const OrderTable = () => {
     const fetchOrders = async () => {
       setIsLoading(true);
       try {
-        const data = await getAllOrders();
+        const response = await axiosInstance.get('/api/orders');
+        const data = response.data;
         const sortedData = [...data].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by date (desc)
         setOrders(sortedData);
         setFilteredOrders(sortedData);
@@ -31,7 +32,7 @@ const OrderTable = () => {
   const handleDelete = async (id) => {
     setIsLoading(true);
     try {
-      await deleteOrder(id);
+      await axiosInstance.delete(`/api/orders/${id}`);
       message.success("Pesanan berhasil dihapus!");
       setOrders((prev) => prev.filter((order) => order.id !== id));
       setFilteredOrders((prev) => prev.filter((order) => order.id !== id));
@@ -95,7 +96,7 @@ const OrderTable = () => {
   return (
     <div>
       <Input
-        placeholder="Cari Nomor Pesanan,Nama Produk atau Stok..."
+        placeholder="Cari Nomor Pesanan, Nama Produk atau Stok..."
         value={searchText}
         onChange={handleSearch}
         style={{ marginBottom: 16, width: 300 }}

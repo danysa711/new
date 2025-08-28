@@ -1,7 +1,6 @@
 // File: src/services/axios.js
 
 import axios from "axios";
-import { MAIN_BACKEND_URL } from "./api-config";
 
 // Fungsi untuk mendapatkan backend URL
 const getBackendUrl = () => {
@@ -88,84 +87,6 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-export const apiRequest = async (method, endpoint, data = null, options = {}) => {
-  try {
-    const config = {
-      method,
-      url: endpoint,
-      ...options
-    };
-    
-    if (data && ['post', 'put', 'patch'].includes(method.toLowerCase())) {
-      config.data = data;
-    } else if (data) {
-      config.params = data;
-    }
-    
-    const response = await apiInstance(config);
-    return response.data;
-  } catch (error) {
-    console.error(`API Error (${method} ${endpoint}):`, error);
-    throw error;
-  }
-};
-
-// Export fungsi CRUD untuk OrderTable
-export const getAllOrders = async (setOrders, setLoading, setError) => {
-  try {
-    setLoading && setLoading(true);
-    const response = await apiInstance.get('/api/orders');
-    setOrders && setOrders(response.data);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    setError && setError(error.message);
-    throw error;
-  } finally {
-    setLoading && setLoading(false);
-  }
-};
-
-export const getOrderById = async (id) => {
-  try {
-    const response = await apiInstance.get(`/api/orders/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching order ${id}:`, error);
-    throw error;
-  }
-};
-
-export const createOrder = async (orderData) => {
-  try {
-    const response = await apiInstance.post('/api/orders', orderData);
-    return response.data;
-  } catch (error) {
-    console.error("Error creating order:", error);
-    throw error;
-  }
-};
-
-export const updateOrder = async (id, orderData) => {
-  try {
-    const response = await apiInstance.put(`/api/orders/${id}`, orderData);
-    return response.data;
-  } catch (error) {
-    console.error(`Error updating order ${id}:`, error);
-    throw error;
-  }
-};
-
-export const deleteOrder = async (id) => {
-  try {
-    const response = await apiInstance.delete(`/api/orders/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error(`Error deleting order ${id}:`, error);
-    throw error;
-  }
-};
-
 // Cegah multiple refresh requests
 let isRefreshing = false;
 let refreshSubscribers = [];
@@ -215,10 +136,27 @@ axiosInstance.interceptors.response.use(
     // Cek apakah error terkait langganan kedaluwarsa
     if (error.response?.data?.subscriptionRequired) {
       console.warn("Subscription expired");
+      
+      // Cek apakah user memiliki langganan aktif dalam storage
+      const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          if (userData.hasActiveSubscription) {
+            console.log("User has active subscription in local storage, retrying request");
+            // Jika user memiliki langganan aktif dalam storage, coba lagi request
+            return axiosInstance(originalRequest);
+          }
+        } catch (e) {
+          console.error("Error parsing user data:", e);
+        }
+      }
+      
       // Jangan mengarahkan ulang ke halaman login, biarkan pengguna tetap di halaman user
       // Hanya perbarui status koneksi dan tampilkan notifikasi
       if (error.response.status === 403) {
-        alert('Langganan Kedaluwarsa: Koneksi ke API terputus karena langganan Anda telah berakhir.');
+        console.log('Langganan Kedaluwarsa: Koneksi ke API terputus karena langganan Anda telah berakhir.');
+        // Tidak perlu menampilkan alert karena sudah ada banner di UI
       }
       return Promise.reject(error);
     }
@@ -318,37 +256,6 @@ export const findOrders = async (orderData, specificBackendUrl = null) => {
     return response.data;
   } catch (error) {
     console.error("Error finding orders:", error);
-    throw error;
-  }
-};
-
-// Fungsi khusus untuk membuat permintaan dengan backend URL spesifik
-export const makeRequestWithSpecificBackend = async (method, endpoint, data = null, specificBackendUrl = null) => {
-  try {
-    // Gunakan backend URL yang spesifik jika disediakan, atau gunakan default
-    const url = specificBackendUrl || getBackendUrl();
-    
-    console.log(`Making ${method} request to ${url}${endpoint}`);
-    
-    const config = {
-      method,
-      url: `${url}${endpoint}`,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${getStoredToken()}`
-      }
-    };
-    
-    if (data && (method.toLowerCase() !== 'get')) {
-      config.data = data;
-    } else if (data && method.toLowerCase() === 'get') {
-      config.params = data;
-    }
-    
-    const response = await axios(config);
-    return response.data;
-  } catch (error) {
-    console.error(`Error making ${method} request to ${endpoint}:`, error);
     throw error;
   }
 };
