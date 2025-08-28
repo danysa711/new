@@ -1,4 +1,4 @@
-// File: react/src/app.jsx
+// File: src/app.jsx
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";

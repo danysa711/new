@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { findOrders, getUserBackendUrl } from '../services/auth';
-import OrderSearchForm from '../components/OrderSearchForm';
+import { Card, Form, Input, Button, Alert, Spin, Typography, Divider, Tag, Space } from 'antd';
+import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+
+const { Title, Text, Paragraph } = Typography;
 
 const OrderSearch = () => {
     
@@ -69,274 +72,181 @@ const OrderSearch = () => {
     }
   };
   
-  // Styles untuk komponen
-  const styles = {
-    container: {
-      maxWidth: '800px',
-      margin: '0 auto',
-      padding: '20px'
-    },
-    title: {
-      fontSize: '24px',
-      fontWeight: 'bold',
-      marginBottom: '20px',
-      color: '#333'
-    },
-    backendInfo: {
-      padding: '10px',
-      marginBottom: '20px',
-      backgroundColor: '#f6ffed',
-      border: '1px solid #b7eb8f',
-      borderRadius: '4px'
-    },
-    form: {
-      backgroundColor: 'white',
-      padding: '20px',
-      borderRadius: '8px',
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
-    },
-    formGroup: {
-      marginBottom: '15px'
-    },
-    label: {
-      display: 'block',
-      marginBottom: '5px',
-      fontWeight: 'bold'
-    },
-    input: {
-      width: '100%',
-      padding: '10px',
-      border: '1px solid #d9d9d9',
-      borderRadius: '4px',
-      fontSize: '14px'
-    },
-    buttonGroup: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      marginTop: '20px'
-    },
-    button: {
-      padding: '10px 20px',
-      backgroundColor: '#1890ff',
-      color: 'white',
-      border: 'none',
-      borderRadius: '4px',
-      cursor: 'pointer'
-    },
-    resetButton: {
-      padding: '10px 20px',
-      backgroundColor: 'transparent',
-      border: '1px solid #d9d9d9',
-      borderRadius: '4px',
-      cursor: 'pointer'
-    },
-    error: {
-      backgroundColor: '#fff1f0',
-      border: '1px solid #ffccc7',
-      borderRadius: '4px',
-      padding: '10px',
-      marginBottom: '20px',
-      color: '#f5222d'
-    },
-    results: {
-      marginTop: '30px',
-      backgroundColor: 'white',
-      padding: '20px',
-      borderRadius: '8px',
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
-    },
-    resultTitle: {
-      fontSize: '18px',
-      fontWeight: 'bold',
-      marginBottom: '15px',
-      color: '#333'
-    },
-    resultItem: {
-      padding: '10px',
-      borderBottom: '1px solid #f0f0f0'
-    },
-    resultLabel: {
-      fontWeight: 'bold',
-      marginRight: '10px'
-    },
-    licenseList: {
-      marginTop: '10px',
-      padding: '10px',
-      backgroundColor: '#f9f9f9',
-      borderRadius: '4px'
-    },
-    licenseItem: {
-      padding: '5px 10px',
-      backgroundColor: '#e6f7ff',
-      border: '1px solid #91d5ff',
-      borderRadius: '4px',
-      margin: '5px',
-      display: 'inline-block'
-    }
-  };
-
   return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>Pencarian Pesanan</h2>
-      
-      <div style={styles.backendInfo}>
-        <strong>Backend URL:</strong> {backendUrl}
-        <div style={{ marginTop: '5px', fontSize: '13px' }}>
-          Pencarian akan dilakukan pada backend spesifik untuk akun Anda
-        </div>
-      </div>
-      
-      {error && (
-        <div style={styles.error}>
-          {error}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={styles.formGroup}>
-          <label htmlFor="order_id" style={styles.label}>Nomor Pesanan Shopee</label>
-          <input
-            type="text"
-            id="order_id"
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+      <Card title={<Title level={3}>Pencarian Pesanan</Title>}>
+        <Alert
+          message="Backend URL:"
+          description={backendUrl}
+          type="info"
+          showIcon
+          style={{ marginBottom: '20px' }}
+        />
+        
+        {error && (
+          <Alert
+            message="Error"
+            description={error}
+            type="error"
+            showIcon
+            style={{ marginBottom: '20px' }}
+          />
+        )}
+        
+        <Form layout="vertical" onFinish={handleSubmit}>
+          <Form.Item
+            label="Nomor Pesanan Shopee"
             name="order_id"
-            value={orderData.order_id}
-            onChange={handleInputChange}
-            style={styles.input}
-            placeholder="Masukkan nomor pesanan"
-            required
-          />
-        </div>
-        
-        <div style={styles.formGroup}>
-          <label htmlFor="item_name" style={styles.label}>Nama Produk</label>
-          <input
-            type="text"
-            id="item_name"
+            rules={[{ required: true, message: 'Nomor pesanan harus diisi' }]}
+          >
+            <Input
+              value={orderData.order_id}
+              onChange={(e) => handleInputChange(e)}
+              placeholder="Masukkan nomor pesanan"
+              name="order_id"
+            />
+          </Form.Item>
+          
+          <Form.Item
+            label="Nama Produk"
             name="item_name"
-            value={orderData.item_name}
-            onChange={handleInputChange}
-            style={styles.input}
-            placeholder="Masukkan nama produk"
-            required
-          />
-        </div>
-        
-        <div style={{display: 'flex', gap: '15px'}}>
-          <div style={{...styles.formGroup, flex: 1}}>
-            <label htmlFor="os" style={styles.label}>Variasi 1 (OS)</label>
-            <input
-              type="text"
-              id="os"
+            rules={[{ required: true, message: 'Nama produk harus diisi' }]}
+          >
+            <Input
+              value={orderData.item_name}
+              onChange={(e) => handleInputChange(e)}
+              placeholder="Masukkan nama produk"
+              name="item_name"
+            />
+          </Form.Item>
+          
+          <Space style={{ display: 'flex', width: '100%' }}>
+            <Form.Item
+              label="Variasi 1 (OS)"
               name="os"
-              value={orderData.os}
-              onChange={handleInputChange}
-              style={styles.input}
-              placeholder="Contoh: Windows, macOS"
-            />
-          </div>
-          
-          <div style={{...styles.formGroup, flex: 1}}>
-            <label htmlFor="version" style={styles.label}>Variasi 2 (Versi)</label>
-            <input
-              type="text"
-              id="version"
+              style={{ flex: 1 }}
+            >
+              <Input
+                value={orderData.os}
+                onChange={(e) => handleInputChange(e)}
+                placeholder="Contoh: Windows, macOS"
+                name="os"
+              />
+            </Form.Item>
+            
+            <Form.Item
+              label="Variasi 2 (Versi)"
               name="version"
-              value={orderData.version}
-              onChange={handleInputChange}
-              style={styles.input}
-              placeholder="Contoh: 2.0, Premium"
-            />
-          </div>
-        </div>
-        
-        <div style={styles.formGroup}>
-          <label htmlFor="item_amount" style={styles.label}>Jumlah Item</label>
-          <input
-            type="number"
-            id="item_amount"
+              style={{ flex: 1 }}
+            >
+              <Input
+                value={orderData.version}
+                onChange={(e) => handleInputChange(e)}
+                placeholder="Contoh: 2.0, Premium"
+                name="version"
+              />
+            </Form.Item>
+          </Space>
+          
+          <Form.Item
+            label="Jumlah Item"
             name="item_amount"
-            value={orderData.item_amount}
-            onChange={handleAmountChange}
-            style={styles.input}
-            min="1"
-          />
-        </div>
+          >
+            <Input
+              type="number"
+              value={orderData.item_amount}
+              onChange={(e) => handleAmountChange(e)}
+              min="1"
+              name="item_amount"
+            />
+          </Form.Item>
+          
+          <Form.Item>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={<SearchOutlined />}
+                loading={loading}
+              >
+                Cari Pesanan
+              </Button>
+              
+              <Button
+                onClick={() => {
+                  setOrderData({
+                    order_id: '',
+                    item_name: '',
+                    os: '',
+                    version: '',
+                    item_amount: 1
+                  });
+                  setResults(null);
+                  setError(null);
+                }}
+                icon={<ReloadOutlined />}
+              >
+                Reset
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
         
-        <div style={styles.buttonGroup}>
-          <button
-            type="button"
-            onClick={() => {
-              setOrderData({
-                order_id: '',
-                item_name: '',
-                os: '',
-                version: '',
-                item_amount: 1
-              });
-              setResults(null);
-              setError(null);
-            }}
-            style={styles.resetButton}
-          >
-            Reset
-          </button>
-          
-          <button
-            type="submit"
-            style={styles.button}
-            disabled={loading}
-          >
-            {loading ? 'Mencari...' : 'Cari Pesanan'}
-          </button>
-        </div>
-      </form>
-      
-      {results && (
-        <div style={styles.results}>
-          <h3 style={styles.resultTitle}>Hasil Pencarian</h3>
-          
-          <div style={styles.resultItem}>
-            <span style={styles.resultLabel}>Status:</span>
-            <span>{results.message}</span>
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: '10px' }}>Mencari pesanan...</div>
           </div>
-          
-          <div style={styles.resultItem}>
-            <span style={styles.resultLabel}>Produk:</span>
-            <span>{results.item}</span>
-          </div>
-          
-          <div style={styles.resultItem}>
-            <span style={styles.resultLabel}>Nomor Pesanan:</span>
-            <span>{results.order_id || '-'}</span>
-          </div>
-          
-          <div style={styles.resultItem}>
-            <span style={styles.resultLabel}>Download Link:</span>
-            {results.download_link ? (
-              <a href={results.download_link} target="_blank" rel="noopener noreferrer">
-                {results.download_link}
-              </a>
-            ) : (
-              <span>Tidak ada link download</span>
-            )}
-          </div>
-          
-          <div style={styles.resultItem}>
-            <span style={styles.resultLabel}>Lisensi:</span>
-            {results.licenses && results.licenses.length > 0 ? (
-              <div style={styles.licenseList}>
-                {results.licenses.map((license, index) => (
-                  <div key={index} style={styles.licenseItem}>
-                    {license}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <span>Tidak ada lisensi</span>
-            )}
-          </div>
-        </div>
-      )}
+        )}
+        
+        {results && (
+          <>
+            <Divider />
+            <Title level={4}>Hasil Pencarian</Title>
+            
+            <Alert
+              message={results.message}
+              type={results.licenses && results.licenses.length > 0 ? "success" : "warning"}
+              showIcon
+              style={{ marginBottom: '16px' }}
+            />
+            
+            <div style={{ marginBottom: '16px' }}>
+              <Text strong>Produk:</Text> {results.item}
+            </div>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <Text strong>Nomor Pesanan:</Text> {results.order_id || '-'}
+            </div>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <Text strong>Download Link:</Text>
+              {results.download_link ? (
+                <a href={results.download_link} target="_blank" rel="noopener noreferrer">
+                  {results.download_link}
+                </a>
+              ) : (
+                <Text type="secondary">Tidak ada link download</Text>
+              )}
+            </div>
+            
+            <div>
+              <Text strong>Lisensi:</Text>
+              {results.licenses && results.licenses.length > 0 ? (
+                <div style={{ marginTop: '10px' }}>
+                  {results.licenses.map((license, index) => (
+                    <Tag key={index} color="blue" style={{ margin: '5px' }}>
+                      {license}
+                    </Tag>
+                  ))}
+                </div>
+              ) : (
+                <Text type="secondary"> Tidak ada lisensi</Text>
+              )}
+            </div>
+          </>
+        )}
+      </Card>
     </div>
   );
 };

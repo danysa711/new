@@ -1,4 +1,4 @@
-// File: react/src/pages/user/BackendSettings.jsx
+// File: src/pages/user/BackendSettings.jsx
 
 import React, { useState, useContext } from 'react';
 import { 
@@ -90,16 +90,16 @@ const BackendSettings = () => {
         <Paragraph>
           <Text strong>API URL untuk publik: </Text>
           <Text copyable>
-            {`https://db.kinterstore.my.id/api/public/user/${user?.url_slug}`}
-          </Text>
-        </Paragraph>
-        <Paragraph>
-          <Text strong>URL Backend Saat Ini: </Text>
-          <Text copyable>{user?.backend_url || 'https://db.kinterstore.my.id'}</Text>
-        </Paragraph>
-      </Card>
-    </div>
-  );
+            {`${user?.backend_url || 'https://db.kinterstore.my.id'}/api/public/user/${user?.url_slug}`}
+         </Text>
+       </Paragraph>
+       <Paragraph>
+         <Text strong>URL Backend Saat Ini: </Text>
+         <Text copyable>{user?.backend_url || 'https://db.kinterstore.my.id'}</Text>
+       </Paragraph>
+     </Card>
+   </div>
+ );
 };
 
 export default BackendSettings;

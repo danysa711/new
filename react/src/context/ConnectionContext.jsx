@@ -1,5 +1,3 @@
-// File: react/src/context/ConnectionContext.jsx
-
 import { createContext, useState, useEffect, useContext } from "react";
 import { AuthContext } from "./AuthContext";
 import axiosInstance from "../services/axios";

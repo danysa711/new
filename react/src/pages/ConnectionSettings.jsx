@@ -1,4 +1,4 @@
-// File: react/src/pages/ConnectionSettings.jsx
+// File: src/pages/ConnectionSettings.jsx
 
 import React, { useContext, useState, useEffect } from 'react';
 import { 
@@ -191,4 +191,3 @@ const ConnectionSettings = () => {
 };
 
 export default ConnectionSettings;
-

@@ -10,7 +10,7 @@
  */
 
 // URL backend utama
-export const MAIN_BACKEND_URL = import.meta.env.VITE_MAIN_BACKEND_URL || 'https://db.kinterstore.my.id';
+export const MAIN_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://db.kinterstore.my.id';
 
 // Endpoints yang selalu menggunakan backend utama (authentication server)
 export const MAIN_BACKEND_ENDPOINTS = [

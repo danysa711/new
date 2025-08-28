@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Popconfirm, message, Input, Tag } from "antd";
 import MainTable from "./MainTable";
-import { getAllOrders, deleteOrder } from "../../services/api";
+import { getAllOrders, deleteOrder } from "../../services/api"; // Pastikan impor dari api.js, bukan yang lain
 
 const OrderTable = () => {
   const [orders, setOrders] = useState([]);

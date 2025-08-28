@@ -1,6 +1,7 @@
 // File: src/services/axios.js
 
 import axios from "axios";
+import { MAIN_BACKEND_URL } from "./api-config";
 
 // Fungsi untuk mendapatkan backend URL
 const getBackendUrl = () => {
@@ -86,6 +87,84 @@ axiosInstance.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+export const apiRequest = async (method, endpoint, data = null, options = {}) => {
+  try {
+    const config = {
+      method,
+      url: endpoint,
+      ...options
+    };
+    
+    if (data && ['post', 'put', 'patch'].includes(method.toLowerCase())) {
+      config.data = data;
+    } else if (data) {
+      config.params = data;
+    }
+    
+    const response = await apiInstance(config);
+    return response.data;
+  } catch (error) {
+    console.error(`API Error (${method} ${endpoint}):`, error);
+    throw error;
+  }
+};
+
+// Export fungsi CRUD untuk OrderTable
+export const getAllOrders = async (setOrders, setLoading, setError) => {
+  try {
+    setLoading && setLoading(true);
+    const response = await apiInstance.get('/api/orders');
+    setOrders && setOrders(response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    setError && setError(error.message);
+    throw error;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
+export const getOrderById = async (id) => {
+  try {
+    const response = await apiInstance.get(`/api/orders/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching order ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createOrder = async (orderData) => {
+  try {
+    const response = await apiInstance.post('/api/orders', orderData);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating order:", error);
+    throw error;
+  }
+};
+
+export const updateOrder = async (id, orderData) => {
+  try {
+    const response = await apiInstance.put(`/api/orders/${id}`, orderData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating order ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteOrder = async (id) => {
+  try {
+    const response = await apiInstance.delete(`/api/orders/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting order ${id}:`, error);
+    throw error;
+  }
+};
 
 // Cegah multiple refresh requests
 let isRefreshing = false;

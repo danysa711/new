@@ -1,9 +1,7 @@
 // File: src/services/auth.js
 
 import axios from 'axios';
-
-// URL backend utama (authentication server)
-const MAIN_BACKEND_URL = import.meta.env.VITE_MAIN_BACKEND_URL || 'https://db.kinterstore.my.id';
+import { MAIN_BACKEND_URL } from './api-config';
 
 /**
  * Alur Autentikasi:
