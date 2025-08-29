@@ -135,28 +135,57 @@ const UserLayout = () => {
 
  
   // Fungsi untuk membuka WhatsApp dengan pesan request trial
-  const requestTrial = () => {
+const requestTrial = async () => {
   try {
-    // Baca langsung dari localStorage untuk memastikan mendapatkan nilai terbaru
-    const whatsappNumber = localStorage.getItem('whatsapp_trial_number') || '6281284712684';
-    const messageTemplate = localStorage.getItem('whatsapp_trial_template') || 
-      'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}';
-    const isEnabled = localStorage.getItem('whatsapp_trial_enabled') !== 'false';
+    // Tampilkan loading
+    const loadingMessage = message.loading('Memuat pengaturan trial...', 0);
     
-    // Log nilai yang dibaca dari localStorage
-    console.log('Request Trial - localStorage values:', {
-      whatsapp_trial_number: whatsappNumber,
-      whatsapp_trial_template: messageTemplate,
-      whatsapp_trial_enabled: isEnabled
+    // Variabel untuk menyimpan pengaturan
+    let whatsappNumber, messageTemplate, isEnabled;
+    
+    try {
+      // Coba dapatkan dari API
+      const response = await axiosInstance.get('/api/settings/whatsapp-trial');
+      console.log('API response:', response.data);
+      
+      whatsappNumber = response.data.whatsappNumber;
+      messageTemplate = response.data.messageTemplate;
+      isEnabled = response.data.isEnabled;
+      
+      console.log('Berhasil mengambil data dari API');
+    } catch (apiError) {
+      console.warn('Gagal mengambil data dari API, beralih ke localStorage', apiError);
+      
+      // Fallback ke localStorage
+      whatsappNumber = localStorage.getItem('whatsapp_trial_number');
+      messageTemplate = localStorage.getItem('whatsapp_trial_template');
+      isEnabled = localStorage.getItem('whatsapp_trial_enabled') !== 'false';
+      
+      // Jika localStorage juga kosong, gunakan nilai default hardcoded
+      if (!whatsappNumber) whatsappNumber = '6281284712684';
+      if (!messageTemplate) messageTemplate = 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}';
+      if (isEnabled === null) isEnabled = true;
+      
+      console.log('Menggunakan data dari localStorage atau default');
+    }
+    
+    // Hentikan loading
+    loadingMessage();
+    
+    // Log data yang akan digunakan
+    console.log('Data untuk WhatsApp trial:', {
+      whatsappNumber,
+      messageTemplate,
+      isEnabled
     });
-
+    
     // Cek apakah fitur diaktifkan
     if (!isEnabled) {
-      alert('Fitur request trial sedang tidak tersedia. Silakan hubungi admin untuk informasi lebih lanjut.');
+      message.warning('Fitur request trial sedang tidak tersedia. Silakan hubungi admin untuk informasi lebih lanjut.');
       return;
     }
     
-    // Persiapkan data user untuk placeholder
+    // Persiapkan data user
     const userData = {
       username: user.username || 'user',
       email: user.email || '',
@@ -164,28 +193,47 @@ const UserLayout = () => {
     };
     
     // Ganti placeholder dengan data user
-    let message = messageTemplate;
+    let finalMessage = messageTemplate;
     Object.keys(userData).forEach(key => {
       const regex = new RegExp(`{${key}}`, 'g');
-      message = message.replace(regex, userData[key]);
+      finalMessage = finalMessage.replace(regex, userData[key]);
     });
     
     // Buat link WhatsApp
-    const waLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    const waLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
     
-    // Log info final
-    console.log('Request Trial - Final data:', {
-      waNumber: whatsappNumber,
-      message: message,
-      url: waLink
-    });
+    // Tampilkan info untuk debugging
+    console.log('Link WhatsApp final:', waLink);
     
-    // Buka link WhatsApp
+    // Buka WhatsApp
     window.open(waLink, '_blank');
   } catch (error) {
-    console.error('Error in requestTrial:', error);
-    // Fallback jika terjadi error
-    alert('Terjadi kesalahan saat membuka WhatsApp. Silakan coba lagi atau hubungi admin.');
+    console.error('Error dalam requestTrial:', error);
+    
+    // Jika semua gagal, gunakan nomor hardcoded sebagai fallback terakhir
+    try {
+      const hardcodedNumber = '6281284712684';
+      const defaultTemplate = 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}';
+      
+      const userData = {
+        username: user.username || 'user',
+        email: user.email || '',
+        url_slug: user.url_slug || ''
+      };
+      
+      let finalMessage = defaultTemplate;
+      Object.keys(userData).forEach(key => {
+        const regex = new RegExp(`{${key}}`, 'g');
+        finalMessage = finalMessage.replace(regex, userData[key]);
+      });
+      
+      const waLink = `https://wa.me/${hardcodedNumber}?text=${encodeURIComponent(finalMessage)}`;
+      
+      console.log('Menggunakan fallback terakhir dengan nomor hardcoded:', hardcodedNumber);
+      window.open(waLink, '_blank');
+    } catch (fallbackError) {
+      message.error('Terjadi kesalahan saat membuka WhatsApp. Silakan coba lagi nanti atau hubungi admin.');
+    }
   }
 };
 

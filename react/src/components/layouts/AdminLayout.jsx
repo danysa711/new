@@ -93,7 +93,7 @@ const AdminLayout = () => {
               ]
             },
             { key: "/admin/request-trial-settings", icon: <WhatsAppOutlined />, label: "Setting Trial" },
-            { key: "/admin/change-password", label: "Ganti Password" },
+            { key: "/admin/change-password", icon: <SettingOutlined />, label: "Ganti Password" },
             { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
           ]}
         />

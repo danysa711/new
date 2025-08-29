@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Card, Typography, Form, Input, Button, message, 
-  Space, Divider, Alert, Switch
+  Space, Divider, Alert, Switch, Spin
 } from 'antd';
 import { SaveOutlined, PhoneOutlined, MessageOutlined } from '@ant-design/icons';
+import axiosInstance from '../../services/axios';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 const RequestTrialSettings = () => {
-  const [whatsappNumber, setWhatsappNumber] = useState('6281284712684');
-  const [messageTemplate, setMessageTemplate] = useState('Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [messageTemplate, setMessageTemplate] = useState('');
   const [isEnabled, setIsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
   
   // Data untuk preview
   const previewData = {
@@ -21,21 +23,38 @@ const RequestTrialSettings = () => {
     url_slug: 'john-doe-abc123'
   };
 
-  // Load initial values from localStorage
+  // Load initial values from database
   useEffect(() => {
-    const storedNumber = localStorage.getItem('whatsapp_trial_number');
-    const storedTemplate = localStorage.getItem('whatsapp_trial_template');
-    const storedEnabled = localStorage.getItem('whatsapp_trial_enabled');
+    const fetchSettings = async () => {
+      try {
+        setFetchLoading(true);
+        const response = await axiosInstance.get('/api/admin/settings/whatsapp-trial');
+        
+        const { whatsappNumber, messageTemplate, isEnabled } = response.data;
+        
+        setWhatsappNumber(whatsappNumber || '6281284712684');
+        setMessageTemplate(messageTemplate || 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
+        setIsEnabled(isEnabled !== false);
+        
+        console.log("Loaded values from database:", {
+          number: whatsappNumber,
+          template: messageTemplate,
+          enabled: isEnabled
+        });
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+        message.error('Gagal mengambil pengaturan: ' + (error.response?.data?.message || error.message));
+        
+        // Set default values if fetch fails
+        setWhatsappNumber('6281284712684');
+        setMessageTemplate('Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
+        setIsEnabled(true);
+      } finally {
+        setFetchLoading(false);
+      }
+    };
     
-    if (storedNumber) setWhatsappNumber(storedNumber);
-    if (storedTemplate) setMessageTemplate(storedTemplate);
-    if (storedEnabled !== null) setIsEnabled(storedEnabled !== 'false');
-    
-    console.log("Loaded values from localStorage:", {
-      number: storedNumber,
-      template: storedTemplate,
-      enabled: storedEnabled
-    });
+    fetchSettings();
   }, []);
 
   // Generate preview message
@@ -52,8 +71,8 @@ const RequestTrialSettings = () => {
     }
   };
 
-  // Save settings directly to localStorage
-  const saveSettings = () => {
+  // Save settings to database
+  const saveSettings = async () => {
     try {
       setLoading(true);
       
@@ -78,34 +97,24 @@ const RequestTrialSettings = () => {
         return;
       }
       
-      // Save to localStorage
-      localStorage.setItem('whatsapp_trial_number', whatsappNumber);
-      localStorage.setItem('whatsapp_trial_template', messageTemplate);
-      localStorage.setItem('whatsapp_trial_enabled', isEnabled.toString());
+      // Save to database
+      const response = await axiosInstance.post('/api/admin/settings/whatsapp-trial', {
+        whatsappNumber,
+        messageTemplate,
+        isEnabled
+      });
       
-      console.log("Saved settings to localStorage:", {
+      console.log("Saved settings to database:", {
         number: whatsappNumber,
         template: messageTemplate,
         enabled: isEnabled
       });
       
       message.success('Pengaturan request trial berhasil disimpan');
-      
-      // Verify the saved values
-      const savedNumber = localStorage.getItem('whatsapp_trial_number');
-      const savedTemplate = localStorage.getItem('whatsapp_trial_template');
-      const savedEnabled = localStorage.getItem('whatsapp_trial_enabled');
-      
-      console.log("Verification - Values after save:", {
-        number: savedNumber,
-        template: savedTemplate,
-        enabled: savedEnabled
-      });
-      
       setLoading(false);
     } catch (error) {
       console.error('Error saving settings:', error);
-      message.error('Gagal menyimpan pengaturan: ' + error.message);
+      message.error('Gagal menyimpan pengaturan: ' + (error.response?.data?.message || error.message));
       setLoading(false);
     }
   };
@@ -134,6 +143,14 @@ const RequestTrialSettings = () => {
       message.error('Gagal menguji pengaturan WhatsApp');
     }
   };
+
+  if (fetchLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <Spin size="large" tip="Memuat pengaturan..." />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -211,32 +228,6 @@ const RequestTrialSettings = () => {
             Uji Pengaturan
           </Button>
         </Space>
-      </Card>
-      
-      <Divider />
-      
-      <Card title="Debug Info">
-        <div>
-          <Text strong>Current localStorage values:</Text>
-          <pre>
-            {JSON.stringify({
-              whatsapp_trial_number: localStorage.getItem('whatsapp_trial_number'),
-              whatsapp_trial_template: localStorage.getItem('whatsapp_trial_template'),
-              whatsapp_trial_enabled: localStorage.getItem('whatsapp_trial_enabled')
-            }, null, 2)}
-          </pre>
-        </div>
-        
-        <div>
-          <Text strong>Current state values:</Text>
-          <pre>
-            {JSON.stringify({
-              whatsappNumber,
-              messageTemplate,
-              isEnabled
-            }, null, 2)}
-          </pre>
-        </div>
       </Card>
       
       <Divider />

@@ -14,9 +14,8 @@ export default defineConfig(({ command, mode }) => {
       allowedHosts: [
         "www.kinterstore.my.id", 
         "kinterstore.my.id", 
-        "db.kinterstore.my.id", 
-        "tes.kinterstore.my.id", 
-        "proxy.kinterstore.my.id"
+        "db.kinterstore.my.id"
+        
       ],
     },
   };
