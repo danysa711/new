@@ -1,10 +1,214 @@
-// File: express/controllers/orderController.js
-
 const { Order, License, Software, SoftwareVersion, OrderLicense, db } = require("../models");
 const { Op } = require("sequelize");
 
-// Ini hanya bagian findOrder yang perlu dimodifikasi agar tetap kompatibel dengan fitur pencarian pesanan
-// namun memperhatikan user_id dari pengguna yang login
+const getOrders = async (req, res) => {
+  try {
+    const userId = req.userId;
+    
+    // Filter kondisi berdasarkan role
+    const whereCondition = req.userRole === "admin" 
+      ? {} 
+      : { user_id: userId };
+      
+    const orders = await Order.findAll({
+      where: whereCondition,
+      include: [
+        {
+          model: License,
+          through: { attributes: [] },
+          attributes: ["id", "license_key", "is_active", "used_at"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: "Terjadi kesalahan", error });
+  }
+};
+
+const getOrderById = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const order = await Order.findByPk(req.params.id);
+    
+    if (!order) return res.status(404).json({ message: "Pesanan tidak ditemukan" });
+    
+    // Cek kepemilikan order jika bukan admin
+    if (req.userRole !== "admin" && order.user_id !== userId) {
+      return res.status(403).json({ message: "Anda tidak memiliki akses ke pesanan ini" });
+    }
+    
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: "Terjadi kesalahan", error });
+  }
+};
+
+const createOrder = async (req, res) => {
+  try {
+    const { order_id, item_name, os, version, license_count, status } = req.body;
+    const userId = req.userId;
+    
+    const newOrder = await Order.create({ 
+      order_id, 
+      item_name, 
+      os, 
+      version, 
+      license_count, 
+      status,
+      user_id: userId 
+    });
+    
+    res.status(201).json(newOrder);
+  } catch (error) {
+    res.status(500).json({ message: "Gagal menambahkan pesanan", error });
+  }
+};
+
+const updateOrder = async (req, res) => {
+  try {
+    const { order_id, item_name, os, version, license_count, status } = req.body;
+    const userId = req.userId;
+    
+    const order = await Order.findByPk(req.params.id);
+    if (!order) return res.status(404).json({ message: "Pesanan tidak ditemukan" });
+    
+    // Cek kepemilikan order jika bukan admin
+    if (req.userRole !== "admin" && order.user_id !== userId) {
+      return res.status(403).json({ message: "Anda tidak memiliki akses untuk mengubah pesanan ini" });
+    }
+
+    await order.update({ order_id, item_name, os, version, license_count, status });
+    res.json({ message: "Pesanan berhasil diperbarui", order });
+  } catch (error) {
+    res.status(500).json({ message: "Gagal memperbarui pesanan", error });
+  }
+};
+
+const deleteOrder = async (req, res) => {
+  let transaction;
+
+  try {
+    transaction = await db.sequelize.transaction();
+    const userId = req.userId;
+
+    const order = await Order.findByPk(req.params.id, {
+      include: [{ model: License, through: { attributes: [] } }],
+      transaction,
+    });
+
+    if (!order) {
+      await transaction.rollback();
+      return res.status(404).json({ message: "Pesanan tidak ditemukan" });
+    }
+    
+    // Cek kepemilikan order jika bukan admin
+    if (req.userRole !== "admin" && order.user_id !== userId) {
+      await transaction.rollback();
+      return res.status(403).json({ message: "Anda tidak memiliki akses untuk menghapus pesanan ini" });
+    }
+
+    // Ambil semua license_id terkait order
+    const licenseIds = order.Licenses.map((license) => license.id);
+
+    if (licenseIds.length > 0) {
+      // Ubah status lisensi kembali ke is_active: false
+      await License.update({ is_active: false, updatedAt: new Date() }, { where: { id: licenseIds }, transaction });
+
+      // Hapus entri dari order_licenses
+      await OrderLicense.destroy({
+        where: { order_id: order.id },
+        transaction,
+      });
+    }
+
+    // Hapus order
+    await order.destroy({ transaction });
+
+    await transaction.commit();
+    res.json({ message: "Pesanan berhasil dihapus dan lisensi dikembalikan" });
+  } catch (error) {
+    console.error("Gagal menghapus pesanan:", error);
+    if (transaction) await transaction.rollback();
+    res.status(500).json({ message: "Gagal menghapus pesanan", error });
+  }
+};
+
+const processOrder = async (req, res) => {
+  try {
+    const { order_id, item_name, os, version, license_count } = req.body;
+    const userId = req.userId;
+
+    const software = await Software.findOne({ where: { name: item_name } });
+    if (!software) return res.status(404).json({ message: "Software tidak ditemukan" });
+    
+    // Cek kepemilikan software jika bukan admin
+    if (req.userRole !== "admin" && software.user_id !== userId) {
+      return res.status(403).json({ message: "Anda tidak memiliki akses ke software ini" });
+    }
+
+    const softwareVersion = await SoftwareVersion.findOne({
+      where: { software_id: software.id, os, version },
+    });
+    if (!softwareVersion) return res.status(404).json({ message: "Versi software tidak ditemukan" });
+    
+    // Cek kepemilikan version jika bukan admin
+    if (req.userRole !== "admin" && softwareVersion.user_id !== userId) {
+      return res.status(403).json({ message: "Anda tidak memiliki akses ke versi software ini" });
+    }
+
+    let licenseKeys = [];
+    if (software.require_license) {
+      // Tambahan filter untuk user_id jika bukan admin
+      const whereCondition = { 
+        software_id: software.id, 
+        is_active: false 
+      };
+      
+      if (req.userRole !== "admin") {
+        whereCondition.user_id = userId;
+      }
+      
+      const licenses = await License.findAll({
+        where: whereCondition,
+        limit: license_count,
+      });
+
+      if (licenses.length < license_count) {
+        return res.status(400).json({ message: "Lisensi tidak mencukupi" });
+      }
+
+      for (const license of licenses) {
+        license.is_active = true;
+        license.used_at = new Date();
+        await license.save();
+        licenseKeys.push(license.license_key);
+      }
+    }
+
+    const order = await Order.create({
+      order_id,
+      item_name,
+      os,
+      version,
+      license_count,
+      status: "processed",
+      user_id: userId
+    });
+
+    return res.json({
+      message: "Pesanan berhasil diproses",
+      order_id: order.order_id,
+      download_link: softwareVersion.download_link,
+      license_keys: software.require_license ? licenseKeys : "Tidak memerlukan lisensi",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Terjadi kesalahan dalam memproses pesanan" });
+  }
+};
 
 const findOrder = async (req, res) => {
   const { order_id, item_name, os, version, item_amount } = req.body;
@@ -73,9 +277,8 @@ const findOrder = async (req, res) => {
     // Mencari lisensi
     let licenseQuery = { software_id: software.id, is_active: false };
 
-    // PENTING: Filter berdasarkan pemilik software
-    // Pastikan hanya lisensi yang dimiliki oleh pemilik software yang digunakan
-    licenseQuery.user_id = software.user_id;
+    // PENTING: Hapus filter user_id agar semua lisensi dapat diakses
+    // Ini memungkinkan semua user untuk mengakses lisensi dari semua user
 
     if (software.search_by_version) {
       // Jika software butuh lisensi & butuh versi spesifik, gunakan software_version_id
@@ -129,7 +332,7 @@ const findOrder = async (req, res) => {
         license_count: software.requires_license ? item_amount : 0,
         status: "processed",
         software_id: software.id,
-        user_id: software.user_id, // PENTING: Gunakan user_id dari pemilik software, bukan dari pengguna yang login
+        user_id: userId,
         createdAt: new Date(),
       },
       { transaction }

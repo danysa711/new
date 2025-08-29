@@ -9,7 +9,8 @@ import {
   TeamOutlined,
   AppstoreOutlined,
   CreditCardOutlined,   // Tambahkan import icon ini
-  ShoppingOutlined
+  ShoppingOutlined,
+  WhatsAppOutlined
 } from "@ant-design/icons";
 import { Button, Layout, Menu, theme, Typography } from "antd";
 import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
@@ -21,6 +22,7 @@ import SubscriptionManagement from "../../pages/admin/SubscriptionManagement";
 import SubscriptionPlans from "../../pages/admin/SubscriptionPlans";
 import TripaySettings from "../../pages/admin/TripaySettings";  // Tambahkan import untuk halaman TripaySettings
 import TripayTransactions from "../../pages/admin/TripayTransactions";  // Tambahkan import untuk halaman TripayTransactions
+import RequestTrialSettings from "../../pages/admin/RequestTrialSettings";
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -90,6 +92,7 @@ const AdminLayout = () => {
                 { key: "/admin/tripay/settings", label: "Pengaturan" },
               ]
             },
+            { key: "/admin/request-trial-settings", icon: <WhatsAppOutlined />, label: "Pengaturan Trial" },
             { key: "/admin/change-password", icon: <SettingOutlined />, label: "Ganti Password", danger: true },
             { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
           ]}
@@ -145,6 +148,7 @@ const AdminLayout = () => {
             <Route path="/subscription-plans" element={<SubscriptionPlans />} />
             <Route path="/tripay/transactions" element={<TripayTransactions />} />
             <Route path="/tripay/settings" element={<TripaySettings />} />
+            <Route path="/request-trial-settings" element={<RequestTrialSettings />} />
             <Route path="/change-password" element={<ChangePass />} />
           </Routes>
         </Content>
