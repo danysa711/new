@@ -127,12 +127,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Fungsi untuk melakukan register
-  const register = async (username, email, password, customBackendUrl = null) => {
+  const register = async (username, email, password) => {
     try {
       setLoading(true);
       
-      // Gunakan backendUrl khusus jika disediakan
-      const url = customBackendUrl || backendUrl;
+      // Gunakan backendUrl tetap
+      const url = backendUrl;
       
       // Buat instance axios dengan URL yang dipilih
       const axiosInstance = createAxiosInstance(url);
@@ -144,12 +144,6 @@ export const AuthProvider = ({ children }) => {
       setToken(token);
       setRefreshToken(refreshToken);
       setUser(user);
-      
-      // Update backendUrl jika menggunakan custom URL
-      if (customBackendUrl) {
-        setBackendUrl(customBackendUrl);
-        localStorage.setItem("backendUrl", customBackendUrl);
-      }
 
       // Simpan ke session storage
       sessionStorage.setItem("token", token);
@@ -169,13 +163,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Fungsi untuk melakukan login
-  const login = async (username, password, remember, customBackendUrl = null) => {
+  // Fungsi untuk melakukan login - dimodifikasi untuk menghilangkan parameter customBackendUrl
+  const login = async (username, password, remember) => {
     try {
       setLoading(true);
       
-      // Gunakan backendUrl khusus jika disediakan
-      const url = customBackendUrl || backendUrl;
+      // Menggunakan backendUrl tetap
+      const url = backendUrl;
       
       // Buat instance axios dengan URL yang dipilih
       const axiosInstance = createAxiosInstance(url);
@@ -199,11 +193,6 @@ export const AuthProvider = ({ children }) => {
       setToken(token);
       setRefreshToken(refreshToken);
       setUser(user);
-      
-      // Update backendUrl jika menggunakan custom URL
-      if (customBackendUrl) {
-        setBackendUrl(customBackendUrl);
-      }
 
       // Simpan data berdasarkan remember
       if (remember) {
@@ -211,13 +200,11 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("refreshToken", refreshToken);
         localStorage.setItem("user", JSON.stringify(user));
         localStorage.setItem("remember", "true");
-        localStorage.setItem("backendUrl", url);
       } else {
         sessionStorage.setItem("token", token);
         sessionStorage.setItem("refreshToken", refreshToken);
         sessionStorage.setItem("user", JSON.stringify(user));
         sessionStorage.setItem("remember", "false");
-        localStorage.setItem("backendUrl", url); // Selalu simpan backendUrl di localStorage
       }
       
       return { success: true };

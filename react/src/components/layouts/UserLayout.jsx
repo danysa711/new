@@ -133,13 +133,61 @@ const UserLayout = () => {
  // API URL yang dapat digunakan orang lain untuk mengakses data halaman ini
  const apiUrl = `${backendUrl || 'https://db.kinterstore.my.id'}/api/public/user/${slug}`;
 
- // Fungsi untuk membuka WhatsApp dengan pesan request trial
- const requestTrial = () => {
-   // Pesan WhatsApp dengan format yang berisi informasi user
-   const message = `Halo, saya ${user.username} (${user.email}) ingin request trial dengan URL: ${user.url_slug}`;
-   const waLink = `https://wa.me/6281284712684?text=${encodeURIComponent(message)}`;
-   window.open(waLink, '_blank');
- };
+ 
+  // Fungsi untuk membuka WhatsApp dengan pesan request trial
+  const requestTrial = () => {
+  try {
+    // Baca langsung dari localStorage untuk memastikan mendapatkan nilai terbaru
+    const whatsappNumber = localStorage.getItem('whatsapp_trial_number') || '6281284712684';
+    const messageTemplate = localStorage.getItem('whatsapp_trial_template') || 
+      'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}';
+    const isEnabled = localStorage.getItem('whatsapp_trial_enabled') !== 'false';
+    
+    // Log nilai yang dibaca dari localStorage
+    console.log('Request Trial - localStorage values:', {
+      whatsapp_trial_number: whatsappNumber,
+      whatsapp_trial_template: messageTemplate,
+      whatsapp_trial_enabled: isEnabled
+    });
+
+    // Cek apakah fitur diaktifkan
+    if (!isEnabled) {
+      alert('Fitur request trial sedang tidak tersedia. Silakan hubungi admin untuk informasi lebih lanjut.');
+      return;
+    }
+    
+    // Persiapkan data user untuk placeholder
+    const userData = {
+      username: user.username || 'user',
+      email: user.email || '',
+      url_slug: user.url_slug || ''
+    };
+    
+    // Ganti placeholder dengan data user
+    let message = messageTemplate;
+    Object.keys(userData).forEach(key => {
+      const regex = new RegExp(`{${key}}`, 'g');
+      message = message.replace(regex, userData[key]);
+    });
+    
+    // Buat link WhatsApp
+    const waLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    
+    // Log info final
+    console.log('Request Trial - Final data:', {
+      waNumber: whatsappNumber,
+      message: message,
+      url: waLink
+    });
+    
+    // Buka link WhatsApp
+    window.open(waLink, '_blank');
+  } catch (error) {
+    console.error('Error in requestTrial:', error);
+    // Fallback jika terjadi error
+    alert('Terjadi kesalahan saat membuka WhatsApp. Silakan coba lagi atau hubungi admin.');
+  }
+};
 
  // Force isConnected to true if user has active subscription
  const effectiveIsConnected = user.hasActiveSubscription ? true : isConnected;

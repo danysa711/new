@@ -1,7 +1,7 @@
 import React, { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { Form, Input, Button, Card, Typography, Checkbox, Divider, Alert, Row, Col } from 'antd';
-import { UserOutlined, LockOutlined, LinkOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, Checkbox, Alert, Row, Col } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text, Paragraph } = Typography;
@@ -11,7 +11,6 @@ const Login = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (values) => {
@@ -19,17 +18,10 @@ const Login = () => {
       setLoading(true);
       setError(null);
       
-      const { username, password, remember, backendUrl } = values;
-      
-      // Validasi URL backend jika disediakan
-      if (backendUrl && (!backendUrl.startsWith('http://') && !backendUrl.startsWith('https://'))) {
-        setError('URL backend harus dimulai dengan http:// atau https://');
-        setLoading(false);
-        return;
-      }
+      const { username, password, remember } = values;
       
       // Panggil fungsi login dari AuthContext
-      const result = await login(username, password, !!remember, backendUrl);
+      const result = await login(username, password, !!remember);
       
       if (result.success) {
         navigate('/');
@@ -45,36 +37,7 @@ const Login = () => {
   };
 
   const testConnection = async () => {
-    const backendUrl = form.getFieldValue('backendUrl');
-    if (!backendUrl) {
-      setError('Masukkan URL backend terlebih dahulu untuk menguji koneksi');
-      return;
-    }
-    
-    // Validasi URL
-    if (!backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
-      setError('URL backend harus dimulai dengan http:// atau https://');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`${backendUrl}/api/test`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.message === "API is working") {
-          alert('Koneksi ke backend berhasil!');
-        } else {
-          setError('Respons dari backend tidak valid');
-        }
-      } else {
-        setError(`Koneksi gagal dengan status: ${response.status}`);
-      }
-    } catch (err) {
-      setError(`Koneksi gagal: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    // Fungsi ini dihapus karena tidak diperlukan lagi
   };
 
   return (
@@ -99,8 +62,7 @@ const Login = () => {
             form={form}
             name="login"
             initialValues={{ 
-              remember: false,
-              backendUrl: localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id'
+              remember: false
             }}
             onFinish={handleSubmit}
           >
@@ -131,38 +93,8 @@ const Login = () => {
                 <Form.Item name="remember" valuePropName="checked" noStyle>
                   <Checkbox>Ingat Saya</Checkbox>
                 </Form.Item>
-                <Button 
-                  type="link" 
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  style={{ padding: 0 }}
-                >
-                  {showAdvanced ? 'Sembunyikan Pengaturan Lanjutan' : 'Pengaturan Lanjutan'}
-                </Button>
               </div>
             </Form.Item>
-            
-            {showAdvanced && (
-              <Form.Item
-                name="backendUrl"
-                label="URL Backend"
-              >
-                <Input 
-                  prefix={<LinkOutlined />} 
-                  placeholder="https://db.kinterstore.my.id" 
-                  addonAfter={
-                    <Button 
-                      type="link" 
-                      size="small" 
-                      onClick={testConnection}
-                      style={{ margin: -7 }}
-                      disabled={loading}
-                    >
-                      Test
-                    </Button>
-                  }
-                />
-              </Form.Item>
-            )}
 
             <Form.Item>
               <Button 
@@ -182,13 +114,6 @@ const Login = () => {
                 onClick={() => navigate('/register')}
               >
                 Belum punya akun? Daftar
-              </Button>
-              <Divider plain>atau</Divider>
-              <Button 
-                type="link" 
-                onClick={() => navigate('/connection-settings')}
-              >
-                Pengaturan Koneksi
               </Button>
             </div>
           </Form>
