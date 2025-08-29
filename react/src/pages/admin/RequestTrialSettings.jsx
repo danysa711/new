@@ -10,8 +10,8 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 const RequestTrialSettings = () => {
-  const [whatsappNumber, setWhatsappNumber] = useState('');
-  const [messageTemplate, setMessageTemplate] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('6281284712684');
+  const [messageTemplate, setMessageTemplate] = useState('Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
   const [isEnabled, setIsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
@@ -23,39 +23,126 @@ const RequestTrialSettings = () => {
     url_slug: 'john-doe-abc123'
   };
 
-  // Load initial values from database
+  // Force end loading jika terlalu lama
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        setFetchLoading(true);
-        const response = await axiosInstance.get('/api/admin/settings/whatsapp-trial');
-        
-        const { whatsappNumber, messageTemplate, isEnabled } = response.data;
-        
-        setWhatsappNumber(whatsappNumber || '6281284712684');
-        setMessageTemplate(messageTemplate || 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
-        setIsEnabled(isEnabled !== false);
-        
-        console.log("Loaded values from database:", {
-          number: whatsappNumber,
-          template: messageTemplate,
-          enabled: isEnabled
-        });
-      } catch (error) {
-        console.error('Error fetching settings:', error);
-        message.error('Gagal mengambil pengaturan: ' + (error.response?.data?.message || error.message));
-        
-        // Set default values if fetch fails
-        setWhatsappNumber('6281284712684');
-        setMessageTemplate('Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
-        setIsEnabled(true);
-      } finally {
-        setFetchLoading(false);
-      }
-    };
-    
+  console.log("RequestTrialSettings component mounted");
+  fetchSettings();
+  
+  // Force end loading after timeout
+  const timeoutId = setTimeout(() => {
+    if (fetchLoading) {
+      console.log("Force ending loading state after timeout");
+      setFetchLoading(false);
+      
+      // Set defaults if still loading
+      setWhatsappNumber('6281284712684');
+      setMessageTemplate('Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
+      setIsEnabled(true);
+      
+      message.info('Pengaturan dimuat dengan nilai default karena koneksi lambat.');
+    }
+  }, 5000); // 5 detik timeout
+  
+  return () => {
+    clearTimeout(timeoutId);
+    console.log("RequestTrialSettings component unmounted");
+  };
+}, []);
+
+  // Load data ketika komponen dimount
+  useEffect(() => {
+    console.log("Initiating data fetching...");
     fetchSettings();
   }, []);
+  
+  const fetchSettings = async () => {
+  console.log("Starting fetchSettings...");
+  try {
+    setFetchLoading(true);
+    
+    let settingsData = null;
+    
+    // Try admin endpoint
+    try {
+      console.log("Trying admin endpoint...");
+      const response = await axiosInstance.get('/api/admin/settings/whatsapp-trial');
+      console.log('Admin response received:', response.data);
+      settingsData = response.data;
+    } catch (adminError) {
+      console.error("Admin endpoint failed:", adminError);
+      
+      // Try public endpoint
+      try {
+        console.log("Trying public endpoint...");
+        const publicResponse = await axiosInstance.get('/api/settings/whatsapp-trial');
+        console.log('Public response received:', publicResponse.data);
+        settingsData = publicResponse.data;
+      } catch (publicError) {
+        console.error("Public endpoint failed:", publicError);
+        
+        // Try fallback endpoint
+        try {
+          console.log("Trying fallback endpoint...");
+          const fallbackResponse = await axiosInstance.get('/api/settings/whatsapp-trial-default');
+          console.log('Fallback response received:', fallbackResponse.data);
+          settingsData = fallbackResponse.data;
+        } catch (fallbackError) {
+          console.error("Even fallback endpoint failed:", fallbackError);
+          console.log("Falling back to localStorage...");
+          
+          // Get from localStorage
+          const localNumber = localStorage.getItem('whatsapp_trial_number');
+          const localTemplate = localStorage.getItem('whatsapp_trial_template');
+          const localEnabled = localStorage.getItem('whatsapp_trial_enabled');
+          
+          if (localNumber && localTemplate) {
+            console.log("Using data from localStorage");
+            settingsData = {
+              whatsappNumber: localNumber,
+              messageTemplate: localTemplate,
+              isEnabled: localEnabled !== 'false'
+            };
+          } else {
+            console.log("Using default hardcoded values");
+            // Use hardcoded defaults
+            settingsData = {
+              whatsappNumber: '6281284712684',
+              messageTemplate: 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}',
+              isEnabled: true
+            };
+          }
+          
+          message.warning('Tidak dapat terhubung ke server. Menggunakan pengaturan lokal.');
+        }
+      }
+    }
+    
+    // Set state with the settings
+    if (settingsData) {
+      setWhatsappNumber(settingsData.whatsappNumber || '6281284712684');
+      setMessageTemplate(settingsData.messageTemplate || 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
+      setIsEnabled(settingsData.isEnabled !== false);
+      
+      // Save to localStorage as backup
+      localStorage.setItem('whatsapp_trial_number', settingsData.whatsappNumber);
+      localStorage.setItem('whatsapp_trial_template', settingsData.messageTemplate);
+      localStorage.setItem('whatsapp_trial_enabled', String(settingsData.isEnabled));
+      
+      console.log("State updated with settings data");
+    }
+  } catch (error) {
+    console.error("Unexpected error in fetchSettings:", error);
+    message.error('Terjadi kesalahan. Menggunakan pengaturan default.');
+    
+    // Final fallback to hardcoded defaults
+    setWhatsappNumber('6281284712684');
+    setMessageTemplate('Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
+    setIsEnabled(true);
+  } finally {
+    console.log("Ending fetchSettings, setting loading state to false");
+    setFetchLoading(false);
+  }
+};
 
   // Generate preview message
   const getPreviewMessage = () => {
@@ -98,23 +185,37 @@ const RequestTrialSettings = () => {
       }
       
       // Save to database
-      const response = await axiosInstance.post('/api/admin/settings/whatsapp-trial', {
+      const settingsData = {
         whatsappNumber,
         messageTemplate,
         isEnabled
-      });
+      };
       
-      console.log("Saved settings to database:", {
-        number: whatsappNumber,
-        template: messageTemplate,
-        enabled: isEnabled
-      });
-      
-      message.success('Pengaturan request trial berhasil disimpan');
-      setLoading(false);
+      try {
+        console.log("Sending save request to API:", settingsData);
+        const response = await axiosInstance.post('/api/admin/settings/whatsapp-trial', settingsData);
+        console.log('Save settings response:', response.data);
+        
+        // Save also to localStorage as backup
+        localStorage.setItem('whatsapp_trial_number', whatsappNumber);
+        localStorage.setItem('whatsapp_trial_template', messageTemplate);
+        localStorage.setItem('whatsapp_trial_enabled', isEnabled.toString());
+        
+        message.success('Pengaturan request trial berhasil disimpan');
+      } catch (apiError) {
+        console.error('Error saving to API:', apiError);
+        
+        // Save to localStorage if API fails
+        localStorage.setItem('whatsapp_trial_number', whatsappNumber);
+        localStorage.setItem('whatsapp_trial_template', messageTemplate);
+        localStorage.setItem('whatsapp_trial_enabled', isEnabled.toString());
+        
+        message.warning('Gagal menyimpan ke server. Pengaturan disimpan secara lokal saja.');
+      }
     } catch (error) {
-      console.error('Error saving settings:', error);
-      message.error('Gagal menyimpan pengaturan: ' + (error.response?.data?.message || error.message));
+      console.error('Error in saveSettings:', error);
+      message.error('Terjadi kesalahan saat menyimpan pengaturan');
+    } finally {
       setLoading(false);
     }
   };
@@ -130,7 +231,8 @@ const RequestTrialSettings = () => {
       // Generate test message
       let testMessage = messageTemplate;
       Object.keys(previewData).forEach(key => {
-        testMessage = testMessage.replace(new RegExp(`{${key}}`, 'g'), previewData[key]);
+        const regex = new RegExp(`{${key}}`, 'g');
+        testMessage = testMessage.replace(regex, previewData[key]);
       });
       
       // Open WhatsApp with test message
@@ -146,8 +248,15 @@ const RequestTrialSettings = () => {
 
   if (fetchLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <Spin size="large" tip="Memuat pengaturan..." />
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '400px' 
+      }}>
+        <Spin size="large" />
+        <div style={{ marginTop: 16 }}>Memuat pengaturan...</div>
       </div>
     );
   }

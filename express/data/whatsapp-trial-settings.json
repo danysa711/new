@@ -1,0 +1,6 @@
+{
+  "whatsappNumber": "6281284712684",
+  "messageTemplate": "Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}",
+  "isEnabled": true,
+  "updatedAt": "2025-08-29T16:19:27.508Z"
+}

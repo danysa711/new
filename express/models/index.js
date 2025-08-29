@@ -225,6 +225,36 @@ const OrderLicense = sequelize.define(
   { timestamps: true }
 );
 
+const WhatsAppTrialSettings = sequelize.define(
+  "WhatsAppTrialSettings",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    whatsappNumber: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: '6281284712684'
+    },
+    messageTemplate: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue: 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}'
+    },
+    isEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
+    }
+  },
+  {
+    tableName: 'whatsapp_trial_settings',
+    timestamps: true
+  }
+);
+
 const db = {
   sequelize,
   Sequelize,
@@ -236,6 +266,7 @@ const db = {
   OrderLicense,
   Subscription,
   SubscriptionPlan,
+  WhatsAppTrialSettings,
 };
 
 Object.keys(db).forEach((modelName) => {
@@ -275,4 +306,4 @@ License.belongsTo(User, { foreignKey: "user_id" });
 User.hasMany(Order, { foreignKey: "user_id" });
 Order.belongsTo(User, { foreignKey: "user_id" });
 
-module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, db };
+module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, WhatsAppTrialSettings, db };
