@@ -19,7 +19,7 @@ import {
   WarningOutlined,
   CopyOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Row, Col } from "antd";
+import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Row, Col } from 'antd';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { ConnectionContext } from "../../context/ConnectionContext"; // Import ConnectionContext
@@ -189,15 +189,13 @@ const UserLayout = () => {
            }
          }}
          items={[
-           { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Home" },
+           { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Beranda" },
            { key: `/user/page/${slug}/subscription`, icon: <ShoppingOutlined />, label: "Langganan" },
            { key: `/user/page/${slug}/orders`, icon: <VideoCameraOutlined />, label: "Pesanan" },
            { key: `/user/page/${slug}/software`, icon: <AppstoreOutlined />, label: "Produk" },
            { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
            { key: `/user/page/${slug}/license`, icon: <KeyOutlined />, label: "Stok" },
-           { key: `/user/page/${slug}/backend-settings`, icon: <LinkOutlined />, label: "Pengaturan Backend" }, // Tambahkan menu ini
            { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
-           { key: "trial", icon: <WhatsAppOutlined />, label: "Request Trial" },
            { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
          ]}
        />
@@ -251,7 +249,7 @@ const UserLayout = () => {
                },
                {
                  key: '3',
-                 label: 'Logout',
+                 label: 'Keluar',
                  icon: <LogoutOutlined />,
                  danger: true,
                  onClick: logout
@@ -288,14 +286,6 @@ const UserLayout = () => {
            <Tag color={effectiveIsConnected ? "success" : "error"}>
              {effectiveIsConnected ? "Terhubung" : "Terputus"}
            </Tag>
-           <Button 
-             type="link" 
-             size="small" 
-             icon={<SettingOutlined />}
-             onClick={() => navigate(`/user/page/${slug}/backend-settings`)}
-           >
-             Ubah
-           </Button>
          </Space>
        </div>
        
