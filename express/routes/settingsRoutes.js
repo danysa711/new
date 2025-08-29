@@ -111,6 +111,12 @@ router.post('/admin/settings/whatsapp-trial', authenticateUser, requireAdmin, (r
       return res.status(400).json({ message: 'Status aktif harus berupa boolean' });
     }
     
+    // Buat direktori jika tidak ada
+    const dataDir = path.join(__dirname, '../data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
     // Update settings
     const newSettings = {
       whatsappNumber,
@@ -119,26 +125,28 @@ router.post('/admin/settings/whatsapp-trial', authenticateUser, requireAdmin, (r
       updatedAt: new Date().toISOString()
     };
     
-    const success = writeSettings(newSettings);
+    // Tulis ke file
+    fs.writeFileSync(
+      path.join(__dirname, '../data/whatsapp_trial_settings.json'),
+      JSON.stringify(newSettings, null, 2),
+      'utf8'
+    );
     
-    if (success) {
-      return res.json({ 
-        message: 'Pengaturan berhasil disimpan', 
-        settings: newSettings 
-      });
-    } else {
-      return res.status(500).json({ message: 'Gagal menyimpan pengaturan' });
-    }
+    // Tulis juga ke file cadangan
+    fs.writeFileSync(
+      path.join(__dirname, '../data/whatsapp-trial-settings.json'),
+      JSON.stringify(newSettings, null, 2),
+      'utf8'
+    );
+    
+    return res.json({ 
+      message: 'Pengaturan berhasil disimpan', 
+      settings: newSettings
+    });
   } catch (error) {
     console.error('Error saving WhatsApp trial settings:', error);
     return res.status(500).json({ message: 'Server error', error: error.message });
   }
-});
-
-// Endpoint fallback yang selalu mengembalikan pengaturan default
-router.get('/settings/whatsapp-trial-default', (req, res) => {
-  console.log('Fallback WhatsApp settings request received');
-  return res.json(DEFAULT_SETTINGS);
 });
 
 module.exports = router;

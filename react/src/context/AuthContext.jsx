@@ -177,7 +177,6 @@ export const AuthProvider = ({ children }) => {
       console.log("Logging in with:", { username, password, remember, backendUrl: url });
       
       const res = await axiosInstance.post("/api/login", { username, password });
-      console.log("Login response:", res.data);
       
       const { token, refreshToken, user } = res.data;
 

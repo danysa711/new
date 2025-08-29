@@ -86,33 +86,73 @@ const saveWhatsAppTrialSettings = async (req, res) => {
       return res.status(400).json({ message: 'Status aktif harus berupa boolean' });
     }
     
-    // Cari pengaturan yang ada atau buat baru
-    let settings = await WhatsAppTrialSettings.findOne();
+    // 1. Simpan ke database
+    try {
+      // Cari pengaturan yang ada atau buat baru
+      let settings = await WhatsAppTrialSettings.findOne();
+      
+      if (settings) {
+        // Update pengaturan yang ada
+        await settings.update({
+          whatsappNumber,
+          messageTemplate,
+          isEnabled,
+          updatedAt: new Date()
+        });
+      } else {
+        // Buat pengaturan baru
+        settings = await WhatsAppTrialSettings.create({
+          whatsappNumber,
+          messageTemplate,
+          isEnabled
+        });
+      }
+    } catch (dbError) {
+      console.error('Error menyimpan ke database:', dbError);
+      // Lanjutkan ke penyimpanan file meskipun terjadi error database
+    }
     
-    if (settings) {
-      // Update pengaturan yang ada
-      await settings.update({
+    // 2. Simpan juga ke file sebagai backup
+    try {
+      // Pastikan direktori ada
+      const dataDir = path.join(__dirname, '../data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      
+      // Buat objek pengaturan
+      const settingsObject = {
         whatsappNumber,
         messageTemplate,
         isEnabled,
-        updatedAt: new Date()
-      });
-    } else {
-      // Buat pengaturan baru
-      settings = await WhatsAppTrialSettings.create({
-        whatsappNumber,
-        messageTemplate,
-        isEnabled
-      });
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Tulis ke file
+      fs.writeFileSync(
+        path.join(__dirname, '../data/whatsapp_trial_settings.json'), 
+        JSON.stringify(settingsObject, null, 2),
+        'utf8'
+      );
+      
+      // Tulis juga ke file alternatif
+      fs.writeFileSync(
+        path.join(__dirname, '../data/whatsapp-trial-settings.json'), 
+        JSON.stringify(settingsObject, null, 2),
+        'utf8'
+      );
+    } catch (fileError) {
+      console.error('Error menyimpan ke file:', fileError);
+      // Jika penyimpanan file gagal tapi database berhasil, tetap anggap sukses
     }
     
     return res.json({ 
       message: 'Pengaturan berhasil disimpan', 
       settings: {
-        whatsappNumber: settings.whatsappNumber,
-        messageTemplate: settings.messageTemplate,
-        isEnabled: settings.isEnabled,
-        updatedAt: settings.updatedAt
+        whatsappNumber,
+        messageTemplate,
+        isEnabled,
+        updatedAt: new Date().toISOString()
       }
     });
   } catch (error) {

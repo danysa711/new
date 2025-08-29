@@ -34,11 +34,6 @@ const RequestTrialSettings = () => {
       console.log("Force ending loading state after timeout");
       setFetchLoading(false);
       
-      // Set defaults if still loading
-      setWhatsappNumber('6281284712684');
-      setMessageTemplate('Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}');
-      setIsEnabled(true);
-      
       message.info('Pengaturan dimuat dengan nilai default karena koneksi lambat.');
     }
   }, 5000); // 5 detik timeout
@@ -160,65 +155,72 @@ const RequestTrialSettings = () => {
 
   // Save settings to database
   const saveSettings = async () => {
-    try {
-      setLoading(true);
-      
-      // Basic validation
-      if (!whatsappNumber) {
-        message.error('Nomor WhatsApp harus diisi');
-        setLoading(false);
-        return;
-      }
-      
-      if (!messageTemplate) {
-        message.error('Template pesan harus diisi');
-        setLoading(false);
-        return;
-      }
-      
-      // Format nomor WhatsApp
-      const whatsappRegex = /^[0-9+]{8,15}$/;
-      if (!whatsappRegex.test(whatsappNumber)) {
-        message.error('Format nomor WhatsApp tidak valid');
-        setLoading(false);
-        return;
-      }
-      
-      // Save to database
-      const settingsData = {
-        whatsappNumber,
-        messageTemplate,
-        isEnabled
-      };
-      
-      try {
-        console.log("Sending save request to API:", settingsData);
-        const response = await axiosInstance.post('/api/admin/settings/whatsapp-trial', settingsData);
-        console.log('Save settings response:', response.data);
-        
-        // Save also to localStorage as backup
-        localStorage.setItem('whatsapp_trial_number', whatsappNumber);
-        localStorage.setItem('whatsapp_trial_template', messageTemplate);
-        localStorage.setItem('whatsapp_trial_enabled', isEnabled.toString());
-        
-        message.success('Pengaturan request trial berhasil disimpan');
-      } catch (apiError) {
-        console.error('Error saving to API:', apiError);
-        
-        // Save to localStorage if API fails
-        localStorage.setItem('whatsapp_trial_number', whatsappNumber);
-        localStorage.setItem('whatsapp_trial_template', messageTemplate);
-        localStorage.setItem('whatsapp_trial_enabled', isEnabled.toString());
-        
-        message.warning('Gagal menyimpan ke server. Pengaturan disimpan secara lokal saja.');
-      }
-    } catch (error) {
-      console.error('Error in saveSettings:', error);
-      message.error('Terjadi kesalahan saat menyimpan pengaturan');
-    } finally {
+  try {
+    setLoading(true);
+    
+    // Basic validation
+    if (!whatsappNumber) {
+      message.error('Nomor WhatsApp harus diisi');
       setLoading(false);
+      return;
     }
-  };
+    
+    if (!messageTemplate) {
+      message.error('Template pesan harus diisi');
+      setLoading(false);
+      return;
+    }
+    
+    // Format nomor WhatsApp
+    const whatsappRegex = /^[0-9+]{8,15}$/;
+    if (!whatsappRegex.test(whatsappNumber)) {
+      message.error('Format nomor WhatsApp tidak valid');
+      setLoading(false);
+      return;
+    }
+    
+    // Save to database
+    const settingsData = {
+      whatsappNumber,
+      messageTemplate,
+      isEnabled
+    };
+    
+    console.log('Sending data to server:', settingsData);
+    
+    try {
+      // Kirim dengan parameter admin=true untuk memastikan request diautentikasi dengan benar
+      const response = await axiosInstance.post('/api/admin/settings/whatsapp-trial?admin=true', settingsData);
+      console.log('Server response:', response.data);
+      
+      // Save also to localStorage as backup
+      localStorage.setItem('whatsapp_trial_number', whatsappNumber);
+      localStorage.setItem('whatsapp_trial_template', messageTemplate);
+      localStorage.setItem('whatsapp_trial_enabled', isEnabled.toString());
+      
+      message.success('Pengaturan request trial berhasil disimpan');
+      
+      // Re-fetch settings to verify they were saved
+      setTimeout(() => {
+        fetchSettings();
+      }, 1000);
+    } catch (apiError) {
+      console.error('Error saving to API:', apiError);
+      
+      // Save to localStorage if API fails
+      localStorage.setItem('whatsapp_trial_number', whatsappNumber);
+      localStorage.setItem('whatsapp_trial_template', messageTemplate);
+      localStorage.setItem('whatsapp_trial_enabled', isEnabled.toString());
+      
+      message.warning('Gagal menyimpan ke server. Pengaturan disimpan secara lokal saja.');
+    }
+  } catch (error) {
+    console.error('Error in saveSettings:', error);
+    message.error('Terjadi kesalahan saat menyimpan pengaturan');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Test WhatsApp settings
   const testWhatsAppSettings = () => {

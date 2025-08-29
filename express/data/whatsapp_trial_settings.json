@@ -1,6 +1,6 @@
 {
-  "whatsappNumber": "62812847126843",
-  "messageTemplate": "Halo, saya {username} ({email}) ingin request trial ",
+  "whatsappNumber": "6281284712684",
+  "messageTemplate": "Halo admin, saya dengan username: {username} email: {email} ingin request trial",
   "isEnabled": true,
-  "updatedAt": "2025-08-29T16:45:30.453Z"
+  "updatedAt": "2025-08-29T17:11:25.211Z"
 }

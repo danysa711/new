@@ -75,7 +75,6 @@ const UserLayout = () => {
        const response = await axiosInstance.get(`/api/user/public/${slug}`);
        setUserProfile(response.data.user);
      } catch (err) {
-       console.error("Error fetching user profile:", err);
        setError("Failed to load user profile");
      } finally {
        setLoading(false);
@@ -141,7 +140,7 @@ const UserLayout = () => {
   // Fungsi untuk membuka WhatsApp dengan pesan request trial
 const requestTrial = async () => {
   try {
-    // Tampilkan loading (gunakan hide untuk menyimpan fungsi dismiss)
+    // Tampilkan loading message
     const hide = message.loading('Memuat pengaturan trial...', 0);
     
     // Variabel untuk menyimpan pengaturan
@@ -171,12 +170,32 @@ const requestTrial = async () => {
       if (isEnabled === null) isEnabled = true;
       
       console.log('Menggunakan data dari localStorage atau default');
+    } finally {
+      // Hentikan loading
+      hide();
     }
     
-    // Hentikan loading
-    hide(); // Gunakan hide di sini untuk menutup pesan loading
+    // Periksa apakah fitur diaktifkan
+    if (!isEnabled) {
+      message.info('Fitur request trial saat ini tidak aktif. Silakan hubungi admin.');
+      return;
+    }
     
-    // Kode lainnya tetap sama...
+    // Hasilkan pesan dengan mengganti placeholder dengan data pengguna aktual
+    let finalMessage = messageTemplate;
+    if (user) {
+      finalMessage = finalMessage.replace(/{username}/g, user.username || '');
+      finalMessage = finalMessage.replace(/{email}/g, user.email || '');
+      finalMessage = finalMessage.replace(/{url_slug}/g, user.url_slug || '');
+    }
+    
+    // Hasilkan URL WhatsApp
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
+    
+    // Buka WhatsApp di tab baru
+    window.open(whatsappUrl, '_blank');
+    
+    console.log('WhatsApp dibuka dengan URL:', whatsappUrl);
   } catch (error) {
     console.error('Error dalam requestTrial:', error);
     message.error('Terjadi kesalahan. Silakan coba lagi nanti.');
