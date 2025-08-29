@@ -1,5 +1,3 @@
-// File: express/controllers/licenseController.js
-
 const { License, Software, db, SoftwareVersion } = require("../models");
 const { Op } = require("sequelize");
 
@@ -54,8 +52,8 @@ const getAllAvailableLicenses = async (req, res) => {
     
     // Filter kondisi berdasarkan role
     const whereCondition = req.userRole === "admin" 
-      ? {} 
-      : { user_id: userId };
+  ? {} 
+  : { user_id: userId };
     
     const licenses = await License.findAll({
       where: whereCondition,
@@ -131,7 +129,7 @@ const createLicense = async (req, res) => {
       license_key, 
       is_active, 
       used_at,
-      user_id: userId // Selalu gunakan user_id dari user yang login
+      user_id: userId 
     });
 
     return res.status(201).json({ message: "Lisensi berhasil ditambahkan", license: newLicense });
@@ -209,7 +207,7 @@ const createMultipleLicenses = async (req, res) => {
         license_key: key,
         is_active: false,
         used_at: null,
-        user_id: userId, // Selalu gunakan user_id dari user yang login
+        user_id: userId, // Tambahkan user_id
         createdAt: new Date(), // Set createdAt saat pembuatan
       }));
 

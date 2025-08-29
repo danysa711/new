@@ -1,4 +1,4 @@
-// File: react/src/services/axios.js
+// File: src/services/axios.js
 
 import axios from "axios";
 
@@ -23,40 +23,6 @@ const getBackendUrl = () => {
          localStorage.getItem("backendUrl") || 
          import.meta.env.VITE_BACKEND_URL || 
          "https://db.kinterstore.my.id";
-};
-
-// Fungsi untuk mendapatkan user ID saat ini
-const getCurrentUserId = () => {
-  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
-  let user = null;
-  
-  try {
-    if (userStr) {
-      user = JSON.parse(userStr);
-      return user.id;
-    }
-  } catch (err) {
-    console.error("Error parsing user data:", err);
-  }
-  
-  return null;
-};
-
-// Fungsi untuk mendapatkan peran user saat ini
-const getCurrentUserRole = () => {
-  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
-  let user = null;
-  
-  try {
-    if (userStr) {
-      user = JSON.parse(userStr);
-      return user.role;
-    }
-  } catch (err) {
-    console.error("Error parsing user data:", err);
-  }
-  
-  return null;
 };
 
 // Buat instance axios dengan baseURL yang dinamis
@@ -101,54 +67,6 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
-
-    // Jika method adalah POST, PUT, atau PATCH, dan body adalah object
-    // Tambahkan user_id ke body kecuali untuk endpoint tertentu
-    const userId = getCurrentUserId();
-    const userRole = getCurrentUserRole();
-    
-    // List endpoint yang tidak perlu user_id
-    const excludedEndpoints = [
-      '/api/login', 
-      '/api/register', 
-      '/api/user/refresh',
-      '/api/orders/find',
-      '/api/user/profile',
-      '/api/user/password'
-    ];
-    
-    // Cek apakah URL ada dalam daftar pengecualian
-    const isExcludedEndpoint = excludedEndpoints.some(endpoint => {
-      return config.url && config.url.includes(endpoint);
-    });
-    
-    // Tambahkan user_id ke body jika perlu
-    if (config.data && 
-        typeof config.data === 'object' && 
-        !isExcludedEndpoint && 
-        userRole !== 'admin' && 
-        userId) {
-      
-      // Jika data adalah JSON string, parse dulu
-      if (typeof config.data === 'string') {
-        try {
-          const parsedData = JSON.parse(config.data);
-          parsedData.user_id = userId;
-          config.data = JSON.stringify(parsedData);
-        } catch (e) {
-          console.error('Error parsing request data:', e);
-        }
-      } else {
-        // Jika data sudah dalam bentuk object
-        config.data.user_id = userId;
-      }
-    }
-    
-    // Jika method adalah GET, tambahkan user_id ke params
-    if (config.method === 'get' && !isExcludedEndpoint && userRole !== 'admin' && userId) {
-      config.params = config.params || {};
-      config.params.user_id = userId;
-    }
     
     // Pastikan URL lengkap
     if (config.url && !config.url.startsWith('http')) {
@@ -161,9 +79,7 @@ axiosInstance.interceptors.request.use(
     // Untuk pencatatan
     console.log(`Permintaan ke ${config.baseURL}${config.url}`, {
       headers: config.headers,
-      method: config.method,
-      params: config.params,
-      data: config.data
+      method: config.method
     });
     
     return config;
@@ -347,17 +263,5 @@ export const findOrders = async (orderData, specificBackendUrl = null) => {
 // Expose URL functions
 export const API_URL = getBackendUrl();
 export const getApiUrl = getBackendUrl;
-export const getCurrentUser = () => {
-  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
-  if (userStr) {
-    try {
-      return JSON.parse(userStr);
-    } catch (e) {
-      console.error("Error parsing user data:", e);
-      return null;
-    }
-  }
-  return null;
-};
 
 export default axiosInstance;

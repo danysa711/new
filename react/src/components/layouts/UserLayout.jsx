@@ -19,7 +19,7 @@ import {
   WarningOutlined,
   CopyOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Row, Col } from 'antd';
+import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Row, Col } from "antd";
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { ConnectionContext } from "../../context/ConnectionContext"; // Import ConnectionContext
@@ -134,23 +134,12 @@ const UserLayout = () => {
  const apiUrl = `${backendUrl || 'https://db.kinterstore.my.id'}/api/public/user/${slug}`;
 
  // Fungsi untuk membuka WhatsApp dengan pesan request trial
- // Fungsi untuk membuka WhatsApp dengan pesan request trial
-const requestTrial = () => {
-  // Ambil pengaturan dari localStorage, gunakan nilai default jika tidak ada
-  const phone = localStorage.getItem('requestTrialPhone') || '6281284712684';
-  const messageTemplate = localStorage.getItem('requestTrialMessage') || 
-    'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}';
-  
-  // Ganti placeholder dengan data pengguna
-  const message = messageTemplate
-    .replace('{username}', user.username)
-    .replace('{email}', user.email || '')
-    .replace('{url_slug}', user.url_slug);
-  
-  // Buka WhatsApp dengan nomor dan pesan yang telah dikonfigurasi
-  const waLink = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-  window.open(waLink, '_blank');
-};
+ const requestTrial = () => {
+   // Pesan WhatsApp dengan format yang berisi informasi user
+   const message = `Halo, saya ${user.username} (${user.email}) ingin request trial dengan URL: ${user.url_slug}`;
+   const waLink = `https://wa.me/6281284712684?text=${encodeURIComponent(message)}`;
+   window.open(waLink, '_blank');
+ };
 
  // Force isConnected to true if user has active subscription
  const effectiveIsConnected = user.hasActiveSubscription ? true : isConnected;
@@ -200,13 +189,15 @@ const requestTrial = () => {
            }
          }}
          items={[
-           { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Beranda" },
+           { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Home" },
            { key: `/user/page/${slug}/subscription`, icon: <ShoppingOutlined />, label: "Langganan" },
            { key: `/user/page/${slug}/orders`, icon: <VideoCameraOutlined />, label: "Pesanan" },
            { key: `/user/page/${slug}/software`, icon: <AppstoreOutlined />, label: "Produk" },
            { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
            { key: `/user/page/${slug}/license`, icon: <KeyOutlined />, label: "Stok" },
+           { key: `/user/page/${slug}/backend-settings`, icon: <LinkOutlined />, label: "Pengaturan Backend" }, // Tambahkan menu ini
            { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
+           { key: "trial", icon: <WhatsAppOutlined />, label: "Request Trial" },
            { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
          ]}
        />
@@ -260,7 +251,7 @@ const requestTrial = () => {
                },
                {
                  key: '3',
-                 label: 'Keluar',
+                 label: 'Logout',
                  icon: <LogoutOutlined />,
                  danger: true,
                  onClick: logout
@@ -297,6 +288,14 @@ const requestTrial = () => {
            <Tag color={effectiveIsConnected ? "success" : "error"}>
              {effectiveIsConnected ? "Terhubung" : "Terputus"}
            </Tag>
+           <Button 
+             type="link" 
+             size="small" 
+             icon={<SettingOutlined />}
+             onClick={() => navigate(`/user/page/${slug}/backend-settings`)}
+           >
+             Ubah
+           </Button>
          </Space>
        </div>
        

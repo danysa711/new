@@ -1,10 +1,6 @@
-// File: express/server.js
-
 const express = require("express");
 const cors = require("cors");
 const { db } = require("./models");
-const { authenticateUser, requireAdmin } = require("./middlewares/auth");
-const userDataFilter = require("./middlewares/userDataFilter"); // Import middleware baru
 
 const licenseRoutes = require("./routes/licenseRoutes");
 const softwareRoutes = require("./routes/softwareRoutes");
@@ -72,37 +68,16 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "API is working", timestamp: new Date().toISOString() });
 });
 
-// Public routes - tidak memerlukan autentikasi
-app.use("/api", authRoutes); // Login, register, dll
-app.use("/api/public", publicApiRoutes);
-
-// Routes yang memerlukan autentikasi
-// Tambahkan userDataFilter middleware setelah authenticateUser untuk semua route yang perlu filtering
-app.use("/api", authenticateUser);
-
-// /api/orders/find adalah pengecualian khusus yang tidak perlu filtering user_id
-app.post("/api/orders/find", (req, res, next) => {
-  // Lanjutkan tanpa userDataFilter untuk endpoint ini
-  orderRoutes.findOrder(req, res, next);
-});
-
-// Rute-rute yang memerlukan filtering berdasarkan user_id
-const routesNeedFiltering = [
-  { path: "/api/licenses", router: licenseRoutes },
-  { path: "/api/software", router: softwareRoutes },
-  { path: "/api/software-versions", router: softwareVersionRoutes },
-  { path: "/api/orders", router: orderRoutes },
-  { path: "/api/subscriptions", router: subscriptionRoutes },
-];
-
-// Terapkan middleware userDataFilter untuk rute-rute yang membutuhkan filtering
-routesNeedFiltering.forEach(route => {
-  app.use(route.path, userDataFilter, route.router);
-});
-
-// Rute admin yang tidak memerlukan filtering user_id
-app.use("/api/users", requireAdmin, userRoutes);
+// Routes
+app.use("/api", licenseRoutes);
+app.use("/api", softwareRoutes);
+app.use("/api", softwareVersionRoutes);
+app.use("/api", orderRoutes);
+app.use("/api", authRoutes);
+app.use("/api", userRoutes);
+app.use("/api", subscriptionRoutes);
 app.use("/api/tripay", tripayRoutes);
+app.use("/api/public", publicApiRoutes);
 
 // Start server
 app.listen(PORT, async () => {

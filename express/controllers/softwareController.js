@@ -1,5 +1,3 @@
-// File: express/controllers/softwareController.js
-
 const { Software, db } = require("../models");
 const { Op } = require("sequelize");
 
