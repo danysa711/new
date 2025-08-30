@@ -473,79 +473,8 @@ const SubscriptionPage = () => {
             }
           />
         )}
-      </Card>
+      </Card>  
       
-      {/* Pending Payments Section */}
-      {pendingTransactions.length > 0 && (
-        <Card title={<Title level={4}>Pembayaran Tertunda</Title>} style={{ marginBottom: 24 }}>
-          {pendingTransactions.map((transaction, index) => (
-            <Card 
-              key={transaction.reference}
-              type="inner" 
-              style={{ marginBottom: index < pendingTransactions.length - 1 ? 16 : 0 }}
-              extra={
-                <Button 
-                  icon={<ReloadOutlined />} 
-                  loading={checkingStatus} 
-                  onClick={() => handleCheckStatus(transaction.reference)}
-                >
-                  Cek Status
-                </Button>
-              }
-            >
-              <Row gutter={[16, 16]}>
-                <Col xs={24} md={16}>
-                  <Descriptions column={1} size="small" bordered>
-                    <Descriptions.Item label="Referensi">
-                      <Text copyable>{transaction.reference}</Text>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Paket">
-                      {transaction.plan_name}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Metode Pembayaran">
-                      {transaction.payment_name}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Total">
-                      <Text strong>Rp {transaction.total_amount.toLocaleString('id-ID')}</Text>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Batas Waktu">
-                      <Text type="danger">
-                        {moment(transaction.expired_at).format('DD MMM YYYY HH:mm')}
-                      </Text>
-                    </Descriptions.Item>
-                  </Descriptions>
-                </Col>
-                <Col xs={24} md={8}>
-                  <div style={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: '16px',
-                    background: '#f5f5f5',
-                    borderRadius: '4px',
-                    textAlign: 'center'
-                  }}>
-                    <ClockCircleOutlined style={{ fontSize: 36, color: '#faad14', marginBottom: 16 }} />
-                    <Title level={5}>Menunggu Pembayaran</Title>
-                    <Button 
-                      type="link" 
-                      onClick={() => {
-                        setPaymentResult(transaction);
-                        setPaymentModalVisible(true);
-                      }}
-                    >
-                      Lihat Instruksi Pembayaran
-                    </Button>
-                  </div>
-                </Col>
-              </Row>
-            </Card>
-          ))}
-        </Card>
-      )}
-
       {/* Available Plans Section */}
       <div id="subscription-plans">
         <Title level={4}>Paket Langganan Tersedia</Title>
