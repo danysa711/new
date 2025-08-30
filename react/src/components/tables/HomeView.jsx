@@ -1,9 +1,17 @@
-import { Card, Row, Col, Statistic, Select, Spin } from 'antd';
+import { Card, Row, Col, Statistic, Select, Spin, Typography } from 'antd';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
-import axiosInstance from '../../services/axios'; 
+
+import { getSoftwareCount, getSoftwareVersionCount } from '../../api/software-service';
+
+// Import fungsi terkait lisensi
+import { getLicenseCount } from '../../api/license-service';
+
+// Import fungsi terkait pesanan
+import { getOrderCount, getOrderUsage } from '../../api/order-service';
 
 const { Option } = Select;
+const { Title } = Typography;
 
 const HomeView = () => {
   const [data, setData] = useState({
@@ -33,29 +41,32 @@ const HomeView = () => {
   
     try {
       const { startDate, endDate } = calculateDateRange(Number(timeRange));
-  
-      const urls = [
-        "/api/software/count",
-        "/api/software-versions/count",
-        "/api/licenses/count",
-        "/api/licenses/available/all/count",
-        "/api/orders/count",
-        "/api/orders/usage",
-      ];
-  
       const requestBody = { startDate, endDate };
   
-      const responses = await Promise.all(
-        urls.map(url => axiosInstance.post(url, requestBody))
-      );
+      // Fetch all data using the new API
+      const [
+        softwareCountData,
+        versionsCountData,
+        licensesCountData,
+        availableLicensesData,
+        ordersCountData,
+        usageData
+      ] = await Promise.all([
+        getSoftwareCount(requestBody),
+        getSoftwareVersionCount(requestBody),
+        getLicenseCount(requestBody),
+        getLicenseCount({ ...requestBody, available: true }),
+        getOrderCount(requestBody),
+        getOrderUsage(requestBody)
+      ]);
   
       setData({
-        totalSoftware: responses[0].data.totalSoftware,
-        totalSoftwareVersions: responses[1].data.totalSoftwareVersions,
-        totalLicenses: responses[2].data.totalLicenses,
-        usedLicenses: responses[3].data.availableLicenses,
-        totalOrders: responses[4].data.totalOrders,
-        softwareUsage: responses[5].data,
+        totalSoftware: softwareCountData.totalSoftware || 0,
+        totalSoftwareVersions: versionsCountData.totalSoftwareVersions || 0,
+        totalLicenses: licensesCountData.totalLicenses || 0,
+        usedLicenses: availableLicensesData.totalLicenses || 0,
+        totalOrders: ordersCountData.totalOrders || 0,
+        softwareUsage: usageData || [],
       });
   
     } catch (error) {
@@ -65,7 +76,6 @@ const HomeView = () => {
     }
   };
   
-
   useEffect(() => {
     fetchData();
   }, [timeRange]);
@@ -79,6 +89,8 @@ const HomeView = () => {
 
   return (
     <div style={{ padding: 20 }}>
+      <Title level={2}>Dashboard</Title>
+
       <Row justify="end" style={{ marginBottom: 20 }}>
         <Select value={timeRange} onChange={setTimeRange} style={{ width: 150 }}>
           <Option value="7">7 Hari Terakhir</Option>
@@ -115,19 +127,19 @@ const HomeView = () => {
           <Card title="Distribusi Stok">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={licenseData} cx="50%" cy="50%" outerRadius={100} dataKey="value">
+                <Pie data={licenseData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}>
                   {licenseData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(value) => [value, 'Jumlah']} />
               </PieChart>
             </ResponsiveContainer>
           </Card>
         </Col>
 
         <Col span={12}>
-          <Card title="Software Paling Banyak Terjual">
+          <Card title="Produk Terlaris">
             {loading ? (
               <Spin />
             ) : (
@@ -136,7 +148,7 @@ const HomeView = () => {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#8884d8" barSize={50} />
+                  <Bar dataKey="count" name="Jumlah Terjual" fill="#8884d8" barSize={50} />
                 </BarChart>
               </ResponsiveContainer>
             )}

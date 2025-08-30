@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Popconfirm, message, Input, Tag } from "antd";
-import MainTable from "../../components/tables/MainTable";
-import axiosInstance from "../../services/axios";
+import MainTable from "./MainTable";
+import { getAllOrders, deleteOrder } from "../../api/order-service";
 
 const OrderTable = () => {
   const [orders, setOrders] = useState([]);
@@ -14,8 +14,7 @@ const OrderTable = () => {
     const fetchOrders = async () => {
       setIsLoading(true);
       try {
-        const response = await axiosInstance.get('/api/orders');
-        const data = response.data;
+        const data = await getAllOrders();
         const sortedData = [...data].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by date (desc)
         setOrders(sortedData);
         setFilteredOrders(sortedData);
@@ -32,7 +31,7 @@ const OrderTable = () => {
   const handleDelete = async (id) => {
     setIsLoading(true);
     try {
-      await axiosInstance.delete(`/api/orders/${id}`);
+      await deleteOrder(id);
       message.success("Pesanan berhasil dihapus!");
       setOrders((prev) => prev.filter((order) => order.id !== id));
       setFilteredOrders((prev) => prev.filter((order) => order.id !== id));

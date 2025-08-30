@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { addSoftware, deleteSoftware, getAllSoftware, updateSoftware } from '../../services/api'; // Sesuaikan dengan path file API
+import {
+  getAllSoftware,
+  deleteSoftware,
+  createSoftware,
+  updateSoftware
+} from "../../api/software-service";
 import MainTable from './MainTable';
 import { Button, Form, message, Modal, Popconfirm, Input } from "antd";
 
@@ -16,15 +21,37 @@ const SoftwareTable = () => {
   });
 
   useEffect(() => {
-    getAllSoftware(setSoftwareData, setLoading, setError);
+    const fetchSoftware = async () => {
+      try {
+        setLoading(true);
+        const data = await getAllSoftware();
+        setSoftwareData(data);
+      } catch (err) {
+        console.error("Error fetching software:", err);
+        setError("Gagal memuat data produk");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSoftware();
   }, []);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
-  const handleDelete = (id) => {
-    deleteSoftware(id, setSoftwareData, setLoading, setError);
-    message.success("Software berhasil dihapus!");
+  const handleDelete = async (id) => {
+    try {
+      await deleteSoftware(id);
+      message.success("Software berhasil dihapus!");
+      
+      // Refresh the software list
+      const data = await getAllSoftware();
+      setSoftwareData(data);
+    } catch (error) {
+      console.error("Error deleting software:", error);
+      message.error("Gagal menghapus software");
+    }
   };
 
   const handleAddData = () => {
@@ -33,27 +60,45 @@ const SoftwareTable = () => {
 
   const handleOk = async () => {
     if (isEditMode) {
-      const response = await updateSoftware(newSoftware, setSoftwareData, setLoading, setError);
-  
-      if (response.status === 200) {
+      try {
+        await updateSoftware(newSoftware.id, newSoftware);
         message.success("Software berhasil diperbarui!");
         setIsModalVisible(false);
         setIsEditMode(false);
         setNewSoftware({ name: "", requires_license: false, search_by_version: false });
+        
+        // Refresh the software list
+        const data = await getAllSoftware();
+        setSoftwareData(data);
+      } catch (error) {
+        console.error("Error updating software:", error);
+        message.error("Gagal memperbarui software");
       }
     } else {
-      const response = await addSoftware(newSoftware, setSoftwareData, setLoading, setError);
-  
-      if (response.status === 201) {
+      try {
+        await createSoftware(newSoftware);
         message.success("Software berhasil ditambahkan!");
         setIsModalVisible(false);
         setNewSoftware({ name: "", requires_license: false, search_by_version: false });
+        
+        // Refresh the software list
+        const data = await getAllSoftware();
+        setSoftwareData(data);
+      } catch (error) {
+        console.error("Error adding software:", error);
+        message.error("Gagal menambahkan software");
       }
     }
   };
   
   const handleCancel = () => {
     setIsModalVisible(false);
+    setIsEditMode(false);
+    setNewSoftware({
+      name: '',
+      requires_license: false,
+      search_by_version: false
+    });
   };
 
   const handleInputChange = (e) => {
@@ -108,6 +153,13 @@ const SoftwareTable = () => {
       render: (text) => (text ? "Yes" : "No"),
     },
     {
+      title: "Tanggal Ditambahkan",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (date) => new Date(date).toLocaleDateString('id-ID'),
+      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+    },
+    {
       title: "Aksi",
       key: "action",
       render: (_, record) => (
@@ -128,7 +180,6 @@ const SoftwareTable = () => {
 
   return( 
   <div>
-
     <MainTable data={softwareData} columns={columns} onAdd={handleAddData} />
   
     <Modal

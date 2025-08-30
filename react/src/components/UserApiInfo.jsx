@@ -1,6 +1,7 @@
 import React from 'react';
-import { Card, Typography, Button, Tag, Divider, message } from 'antd';
+import { Card, Typography, Button, Tag, Divider, message, Tooltip } from 'antd';
 import { LinkOutlined, CopyOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { getActiveBackendUrl } from '../api/utils';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -8,7 +9,7 @@ const UserApiInfo = ({ user }) => {
   if (!user) return null;
   
   // URL yang akan ditampilkan
-  const userBackendUrl = user.backend_url || 'https://db.kinterstore.my.id';
+  const userBackendUrl = user.backend_url || getActiveBackendUrl();
   const publicApiUrl = `${userBackendUrl}/api/public/user/${user.url_slug}`;
   const ordersApiUrl = `${userBackendUrl}/api/orders/find`;
   

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getAllSoftwareVersion, 
-  addSoftwareVersion, 
-  updateSoftwareVersion, 
-  deleteSoftwareVersion, 
-  getAllSoftware 
-} from '../../services/api'; // Sesuaikan dengan path file API
+  getAllSoftwareVersions,
+  createSoftwareVersion,
+  updateSoftwareVersion,
+  deleteSoftwareVersion,
+  getAllSoftware
+} from "../../api/software-service";
 import MainTable from './MainTable';
 import { Button, Form, message, Modal, Popconfirm, Input, Select } from "antd";
 
@@ -26,18 +26,54 @@ const VersionTable = () => {
   });
 
   useEffect(() => {
-    getAllSoftwareVersion(setSoftwareVersions, setLoading, setError);
-    if (isModalVisible) {
-        getAllSoftware(setSoftwareList, setLoadingSoftware, setError); 
+    const fetchVersions = async () => {
+      try {
+        setLoading(true);
+        const data = await getAllSoftwareVersions();
+        setSoftwareVersions(data);
+      } catch (err) {
+        console.error("Error fetching software versions:", err);
+        setError("Gagal memuat data variasi produk");
+      } finally {
+        setLoading(false);
       }
+    };
+
+    fetchVersions();
+    
+    if (isModalVisible) {
+      const fetchSoftware = async () => {
+        try {
+          setLoadingSoftware(true);
+          const data = await getAllSoftware();
+          setSoftwareList(data);
+        } catch (err) {
+          console.error("Error fetching software:", err);
+          setError("Gagal memuat data software");
+        } finally {
+          setLoadingSoftware(false);
+        }
+      };
+      
+      fetchSoftware();
+    }
   }, [isModalVisible]);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
-  const handleDelete = (id) => {
-    deleteSoftwareVersion(id, setSoftwareVersions, setLoading, setError);
-    message.success("Software berhasil dihapus!");
+  const handleDelete = async (id) => {
+    try {
+      await deleteSoftwareVersion(id);
+      message.success("Variasi produk berhasil dihapus!");
+      
+      // Refresh the version list
+      const data = await getAllSoftwareVersions();
+      setSoftwareVersions(data);
+    } catch (error) {
+      console.error("Error deleting software version:", error);
+      message.error("Gagal menghapus variasi produk");
+    }
   };
 
   const handleAddData = () => {
@@ -46,40 +82,59 @@ const VersionTable = () => {
 
   const handleOk = async () => {
     if (isEditMode) {
-      const response = await updateSoftwareVersion(newSoftwareVersion, setSoftwareVersions, setLoading, setError);
-  
-      if (response.status === 200) {
-        message.success("Software berhasil diperbarui!");
+      try {
+        await updateSoftwareVersion(newSoftwareVersion.id, newSoftwareVersion);
+        message.success("Variasi produk berhasil diperbarui!");
         setIsModalVisible(false);
         setIsEditMode(false);
         setNewSoftwareVersion({
-            name: "",
-            software_id: null, 
-            version: null, 
-            os: "", 
-            download_link: ""
+          name: "",
+          software_id: null, 
+          version: null, 
+          os: "", 
+          download_link: ""
         });
+        
+        // Refresh the version list
+        const data = await getAllSoftwareVersions();
+        setSoftwareVersions(data);
+      } catch (error) {
+        console.error("Error updating software version:", error);
+        message.error("Gagal memperbarui variasi produk");
       }
     } else {
-      const response = await addSoftwareVersion(newSoftwareVersion, setSoftwareVersions, setLoading, setError);
-
-      if (response.status === 201) {
-        message.success("Software berhasil ditambahkan!");
+      try {
+        await createSoftwareVersion(newSoftwareVersion);
+        message.success("Variasi produk berhasil ditambahkan!");
         setIsModalVisible(false);
         setNewSoftwareVersion({
-            name: "",
-            software_id: null, 
-            version: null, 
-            os: "", 
-            download_link: ""
+          name: "",
+          software_id: null, 
+          version: null, 
+          os: "", 
+          download_link: ""
         });
+        
+        // Refresh the version list
+        const data = await getAllSoftwareVersions();
+        setSoftwareVersions(data);
+      } catch (error) {
+        console.error("Error adding software version:", error);
+        message.error("Gagal menambahkan variasi produk");
       }
     }
   };
 
   const handleCancel = () => {
     setIsModalVisible(false);
-    setIsEditMode(false)
+    setIsEditMode(false);
+    setNewSoftwareVersion({
+      name: "",
+      software_id: null, 
+      version: null, 
+      os: "", 
+      download_link: ""
+    });
   };
 
   const handleInputChange = (e) => {
@@ -99,7 +154,14 @@ const VersionTable = () => {
 
   const handleEdit = (software) => {
     setIsEditMode(true);
-    setNewSoftwareVersion(software);
+    setNewSoftwareVersion({
+      id: software.id,
+      name: software.name,
+      software_id: software.software_id,
+      version: software.version,
+      os: software.os,
+      download_link: software.download_link
+    });
     setIsModalVisible(true);
   };
 
@@ -131,6 +193,13 @@ const VersionTable = () => {
       render: (text) => <a href={text} target="_blank" rel="noopener noreferrer">{text}</a>,
     },
     {
+      title: "Tanggal Ditambahkan",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (date) => new Date(date).toLocaleDateString('id-ID'),
+      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+    },
+    {
       title: "Aksi",
       key: "action",
       render: (_, record) => (
@@ -149,70 +218,76 @@ const VersionTable = () => {
     },
   ];
 
+  // Mengubah data untuk ditampilkan
+  const processedVersions = softwareVersions.map(version => ({
+    id: version.id,
+    name: version.Software ? version.Software.name : "Unknown",
+    version: version.version,
+    os: version.os,
+    download_link: version.download_link,
+    software_id: version.software_id,
+    createdAt: version.createdAt
+  }));
+
   return( 
   <div>
-    <MainTable data={
-        softwareVersions.map((version) => ({
-            id: version.id,
-            name: version.Software ? version.Software.name : "Unknown",
-            version: version.version,
-            os: version.os,
-            download_link: version.download_link,
-            software_id: version.software_id,
-          }))
-    } columns={columns} onAdd={handleAddData} />
+    <MainTable 
+      data={processedVersions} 
+      columns={columns} 
+      onAdd={handleAddData} 
+    />
   
     <Modal
-        title={isEditMode ? "Ubah Variasi Produk" : "Tambahkan Variasi Produk"}
-        open={isModalVisible}
-        onOk={handleOk}
-        onCancel={handleCancel}
-        okText={isEditMode ? "Update" : "Add"}
-      >
-        <Form>
-          <Form.Item label="Produk">
-            <Select
-              name="software_id"
-              value={newSoftwareVersion.software_id}
-              onChange={handleSoftwareChange}
-              loading={loadingSoftware}
-              showSearch
-              placeholder="Pilih Produk"
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                option.children.toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {softwareList.map((software) => (
-                <Select.Option key={software.id} value={software.id}>
-                  {software.name}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item label="Variasi-1">
-            <Input
-              name="os"
-              value={newSoftwareVersion.os}
-              onChange={handleInputChange}
-            />
-          </Form.Item>
-          <Form.Item label="Variasi-2">
-            <Input
-              name="version"
-              value={newSoftwareVersion.version}
-              onChange={handleInputChange}
-            />
-          </Form.Item>
-          <Form.Item label="Download Link">
-            <Input
-              name="download_link"
-              value={newSoftwareVersion.download_link}
-              onChange={handleInputChange}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+      title={isEditMode ? "Ubah Variasi Produk" : "Tambahkan Variasi Produk"}
+      open={isModalVisible}
+      onOk={handleOk}
+      onCancel={handleCancel}
+      okText={isEditMode ? "Update" : "Add"}
+    >
+      <Form>
+        <Form.Item label="Produk">
+          <Select
+            name="software_id"
+            value={newSoftwareVersion.software_id}
+            onChange={handleSoftwareChange}
+            loading={loadingSoftware}
+            showSearch
+            placeholder="Pilih Produk"
+            optionFilterProp="children"
+            filterOption={(input, option) =>
+              option.children.toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            {softwareList.map((software) => (
+              <Select.Option key={software.id} value={software.id}>
+                {software.name}
+              </Select.Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item label="Variasi-1">
+          <Input
+            name="os"
+            value={newSoftwareVersion.os}
+            onChange={handleInputChange}
+          />
+        </Form.Item>
+        <Form.Item label="Variasi-2">
+          <Input
+            name="version"
+            value={newSoftwareVersion.version}
+            onChange={handleInputChange}
+          />
+        </Form.Item>
+        <Form.Item label="Download Link">
+          <Input
+            name="download_link"
+            value={newSoftwareVersion.download_link}
+            onChange={handleInputChange}
+          />
+        </Form.Item>
+      </Form>
+    </Modal>
   </div>
 )
 };

@@ -1,11 +1,19 @@
-import { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useState, useEffect, useContext } from "react";
 import { AuthContext } from "./AuthContext";
-import axiosInstance from "../services/axios";
+
+// Konstanta untuk status koneksi
+export const CONNECTION_STATUS = {
+  CHECKING: 'checking',
+  CONNECTED: 'connected',
+  DISCONNECTED: 'disconnected',
+  ERROR: 'error',
+  SUBSCRIPTION_EXPIRED: 'subscription_expired'
+};
 
 export const ConnectionContext = createContext();
 
 export const ConnectionProvider = ({ children }) => {
-  const { user, token } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const [backendUrl, setBackendUrl] = useState(() => {
     // Prioritaskan backend URL dari user jika tersedia
     return user?.backend_url || localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "https://db.kinterstore.my.id";
@@ -29,23 +37,13 @@ export const ConnectionProvider = ({ children }) => {
     }
     
     localStorage.setItem("useProxyApi", proxyEnabled.toString());
-    
-    // Update axios baseURL berdasarkan pengaturan proxy
-    if (proxyEnabled) {
-      // Gunakan domain frontend dengan /api sebagai baseURL
-      const frontendOrigin = window.location.origin;
-      axiosInstance.defaults.baseURL = `${frontendOrigin}`;
-      console.log(`API Proxy diaktifkan. Menggunakan baseURL: ${frontendOrigin}`);
-    } else {
-      // Gunakan backendUrl langsung
-      axiosInstance.defaults.baseURL = backendUrl;
-      console.log(`API Proxy dinonaktifkan. Menggunakan baseURL: ${backendUrl}`);
-    }
   }, [backendUrl, proxyEnabled]);
   
   // Cek koneksi saat URL berubah atau user login/logout
   useEffect(() => {
     const checkConnection = async () => {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      
       if (!token) {
         setIsConnected(false);
         setConnectionStatus("disconnected");
@@ -118,6 +116,7 @@ export const ConnectionProvider = ({ children }) => {
     };
 
     // Jika user dan token ada, cek status langganan
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (user && token) {
       // Jika user memiliki langganan aktif, abaikan masalah koneksi backend
       if (user.hasActiveSubscription) {
@@ -147,51 +146,55 @@ export const ConnectionProvider = ({ children }) => {
     }, 60000);
     
     return () => clearInterval(intervalId);
-  }, [backendUrl, token, user, proxyEnabled]);
-  
-  // Fungsi untuk mengubah URL backend
-  const updateBackendUrl = async (newUrl) => {
-    if (newUrl && newUrl.trim() !== "") {
-      setBackendUrl(newUrl);
-      
-      // Jika ada fungsi updateBackendUrl di AuthContext, panggil untuk menyimpan ke server
-      if (user && token) {
-        try {
-          // Panggil API untuk memperbarui backend URL di server
-          await axiosInstance.put('/api/user/backend-url', { backend_url: newUrl });
-          
-          // Perbarui user data dengan backend URL baru
-          if (user) {
-            user.backend_url = newUrl;
-            
-            // Perbarui di storage lokal
-            const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-            storedUser.backend_url = newUrl;
-            
-            if (localStorage.getItem('user')) {
-              localStorage.setItem('user', JSON.stringify(storedUser));
-            }
-            
-            if (sessionStorage.getItem('user')) {
-              sessionStorage.setItem('user', JSON.stringify(storedUser));
-            }
-          }
-        } catch (error) {
-          console.error('Error updating backend URL on server:', error);
-        }
-      }
-    }
-  };
-  
+  }, [backendUrl, user, proxyEnabled]);
+
   return (
-    <ConnectionContext.Provider 
-      value={{ 
-        backendUrl, 
-        updateBackendUrl, 
-        isConnected, 
+    <ConnectionContext.Provider
+      value={{
         connectionStatus,
+        isConnected,
         proxyEnabled,
-        setProxyEnabled
+        setProxyEnabled,
+        checkConnection: () => {
+          const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+          if (!token) return;
+          
+          // Panggil cek koneksi ulang
+          setConnectionStatus("checking");
+          
+          // Jika user memiliki langganan aktif, langsung set connected
+          if (user && user.hasActiveSubscription) {
+            setIsConnected(true);
+            setConnectionStatus("connected");
+            return;
+          }
+          
+          // Test connection dengan endpoint sederhana
+          let testUrl = proxyEnabled ? '/api/test' : `${backendUrl}/api/test`;
+          
+          fetch(testUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          .then(response => {
+            if (response.ok) return response.json();
+            throw new Error(`HTTP error ${response.status}`);
+          })
+          .then(data => {
+            if (data && data.message === "API is working") {
+              setIsConnected(true);
+              setConnectionStatus("connected");
+            } else {
+              setIsConnected(false);
+              setConnectionStatus("error");
+            }
+          })
+          .catch(err => {
+            console.error("Error checking connection:", err);
+            setIsConnected(false);
+            setConnectionStatus("error");
+          });
+        },
+        backendUrl
       }}
     >
       {children}

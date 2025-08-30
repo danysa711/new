@@ -3,13 +3,16 @@ import React, {
   useEffect 
 } from 'react';
 import { 
-  getAllSoftware, 
-  addMultipleLicenses, 
-  updateLicensesMultiple, 
+  createMultipleLicenses, 
+  updateMultipleLicenses, 
   getAllAvailableLicenses, 
-  getSoftwareVersionByParamSoftwareId,
-  deleteMultipleLicenses
-} from '../../services/api';
+  deleteMultipleLicenses 
+} from "../../api/license-service";
+
+import { getAllSoftware } from "../../api/software-service";
+// Import dari software-service.js
+import { getSoftwareVersionsBySoftwareId } from "../../api/software-service";
+
 import MainTable from './MainTable';
 import { 
   Button, 
@@ -87,20 +90,55 @@ const LicenseTable = () => {
 
 
   useEffect(() => {
-    getAllAvailableLicenses(setLicenses, setLoading, setError);
+    const fetchLicenses = async () => {
+      try {
+        setLoading(true);
+        const data = await getAllAvailableLicenses();
+        setLicenses(data);
+      } catch (err) {
+        console.error("Error fetching licenses:", err);
+        setError("Gagal memuat data stok");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLicenses();
+    
     if (isModalVisible) {
-      getAllSoftware(setSoftwareList, setLoadingSoftware, setError);
+      const fetchSoftware = async () => {
+        try {
+          setLoadingSoftware(true);
+          const data = await getAllSoftware();
+          setSoftwareList(data);
+        } catch (err) {
+          console.error("Error fetching software:", err);
+          setError("Gagal memuat data software");
+        } finally {
+          setLoadingSoftware(false);
+        }
+      };
+      
+      fetchSoftware();
     }
   }, [isModalVisible, isDeleteModalVisible]);
 
   useEffect(() => {
     if (newLicenses.software_id) {
-      getSoftwareVersionByParamSoftwareId(
-        newLicenses.software_id,
-        setSoftwareVersions,
-        setLoadingVersion,
-        setErrorVersion
-      );
+      const fetchVersions = async () => {
+        try {
+          setLoadingVersion(true);
+          const data = await getSoftwareVersionsBySoftwareId(newLicenses.software_id);
+          setSoftwareVersions(data);
+        } catch (err) {
+          console.error("Error fetching versions:", err);
+          setErrorVersion("Gagal memuat versi software");
+        } finally {
+          setLoadingVersion(false);
+        }
+      };
+      
+      fetchVersions();
     }
   }, [newLicenses.software_id]); 
 
@@ -206,30 +244,43 @@ const LicenseTable = () => {
     const uniqueLicenseKeys = _.uniq(licenseKeysArray);
 
     if (isEditMode) {
-      const response = await updateLicensesMultiple({
-        software_id: newLicenses.software_id,
-        license_keys: uniqueLicenseKeys,
-        software_version_id: newLicenses.software_version_id[0] === "-" ? null : newLicenses.software_version_id[0]
-      }, setLicenses, setLoading, setError);
-      
-      if (response.status === 200) {
+      try {
+        const response = await updateMultipleLicenses({
+          software_id: newLicenses.software_id,
+          license_keys: uniqueLicenseKeys,
+          software_version_id: newLicenses.software_version_id[0] === "-" ? null : newLicenses.software_version_id[0]
+        });
+        
         message.success("Software licenses updated successfully!");
         setIsModalVisible(false);
         setNewLicenses({ software_id: null, license_keys: "" });
         setIsEditMode(false);
+        
+        // Refresh the licenses
+        const updatedLicenses = await getAllAvailableLicenses();
+        setLicenses(updatedLicenses);
+      } catch (error) {
+        console.error("Error updating licenses:", error);
+        message.error("Failed to update licenses.");
       }
     } else {
-      const response = await addMultipleLicenses(
-        { software_id: newLicenses.software_id, license_keys: licenseKeysArray, software_version_id: newLicenses.software_version_id },
-        setLicenses,
-        setLoading,
-        setError
-      );
-  
-      if (response.status === 201) {
+      try {
+        const response = await createMultipleLicenses({
+          software_id: newLicenses.software_id,
+          license_keys: licenseKeysArray,
+          software_version_id: newLicenses.software_version_id
+        });
+    
         message.success("Software licenses added successfully!");
         setIsModalVisible(false);
         setNewLicenses({ software_id: null, license_keys: "" });
+        
+        // Refresh the licenses
+        const updatedLicenses = await getAllAvailableLicenses();
+        setLicenses(updatedLicenses);
+      } catch (error) {
+        console.error("Error adding licenses:", error);
+        message.error("Failed to add licenses.");
       }
     }
   };
@@ -265,17 +316,15 @@ const LicenseTable = () => {
     if (!isConfirmed) return;
   
     try {
-      const response = await deleteMultipleLicenses(
-        { licenses: selectedLicenses },
-        setLoading,
-        setError
-      );
-  
-      if (response.status === 200) {
-        message.success("Selected licenses deleted successfully!");
-        setIsDeleteModalVisible(false);
-      }
+      await deleteMultipleLicenses({ licenses: selectedLicenses });
+      message.success("Selected licenses deleted successfully!");
+      setIsDeleteModalVisible(false);
+      
+      // Refresh the licenses
+      const updatedLicenses = await getAllAvailableLicenses();
+      setLicenses(updatedLicenses);
     } catch (error) {
+      console.error("Error deleting licenses:", error);
       message.error("Failed to delete selected licenses.");
     }
   };    
