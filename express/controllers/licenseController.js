@@ -393,9 +393,19 @@ const deleteMultipleLicenses = async (req, res) => {
     const userId = req.userId;
 
     console.log("Delete lisensi ini:", licenses);
+    console.log("User ID:", userId, "Role:", req.userRole);
 
-    if (!Array.isArray(licenses) || licenses.length === 0) {
-      return res.status(400).json({ message: "No licenses provided for deletion" });
+    // Validasi data input
+    if (!licenses) {
+      return res.status(400).json({ message: "Parameter 'licenses' tidak ditemukan" });
+    }
+    
+    if (!Array.isArray(licenses)) {
+      return res.status(400).json({ message: "Parameter 'licenses' harus berupa array" });
+    }
+    
+    if (licenses.length === 0) {
+      return res.status(400).json({ message: "Tidak ada lisensi yang dipilih untuk dihapus" });
     }
 
     // Tambahan filter untuk user_id jika bukan admin
@@ -407,17 +417,39 @@ const deleteMultipleLicenses = async (req, res) => {
       whereCondition.user_id = userId;
     }
 
+    console.log("Where condition:", whereCondition);
+
+    // Cari lisensi yang ingin dihapus terlebih dahulu
+    const licensesToDelete = await License.findAll({
+      where: whereCondition
+    });
+
+    console.log("Licenses found:", licensesToDelete.length);
+
+    // Jika tidak ada lisensi yang ditemukan
+    if (licensesToDelete.length === 0) {
+      return res.status(404).json({ message: "Tidak ada lisensi yang ditemukan untuk dihapus" });
+    }
+
+    // Periksa apakah ada lisensi yang aktif
+    const activeFound = licensesToDelete.some(license => license.is_active);
+    if (activeFound) {
+      return res.status(400).json({ message: "Tidak dapat menghapus lisensi yang sedang aktif/digunakan" });
+    }
+
     // Hapus semua license dengan license_key yang ada dalam array
     const result = await License.destroy({
       where: whereCondition
     });
 
+    console.log("Delete result:", result);
+
     return res.status(200).json({ 
-      message: `${result} licenses deleted successfully`
+      message: `${result} lisensi berhasil dihapus`
     });
   } catch (error) {
     console.error("Error deleting licenses:", error);
-    return res.status(500).json({ message: "Failed to delete licenses", error });
+    return res.status(500).json({ message: "Gagal menghapus lisensi", error: error.message });
   }
 };
 

@@ -18,6 +18,10 @@ const getOrders = async (req, res) => {
           through: { attributes: [] },
           attributes: ["id", "license_key", "is_active", "used_at"],
         },
+        {
+          model: Software,
+          attributes: ["name", "requires_license"]
+        }
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -226,31 +230,42 @@ const findOrder = async (req, res) => {
       isolationLevel: db.Sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED,
     });
 
-    const software = await Software.findOne({
-      where: db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("name")), { [db.Sequelize.Op.regexp]: item_name.toLowerCase() }),
+    // 1. Pertama, coba cari software berdasarkan nama dan user_id yang sama
+    let software = await Software.findOne({
+      where: {
+        [db.Sequelize.Op.and]: [
+          db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("name")), 
+            db.sequelize.fn("LOWER", item_name)),
+          { user_id: userId }
+        ]
+      },
+      transaction,
     });
+
+    // 2. Jika tidak ditemukan di user sendiri, cari di seluruh sistem
+    if (!software) {
+      software = await Software.findOne({
+        where: db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("name")), 
+          db.sequelize.fn("LOWER", item_name)),
+        transaction,
+      });
+    }
 
     if (!software) {
       await transaction.rollback();
       return res.status(404).json({ message: "Software tidak ditemukan" });
     }
     
-    // PENTING: Hapus pengecekan user_id untuk /api/orders/find
-    // Ini memungkinkan semua user untuk mengakses data software
-    
     // Cari softwareVersion berdasarkan software_id, os, version
     const softwareVersion = await SoftwareVersion.findOne({
       where: { software_id: software.id, os, version },
       transaction,
     });
-    
-    // PENTING: Hapus pengecekan user_id untuk softwareVersion
-    // Ini memungkinkan semua user untuk mengakses data versi software
 
     let licenses = [];
     let licenseInfo = [];
 
-    // Jika software tidak butuh lisensi dan tidak butuh versi → return download link saja
+    // Jika software tidak butuh lisensi → return download link saja
     if (!software.requires_license) {
       await transaction.commit();
       return res.json({
@@ -258,11 +273,11 @@ const findOrder = async (req, res) => {
         item: software.name,
         order_id: null,
         download_link: softwareVersion?.download_link || null,
-        licenses: [], // Kosongkan lisensi karena tidak diperlukan
+        licenses: [],
       });
     }
 
-    // Jika software membutuhkan versi tertentu tapi versi tidak ditemukan → return error
+    // Jika software membutuhkan versi tapi versi tidak ditemukan → return error
     if (software.search_by_version && !softwareVersion) {
       await transaction.commit();
       return res.json({
@@ -275,13 +290,13 @@ const findOrder = async (req, res) => {
     }
 
     // Mencari lisensi
-    let licenseQuery = { software_id: software.id, is_active: false };
-
-    // PENTING: Hapus filter user_id agar semua lisensi dapat diakses
-    // Ini memungkinkan semua user untuk mengakses lisensi dari semua user
+    let licenseQuery = { 
+      software_id: software.id, 
+      is_active: false,
+      user_id: software.user_id // Gunakan user_id dari software untuk mencari lisensi
+    };
 
     if (software.search_by_version) {
-      // Jika software butuh lisensi & butuh versi spesifik, gunakan software_version_id
       licenseQuery.software_version_id = softwareVersion?.id;
     }
 
@@ -293,7 +308,7 @@ const findOrder = async (req, res) => {
       transaction,
     });
 
-    // Jika lisensi tidak cukup, tetapi softwareVersion tersedia dan software membutuhkan lisensi & versi → Kembalikan download link saja
+    // Jika lisensi tidak cukup, tetapi softwareVersion tersedia → Kembalikan download link saja
     if (licenses.length < item_amount && software.requires_license && software.search_by_version && softwareVersion?.download_link) {
       await transaction.commit();
       return res.json({
@@ -322,7 +337,7 @@ const findOrder = async (req, res) => {
 
     licenseInfo = licenses.map((l) => l.license_key);
 
-    // Simpan order dalam database
+    // Simpan order dalam database (gunakan user_id dari software)
     const order = await Order.create(
       {
         order_id,
@@ -332,7 +347,7 @@ const findOrder = async (req, res) => {
         license_count: software.requires_license ? item_amount : 0,
         status: "processed",
         software_id: software.id,
-        user_id: userId,
+        user_id: software.user_id, // Penting: gunakan user_id dari software
         createdAt: new Date(),
       },
       { transaction }

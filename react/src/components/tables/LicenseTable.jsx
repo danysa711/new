@@ -304,30 +304,34 @@ const LicenseTable = () => {
   };  
 
   const handleDeleteSelected = async () => {
-    if (selectedLicenses?.length === 0) {
-      message.warning("No license selected!");
-      return;
-    }
-  
-    const isConfirmed = window.confirm(
-      `You are about to delete ${selectedLicenses?.length} license(s). Are you sure?`
-    );
-  
-    if (!isConfirmed) return;
-  
-    try {
-      await deleteMultipleLicenses({ licenses: selectedLicenses });
-      message.success("Selected licenses deleted successfully!");
-      setIsDeleteModalVisible(false);
-      
-      // Refresh the licenses
-      const updatedLicenses = await getAllAvailableLicenses();
-      setLicenses(updatedLicenses);
-    } catch (error) {
-      console.error("Error deleting licenses:", error);
-      message.error("Failed to delete selected licenses.");
-    }
-  };    
+  if (selectedLicenses?.length === 0) {
+    message.warning("No license selected!");
+    return;
+  }
+
+  const isConfirmed = window.confirm(
+    `You are about to delete ${selectedLicenses?.length} license(s). Are you sure?`
+  );
+
+  if (!isConfirmed) return;
+
+  try {
+    console.log("Deleting licenses:", selectedLicenses); // Log untuk debugging
+    
+    const response = await deleteMultipleLicenses({ licenses: selectedLicenses });
+    console.log("Delete response:", response); // Log untuk debugging
+    
+    message.success("Selected licenses deleted successfully!");
+    setIsDeleteModalVisible(false);
+    
+    // Refresh the licenses
+    const updatedLicenses = await getAllAvailableLicenses();
+    setLicenses(updatedLicenses);
+  } catch (error) {
+    console.error("Error deleting licenses:", error);
+    message.error(`Failed to delete selected licenses: ${error.message || 'Unknown error'}`);
+  }
+};  
 
   return (
     <div>
