@@ -73,43 +73,66 @@ export const ConnectionProvider = ({ children }) => {
         
         console.log("Status respons:", response.status);
         
-        // Jika respons OK, koneksi berhasil
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Data respons:", data);
-          
-          if (data && data.message === "API is working") {
-            setIsConnected(true);
-            setConnectionStatus("connected");
-            console.log("Koneksi berhasil!");
+        // Cek Content-Type sebelum parsing ke JSON
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          // Jika respons OK dan content-type adalah JSON, koneksi berhasil
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Data respons:", data);
+            
+            if (data && data.message === "API is working") {
+              setIsConnected(true);
+              setConnectionStatus("connected");
+              console.log("Koneksi berhasil!");
+            } else {
+              setIsConnected(false);
+              setConnectionStatus("error");
+              console.log("Format respons tidak valid");
+            }
+          } else {
+            // Periksa jika ini masalah langganan kedaluwarsa
+            if (response.status === 403) {
+              try {
+                const errorData = await response.json();
+                if (errorData && errorData.subscriptionRequired) {
+                  setIsConnected(false);
+                  setConnectionStatus("subscription_expired");
+                  console.log("Langganan kedaluwarsa");
+                  return;
+                }
+              } catch (e) {
+                console.error("Gagal parse respons error:", e);
+              }
+            }
+            
+            // Jika bukan masalah langganan, set sebagai error umum
+            setIsConnected(false);
+            setConnectionStatus("error");
+            console.log("Koneksi gagal dengan status:", response.status);
+          }
+        } else {
+          // Jika content-type bukan JSON (mungkin HTML), kemungkinan langganan kedaluwarsa
+          if (response.status === 403) {
+            setIsConnected(false);
+            setConnectionStatus("subscription_expired");
+            console.log("Langganan kedaluwarsa (respons HTML)");
+            return;
           } else {
             setIsConnected(false);
             setConnectionStatus("error");
-            console.log("Format respons tidak valid");
+            console.log("Koneksi gagal: respons bukan JSON");
           }
-        } else {
-          // Periksa jika ini masalah langganan kedaluwarsa
-          if (response.status === 403) {
-            try {
-              const errorData = await response.json();
-              if (errorData && errorData.subscriptionRequired) {
-                setIsConnected(false);
-                setConnectionStatus("subscription_expired");
-                console.log("Langganan kedaluwarsa");
-                return;
-              }
-            } catch (e) {
-              console.error("Gagal parse respons error:", e);
-            }
-          }
-          
-          // Jika bukan masalah langganan, set sebagai error umum
-          setIsConnected(false);
-          setConnectionStatus("error");
-          console.log("Koneksi gagal dengan status:", response.status);
         }
       } catch (err) {
         console.error("Error koneksi:", err);
+        // Tambahkan penanganan khusus dalam checkConnection
+        if (err.response?.data?.subscriptionRequired) {
+          setIsConnected(false);
+          setConnectionStatus("subscription_expired");
+          console.log("Langganan kedaluwarsa");
+          return;
+        }
         setIsConnected(false);
         setConnectionStatus("error");
       }
@@ -176,10 +199,37 @@ export const ConnectionProvider = ({ children }) => {
             headers: { 'Authorization': `Bearer ${token}` }
           })
           .then(response => {
-            if (response.ok) return response.json();
-            throw new Error(`HTTP error ${response.status}`);
+            // Cek content-type sebelum parsing JSON
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              if (response.ok) return response.json();
+              
+              // Periksa status 403 untuk kemungkinan langganan kedaluwarsa
+              if (response.status === 403) {
+                // Coba untuk mendapatkan error JSON
+                return response.json().catch(() => {
+                  // Jika gagal, kemungkinan HTML
+                  throw new Error('subscription_expired');
+                });
+              }
+              
+              throw new Error(`HTTP error ${response.status}`);
+            } else {
+              // Jika bukan JSON, kemungkinan HTML error
+              if (response.status === 403) {
+                throw new Error('subscription_expired');
+              }
+              throw new Error(`Invalid content-type: ${contentType}`);
+            }
           })
           .then(data => {
+            // Cek apakah ini error dengan flag subscriptionRequired
+            if (data && data.subscriptionRequired) {
+              setIsConnected(false);
+              setConnectionStatus("subscription_expired");
+              return;
+            }
+            
             if (data && data.message === "API is working") {
               setIsConnected(true);
               setConnectionStatus("connected");
@@ -190,6 +240,13 @@ export const ConnectionProvider = ({ children }) => {
           })
           .catch(err => {
             console.error("Error checking connection:", err);
+            // Periksa untuk kesalahan langganan kedaluwarsa
+            if (err.message === 'subscription_expired' || err.response?.data?.subscriptionRequired) {
+              setIsConnected(false);
+              setConnectionStatus("subscription_expired");
+              console.log("Langganan kedaluwarsa");
+              return;
+            }
             setIsConnected(false);
             setConnectionStatus("error");
           });

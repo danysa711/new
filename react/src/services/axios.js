@@ -114,6 +114,24 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
     const currentBackendUrl = getBackendUrl();
 
+     // Cek apakah response adalah HTML (biasanya menandakan error atau langganan kedaluwarsa)
+    const contentType = error.response?.headers?.['content-type'] || '';
+    if (contentType.includes('text/html')) {
+      console.warn("Received HTML response instead of JSON, likely subscription expired");
+      
+      // Kembalikan error dengan format yang benar dan kode yang jelas
+      return Promise.reject({
+        response: {
+          status: 403,
+          data: {
+            error: "Langganan kedaluwarsa",
+            subscriptionRequired: true,
+            message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
+          }
+        }
+      });
+    }
+
     // Cek apakah error terkait user dihapus
     if (error.response?.data?.code === "USER_DELETED") {
       console.warn("User account has been deleted");
