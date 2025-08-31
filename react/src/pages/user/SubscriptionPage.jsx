@@ -518,140 +518,148 @@ const SubscriptionPage = () => {
       <Divider />
       
       {/* Transaction History Tabs */}
-      <Tabs defaultActiveKey="subscriptions">
-        <TabPane tab="Riwayat Langganan" key="subscriptions">
-          <Table
-            dataSource={subscriptions}
-            rowKey="id"
-            columns={[
-              {
-                title: 'Tanggal Mulai',
-               dataIndex: 'start_date',
-               key: 'start_date',
-               render: (date) => formatDate(date),
-               sorter: (a, b) => new Date(b.start_date) - new Date(a.start_date),
-               defaultSortOrder: 'descend',
-             },
-             {
-               title: 'Tanggal Berakhir',
-               dataIndex: 'end_date',
-               key: 'end_date',
-               render: (date) => formatDate(date),
-             },
-             {
-               title: 'Status',
-               dataIndex: 'status',
-               key: 'status',
-               render: (status, record) => {
-                 let color = 'default';
-                 let displayText = status.toUpperCase();
-                 
-                 if (status === 'active') {
-                   const now = new Date();
-                   const endDate = new Date(record.end_date);
-                   
-                   if (endDate > now) {
-                     color = 'success';
-                     displayText = 'AKTIF';
-                   } else {
-                     color = 'error';
-                     displayText = 'KADALUARSA';
-                   }
-                 } else if (status === 'canceled') {
-                   color = 'warning';
-                   displayText = 'DIBATALKAN';
-                 }
-                 
-                 return <Tag color={color}>{displayText}</Tag>;
-               },
-               filters: [
-                 { text: 'Aktif', value: 'active' },
-                 { text: 'Dibatalkan', value: 'canceled' },
-               ],
-               onFilter: (value, record) => record.status === value,
-             },
-             {
-               title: 'Status Pembayaran',
-               dataIndex: 'payment_status',
-               key: 'payment_status',
-               render: (status) => {
-                 const statusMap = {
-                   'paid': { color: 'green', text: 'LUNAS' },
-                   'pending': { color: 'orange', text: 'MENUNGGU' },
-                   'failed': { color: 'red', text: 'GAGAL' }
-                 };
-                 
-                 const { color, text } = statusMap[status] || { color: 'default', text: status.toUpperCase() };
-                 
-                 return <Tag color={color}>{text}</Tag>;
-               },
-               filters: [
-                 { text: 'Lunas', value: 'paid' },
-                 { text: 'Menunggu', value: 'pending' },
-                 { text: 'Gagal', value: 'failed' },
-               ],
-               onFilter: (value, record) => record.payment_status === value,
-             },
-             {
-               title: 'Metode Pembayaran',
-               dataIndex: 'payment_method',
-               key: 'payment_method',
-               render: (method) => method || '-',
-             },
-           ]}
-           pagination={{ pageSize: 5 }}
-           locale={{ emptyText: 'Belum ada riwayat langganan' }}
-         />
-       </TabPane>
-       
-       <TabPane tab="Riwayat Transaksi" key="transactions">
-         <Table
-           dataSource={transactionHistories}
-           rowKey="reference"
-           columns={[
-             {
-               title: 'Referensi',
-               dataIndex: 'reference',
-               key: 'reference',
-               render: text => <Text copyable>{text}</Text>
-             },
-             {
-               title: 'Paket',
-               dataIndex: 'plan_name',
-               key: 'plan_name',
-             },
-             {
-               title: 'Metode',
-               dataIndex: 'payment_name',
-               key: 'payment_name',
-             },
-             {
-               title: 'Jumlah',
-               dataIndex: 'total_amount',
-               key: 'total_amount',
-               render: (amount) => `Rp ${amount.toLocaleString('id-ID')}`,
-               sorter: (a, b) => a.total_amount - b.total_amount,
-             },
-             {
-               title: 'Status',
-               dataIndex: 'status',
-               key: 'status',
-               render: (status) => {
-                 let color = 'default';
-                 let text = status;
-                 
-                 if (status === 'PAID') {
-                   color = 'success';
-                   text = 'LUNAS';
-                 } else if (status === 'UNPAID') {
-                   color = 'warning';
-                   text = 'MENUNGGU';
-                 } else if (status === 'EXPIRED') {
-                   color = 'error';
-                   text = 'KEDALUWARSA';
-                 } else if (status === 'FAILED') {
-                   color = 'error';
-                   text = 'GAGAL';
+<Tabs 
+  defaultActiveKey="subscriptions"
+  items={[
+    {
+      key: "subscriptions",
+      label: "Riwayat Langganan",
+      children: (
+        <Table
+          dataSource={subscriptions}
+          rowKey="id"
+          columns={[
+            {
+              title: 'Tanggal Mulai',
+              dataIndex: 'start_date',
+              key: 'start_date',
+              render: (date) => formatDate(date),
+              sorter: (a, b) => new Date(b.start_date) - new Date(a.start_date),
+              defaultSortOrder: 'descend',
+            },
+            {
+              title: 'Tanggal Berakhir',
+              dataIndex: 'end_date',
+              key: 'end_date',
+              render: (date) => formatDate(date),
+            },
+            {
+              title: 'Status',
+              dataIndex: 'status',
+              key: 'status',
+              render: (status, record) => {
+                let color = 'default';
+                let displayText = status.toUpperCase();
+                
+                if (status === 'active') {
+                  const now = new Date();
+                  const endDate = new Date(record.end_date);
+                  
+                  if (endDate > now) {
+                    color = 'success';
+                    displayText = 'AKTIF';
+                  } else {
+                    color = 'error';
+                    displayText = 'KADALUARSA';
+                  }
+                } else if (status === 'canceled') {
+                  color = 'warning';
+                  displayText = 'DIBATALKAN';
+                }
+                
+                return <Tag color={color}>{displayText}</Tag>;
+              },
+              filters: [
+                { text: 'Aktif', value: 'active' },
+                { text: 'Dibatalkan', value: 'canceled' },
+              ],
+              onFilter: (value, record) => record.status === value,
+            },
+            {
+              title: 'Status Pembayaran',
+              dataIndex: 'payment_status',
+              key: 'payment_status',
+              render: (status) => {
+                const statusMap = {
+                  'paid': { color: 'green', text: 'LUNAS' },
+                  'pending': { color: 'orange', text: 'MENUNGGU' },
+                  'failed': { color: 'red', text: 'GAGAL' }
+                };
+                
+                const { color, text } = statusMap[status] || { color: 'default', text: status.toUpperCase() };
+                
+                return <Tag color={color}>{text}</Tag>;
+              },
+              filters: [
+                { text: 'Lunas', value: 'paid' },
+                { text: 'Menunggu', value: 'pending' },
+                { text: 'Gagal', value: 'failed' },
+              ],
+              onFilter: (value, record) => record.payment_status === value,
+            },
+            {
+              title: 'Metode Pembayaran',
+              dataIndex: 'payment_method',
+              key: 'payment_method',
+              render: (method) => method || '-',
+            },
+          ]}
+          pagination={{ pageSize: 5 }}
+          locale={{ emptyText: 'Belum ada riwayat langganan' }}
+        />
+      )
+    },
+    {
+      key: "transactions",
+      label: "Riwayat Transaksi",
+      children: (
+        <Table
+          dataSource={transactionHistories}
+          rowKey="reference"
+          columns={[
+            {
+              title: 'Referensi',
+              dataIndex: 'reference',
+              key: 'reference',
+              render: text => <Text copyable>{text}</Text>
+            },
+            {
+              title: 'Paket',
+              dataIndex: 'plan_name',
+              key: 'plan_name',
+            },
+            {
+              title: 'Metode',
+              dataIndex: 'payment_name',
+              key: 'payment_name',
+            },
+            {
+              title: 'Jumlah',
+              dataIndex: 'total_amount',
+              key: 'total_amount',
+              render: (amount) => `Rp ${amount.toLocaleString('id-ID')}`,
+              sorter: (a, b) => a.total_amount - b.total_amount,
+            },
+            {
+              title: 'Status',
+              dataIndex: 'status',
+              key: 'status',
+              render: (status) => {
+                let color = 'default';
+                let text = status;
+                
+                if (status === 'PAID') {
+                  color = 'success';
+                  text = 'LUNAS';
+                } else if (status === 'UNPAID') {
+                  color = 'warning';
+                  text = 'MENUNGGU';
+                } else if (status === 'EXPIRED') {
+                  color = 'error';
+                  text = 'KEDALUWARSA';
+                } else if (status === 'FAILED') {
+                  color = 'error';
+                  text = 'GAGAL';
                 }
 
                 return <Tag color={color}>{text}</Tag>;
@@ -691,8 +699,10 @@ const SubscriptionPage = () => {
           pagination={{ pageSize: 5 }}
           locale={{ emptyText: 'Belum ada riwayat transaksi' }}
         />
-      </TabPane>
-    </Tabs>
+      )
+    }
+  ]}
+/>
 
     {/* Payment Modal */}
     <Modal

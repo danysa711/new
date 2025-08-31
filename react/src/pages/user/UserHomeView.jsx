@@ -33,43 +33,52 @@ const UserHomeView = () => {
   };
 
   const fetchData = async () => {
-    setLoading(true);
-  
-    try {
-      const { startDate, endDate } = calculateDateRange(Number(timeRange));
-      const requestBody = { startDate, endDate, user_id: user.id };
-  
-      // Menggunakan user_id sebagai filter untuk mendapatkan data khusus user
-      const softwareResponse = await axiosInstance.post("/api/software/count", requestBody);
-      const versionsResponse = await axiosInstance.post("/api/software-versions/count", requestBody);
-      const licensesResponse = await axiosInstance.post("/api/licenses/count", requestBody);
-      const availableLicensesResponse = await axiosInstance.post("/api/licenses/available/all/count", requestBody);
-      const ordersResponse = await axiosInstance.post("/api/orders/count", requestBody);
-      const usageResponse = await axiosInstance.post("/api/orders/usage", requestBody);
-  
-      setData({
-        totalSoftware: softwareResponse.data.totalSoftware || 0,
-        totalSoftwareVersions: versionsResponse.data.totalSoftwareVersions || 0,
-        totalLicenses: licensesResponse.data.totalLicenses || 0,
-        usedLicenses: availableLicensesResponse.data.availableLicenses || 0,
-        totalOrders: ordersResponse.data.totalOrders || 0,
-        softwareUsage: usageResponse.data || [],
-      });
-  
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+
+  try {
+    const { startDate, endDate } = calculateDateRange(Number(timeRange));
+    const requestBody = { startDate, endDate, user_id: user.id };
+
+    // Menggunakan user_id sebagai filter untuk mendapatkan data khusus user
+    const softwareResponse = await axiosInstance.post("/api/software/count", requestBody);
+    const versionsResponse = await axiosInstance.post("/api/software-versions/count", requestBody);
+    const licensesResponse = await axiosInstance.post("/api/licenses/count", requestBody);
+    const availableLicensesResponse = await axiosInstance.post("/api/licenses/available/all/count", requestBody);
+    const ordersResponse = await axiosInstance.post("/api/orders/count", requestBody);
+    const usageResponse = await axiosInstance.post("/api/orders/usage", requestBody);
+
+    // Perhitungan stok yang benar:
+    // - totalLicenses adalah total keseluruhan stok
+    // - availableLicensesResponse.data.availableLicenses adalah jumlah stok yang tersedia (belum digunakan)
+    // - Jadi stok terpakai = totalLicenses - availableLicenses
+    const totalLicenses = licensesResponse.data.totalLicenses || 0;
+    const availableLicenses = availableLicensesResponse.data.availableLicenses || 0;
+    const usedLicenses = totalLicenses - availableLicenses;
+
+    setData({
+      totalSoftware: softwareResponse.data.totalSoftware || 0,
+      totalSoftwareVersions: versionsResponse.data.totalSoftwareVersions || 0,
+      totalLicenses: totalLicenses,
+      availableLicenses: availableLicenses,
+      usedLicenses: usedLicenses, // Nilai terpakai yang benar
+      totalOrders: ordersResponse.data.totalOrders || 0,
+      softwareUsage: usageResponse.data || [],
+    });
+
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  } finally {
+    setLoading(false);
+  }
+};
   
   useEffect(() => {
     fetchData();
   }, [timeRange, user.id]);
 
   const licenseData = [
-  { name: 'Tersedia', value: data.totalLicenses - data.usedLicenses },
   { name: 'Terpakai', value: data.usedLicenses },
+  { name: 'Tersedia', value: data.totalLicenses - data.usedLicenses },
 ];
 
   const COLORS = ['#0088FE', '#00C49F'];

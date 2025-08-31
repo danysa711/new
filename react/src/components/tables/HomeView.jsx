@@ -81,8 +81,8 @@ setData({
   }, [timeRange]);
 
   const licenseData = [
-  { name: 'Tersedia', value: data.totalLicenses - data.usedLicenses },
-  { name: 'Terpakai', value: data.usedLicenses },
+  { name: 'Tersedia', value: data.usedLicenses },
+  { name: 'Terpakai', value: data.totalLicenses - data.usedLicenses },
 ];
 
   const COLORS = ['#0088FE', '#00C49F'];
