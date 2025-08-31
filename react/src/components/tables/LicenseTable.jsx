@@ -305,33 +305,35 @@ const LicenseTable = () => {
 
   const handleDeleteSelected = async () => {
   if (selectedLicenses?.length === 0) {
-    message.warning("No license selected!");
+    message.warning("Tidak ada lisensi yang dipilih!");
     return;
   }
 
   const isConfirmed = window.confirm(
-    `You are about to delete ${selectedLicenses?.length} license(s). Are you sure?`
+    `Anda akan menghapus ${selectedLicenses?.length} lisensi. Apakah Anda yakin?`
   );
 
   if (!isConfirmed) return;
 
   try {
-    console.log("Deleting licenses:", selectedLicenses); // Log untuk debugging
+    console.log("Menghapus lisensi:", selectedLicenses); // Log untuk debugging
     
-    const response = await deleteMultipleLicenses({ licenses: selectedLicenses });
-    console.log("Delete response:", response); // Log untuk debugging
+    // Pastikan kita mengirim array, bukan objek dengan property 'licenses'
+    const response = await deleteMultipleLicenses(selectedLicenses);
     
-    message.success("Selected licenses deleted successfully!");
+    console.log("Respons penghapusan:", response); // Log untuk debugging
+    
+    message.success("Lisensi terpilih berhasil dihapus!");
     setIsDeleteModalVisible(false);
     
-    // Refresh the licenses
+    // Refresh daftar lisensi
     const updatedLicenses = await getAllAvailableLicenses();
     setLicenses(updatedLicenses);
   } catch (error) {
-    console.error("Error deleting licenses:", error);
-    message.error(`Failed to delete selected licenses: ${error.message || 'Unknown error'}`);
+    console.error("Error menghapus lisensi:", error);
+    message.error(`Gagal menghapus lisensi terpilih: ${error.message || 'Error tidak diketahui'}`);
   }
-};  
+};
 
   return (
     <div>
