@@ -22,6 +22,21 @@ export const ConnectionProvider = ({ children }) => {
   const [connectionStatus, setConnectionStatus] = useState("checking");
   const [proxyEnabled, setProxyEnabled] = useState(localStorage.getItem("useProxyApi") === "true");
   
+useEffect(() => {
+  // Penanganan khusus saat status koneksi berubah
+  if (connectionStatus === 'subscription_expired') {
+    // Simpan flag di localStorage bahwa langganan telah kedaluwarsa
+    localStorage.setItem('subscription_expired', 'true');
+    
+    // Tampilkan pesan ke pengguna
+    console.log('Langganan kedaluwarsa: Beberapa fitur mungkin terbatas. Data yang diubah hanya akan tersimpan secara lokal.');
+    
+    // Kita tidak perlu mengalihkan pengguna, biarkan mereka tetap menggunakan UI
+  } else {
+    localStorage.removeItem('subscription_expired');
+  }
+}, [connectionStatus]);
+
   // Update backendUrl ketika user berubah
   useEffect(() => {
     if (user?.backend_url) {

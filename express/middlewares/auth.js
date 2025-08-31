@@ -111,12 +111,23 @@ const requireActiveSubscription = async (req, res, next) => {
       });
 
       if (!activeSubscription) {
-        // Mengirim status 403 dengan flag khusus untuk menandai langganan kedaluwarsa
-        return res.status(403).json({ 
-          error: "Langganan tidak aktif", 
-          subscriptionRequired: true,
-          message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
-        });
+        // Jika ini adalah permintaan GET untuk data, tolak permintaan
+        if (req.method === 'GET' && 
+            (req.originalUrl.includes('/api/software') || 
+             req.originalUrl.includes('/api/software-versions') || 
+             req.originalUrl.includes('/api/licenses'))) {
+          // Mengirim status 403 dengan flag khusus untuk menandai langganan kedaluwarsa
+          return res.status(403).json({ 
+            error: "Langganan tidak aktif", 
+            subscriptionRequired: true,
+            message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
+          });
+        } else {
+          // Untuk permintaan non-GET (POST, PUT, DELETE), izinkan operasi
+          // Ini memungkinkan pengguna masih dapat mengubah data di frontend
+          console.log("Mengizinkan operasi non-GET meskipun langganan kedaluwarsa:", req.method, req.originalUrl);
+          return next();
+        }
       }
     }
 
