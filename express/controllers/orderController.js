@@ -226,6 +226,27 @@ const findOrder = async (req, res) => {
   });
 
   try {
+    // Jika bukan admin, verifikasi langganan aktif terlebih dahulu
+    if (req.userRole !== "admin") {
+      // Cek apakah pengguna memiliki langganan aktif
+      const activeSubscription = await Subscription.findOne({
+        where: {
+          user_id: userId,
+          status: "active",
+          end_date: {
+            [db.Sequelize.Op.gt]: new Date()
+          }
+        }
+      });
+
+      if (!activeSubscription) {
+        return res.status(403).json({ 
+          message: "Anda memerlukan langganan aktif untuk menggunakan fitur ini",
+          requireSubscription: true 
+        });
+      }
+    }
+
     transaction = await db.sequelize.transaction({
       isolationLevel: db.Sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED,
     });
@@ -241,15 +262,6 @@ const findOrder = async (req, res) => {
       },
       transaction,
     });
-
-    // 2. Jika tidak ditemukan di user sendiri, cari di seluruh sistem
-    if (!software) {
-      software = await Software.findOne({
-        where: db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("name")), 
-          db.sequelize.fn("LOWER", item_name)),
-        transaction,
-      });
-    }
 
     if (!software) {
       await transaction.rollback();

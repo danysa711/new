@@ -120,13 +120,15 @@ const requireActiveSubscription = async (req, res, next) => {
           return res.status(403).json({ 
             error: "Langganan tidak aktif", 
             subscriptionRequired: true,
-            message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
+            message: "Akses ke data dinonaktifkan karena Anda tidak memiliki langganan aktif. Silakan aktifkan langganan Anda."
           });
-        } else {
-          // Untuk permintaan non-GET (POST, PUT, DELETE), izinkan operasi
-          // Ini memungkinkan pengguna masih dapat mengubah data di frontend
-          console.log("Mengizinkan operasi non-GET meskipun langganan kedaluwarsa:", req.method, req.originalUrl);
-          return next();
+        } else if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+          // Menolak semua operasi modifikasi data jika tidak berlangganan
+          return res.status(403).json({ 
+            error: "Langganan tidak aktif", 
+            subscriptionRequired: true,
+            message: "Operasi penulisan dan modifikasi data dinonaktifkan karena Anda tidak memiliki langganan aktif. Silakan aktifkan langganan Anda."
+          });
         }
       }
     }
