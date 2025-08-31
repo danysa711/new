@@ -38,9 +38,11 @@ const UserLicenseTable = () => {
     fetchLicenses();
   }, []);
 
-  // Mengelompokkan data stok
-  const groupedData = _.groupBy(licenses, (item) => `${item?.software_id}-${item?.software_version_id}`);
-  
+ // Mengelompokkan data stok
+const groupedData = _.groupBy(licenses.filter(license => !license.is_active), (item) => 
+  `${item?.software_id}-${item?.software_version_id}`
+);
+
   const tableData = Object.keys(groupedData).map((key) => {
     const softwareGroup = groupedData[key];
 

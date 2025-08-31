@@ -45,29 +45,29 @@ const HomeView = () => {
   
       // Fetch all data using the new API
       const [
-        softwareCountData,
-        versionsCountData,
-        licensesCountData,
-        availableLicensesData,
-        ordersCountData,
-        usageData
-      ] = await Promise.all([
-        getSoftwareCount(requestBody),
-        getSoftwareVersionCount(requestBody),
-        getLicenseCount(requestBody),
-        getLicenseCount({ ...requestBody, available: true }),
-        getOrderCount(requestBody),
-        getOrderUsage(requestBody)
-      ]);
-  
-      setData({
-        totalSoftware: softwareCountData.totalSoftware || 0,
-        totalSoftwareVersions: versionsCountData.totalSoftwareVersions || 0,
-        totalLicenses: licensesCountData.totalLicenses || 0,
-        usedLicenses: availableLicensesData.totalLicenses || 0,
-        totalOrders: ordersCountData.totalOrders || 0,
-        softwareUsage: usageData || [],
-      });
+  softwareCountData,
+  versionsCountData,
+  licensesCountData,
+  availableLicensesData,
+  ordersCountData,
+  usageData
+] = await Promise.all([
+  getSoftwareCount(requestBody),
+  getSoftwareVersionCount(requestBody),
+  getLicenseCount(requestBody),
+  getLicenseCount({ ...requestBody, available: true }),
+  getOrderCount(requestBody),
+  getOrderUsage(requestBody)
+]);
+
+setData({
+  totalSoftware: softwareCountData.totalSoftware || 0,
+  totalSoftwareVersions: versionsCountData.totalSoftwareVersions || 0,
+  totalLicenses: licensesCountData.totalLicenses || 0,
+  usedLicenses: licensesCountData.totalLicenses - (availableLicensesData.availableLicenses || 0),
+  totalOrders: ordersCountData.totalOrders || 0,
+  softwareUsage: usageData || [],
+});
   
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -81,9 +81,9 @@ const HomeView = () => {
   }, [timeRange]);
 
   const licenseData = [
-    { name: 'Tersedia', value: data.usedLicenses },
-    { name: 'Terpakai', value: data.totalLicenses - data.usedLicenses },
-  ];
+  { name: 'Tersedia', value: data.totalLicenses - data.usedLicenses },
+  { name: 'Terpakai', value: data.usedLicenses },
+];
 
   const COLORS = ['#0088FE', '#00C49F'];
 

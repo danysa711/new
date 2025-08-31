@@ -182,7 +182,8 @@ export const getAllLicenses = async (setLicenses, setLoading, setError) => {
 export const getAllAvailableLicenses = async (setLicenses, setLoading, setError) => {
   try {
     setLoading && setLoading(true);
-    const response = await axiosInstance.get('/api/licenses/available/all');
+    // Tambahkan parameter onlyAvailable=true untuk memastikan hanya lisensi yang belum digunakan
+    const response = await axiosInstance.get('/api/licenses/available/all?onlyAvailable=true');
     setLicenses && setLicenses(response.data);
     return response.data;
   } catch (error) {

@@ -50,10 +50,10 @@ const getAllAvailableLicenses = async (req, res) => {
   try {
     const userId = req.userId;
     
-    // Filter kondisi berdasarkan role
+    // Filter kondisi berdasarkan role, dan tambahkan filter is_active: false
     const whereCondition = req.userRole === "admin" 
-  ? {} 
-  : { user_id: userId };
+      ? { is_active: false } // Hanya ambil lisensi yang belum digunakan (is_active: false)
+      : { user_id: userId, is_active: false }; // Hanya ambil lisensi yang belum digunakan (is_active: false)
     
     const licenses = await License.findAll({
       where: whereCondition,
@@ -86,7 +86,7 @@ const getAvailableLicenses = async (req, res) => {
 
     const whereCondition = {
       software_id,
-      is_active: false
+      is_active: false // Pastikan hanya mengambil lisensi yang belum digunakan
     };
     
     if (req.userRole !== "admin") {
@@ -483,7 +483,7 @@ const activateLicense = async (req, res) => {
 
 const getLicenseCount = async (req, res) => {
   try {
-    const { startDate, endDate } = req.body;
+    const { startDate, endDate, available } = req.body;
     const userId = req.userId;
 
     const today = new Date();
@@ -499,6 +499,11 @@ const getLicenseCount = async (req, res) => {
         [db.Sequelize.Op.between]: [finalStartDate, finalEndDate],
       }
     };
+    
+    // Jika parameter 'available' = true, hanya tampilkan lisensi yang tersedia (is_active = false)
+    if (available === true) {
+      whereCondition.is_active = false;
+    }
     
     if (req.userRole !== "admin") {
       whereCondition.user_id = userId;
@@ -527,9 +532,9 @@ const getAvailableLicensesCount = async (req, res) => {
     const finalStartDate = startDate ? new Date(`${startDate}T00:00:00.000Z`) : defaultStartDate;
     const finalEndDate = endDate ? new Date(`${endDate}T23:59:59.999Z`) : today;
 
-    // Tambahan filter untuk user_id jika bukan admin
+    // Tambahan filter untuk user_id jika bukan admin, serta filter is_active: false
     const whereCondition = {
-      is_active: false,
+      is_active: false, // Hanya hitung lisensi yang belum digunakan
       createdAt: {
         [Op.between]: [finalStartDate.toISOString(), finalEndDate.toISOString()],
       }

@@ -1,3 +1,17 @@
+saya sudah mencoba aplikasi,namun ketika aplikasi mengambil data pada menu stok - lisensi tidak berkurang / tetap ada dalam stok tersedia
+
+seharusnya lisensi yang sudah di tulis atau terpakai dalam menu pesanan tidak akan muncul atau berkurang pada tabel stok
+
+cek semua file saya dan analisa lalu perbaiki dan gunakan bahasa indonesia
+
+
+
+
+
+
+
+
+
 Gunakan bahasa indonesia
 kirimkan full versi codingan tinggal copy paste
 beserta intruksi dan urutan baris codingan

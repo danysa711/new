@@ -21,7 +21,7 @@ export const getAllLicenses = async () => {
 // Mendapatkan semua lisensi yang tersedia
 export const getAllAvailableLicenses = async () => {
   try {
-    const response = await axiosInstance.get(API_ENDPOINTS.LICENSES_AVAILABLE);
+    const response = await axiosInstance.get(API_ENDPOINTS.LICENSES_AVAILABLE + '?onlyAvailable=true');
     return response.data;
   } catch (error) {
     console.error('Error fetching available licenses:', error);
