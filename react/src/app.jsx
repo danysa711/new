@@ -12,6 +12,8 @@ import ProtectedRoute from "./components/layouts/ProtectedRoute";
 import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman untuk pengaturan koneksi
 import { useContext } from "react";
 import OrderSearch from './components/OrderSearch';
+import React from "react";
+import { useEffect } from "react";
 
 // Komponen pengalihan beranda
 const HomeRedirect = () => {
@@ -29,6 +31,44 @@ const HomeRedirect = () => {
 };
 
 const App = () => {
+  // Di dalam komponen App
+useEffect(() => {
+  // Bersihkan URL lama jika ada
+  if (localStorage.getItem('backendUrl') === 'https://sha.kinterstore.my.id') {
+    console.log('Mengganti URL lama di localStorage');
+    localStorage.setItem('backendUrl', 'https://db.kinterstore.my.id');
+  }
+  
+  // Periksa juga user data jika ada backend_url
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const userData = JSON.parse(userStr);
+      if (userData.backend_url === 'https://sha.kinterstore.my.id') {
+        console.log('Mengganti URL lama di user data');
+        userData.backend_url = 'https://db.kinterstore.my.id';
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+    } catch (e) {
+      console.error('Error parsing user data:', e);
+    }
+  }
+  
+  // Lakukan hal yang sama untuk sessionStorage
+  const sessionUserStr = sessionStorage.getItem('user');
+  if (sessionUserStr) {
+    try {
+      const userData = JSON.parse(sessionUserStr);
+      if (userData.backend_url === 'https://sha.kinterstore.my.id') {
+        userData.backend_url = 'https://db.kinterstore.my.id';
+        sessionStorage.setItem('user', JSON.stringify(userData));
+      }
+    } catch (e) {
+      console.error('Error parsing user data from sessionStorage:', e);
+    }
+  }
+}, []);
+
   return (
     <AuthProvider>
       <ConnectionProvider> {/* Tambahkan ConnectionProvider */}
