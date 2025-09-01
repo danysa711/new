@@ -4,6 +4,7 @@ const { Op } = require("sequelize");
 const getAllLicenses = async (req, res) => {
   try {
     const userId = req.userId;
+    console.log("Getting licenses for user:", userId, "role:", req.userRole);
     
     // Filter kondisi berdasarkan role
     const whereCondition = req.userRole === "admin" 
@@ -14,12 +15,13 @@ const getAllLicenses = async (req, res) => {
       where: whereCondition,
       include: [{ model: Software, attributes: ["name"] }],
     });
+    console.log(`Found ${licenses.length} licenses`);
     return res.status(200).json(licenses);
   } catch (error) {
-    console.error(error);
+    console.error("Error getting licenses:", error);
     return res.status(500).json({ message: "Terjadi kesalahan pada server" });
   }
-};
+}
 
 const getLicenseById = async (req, res) => {
   try {

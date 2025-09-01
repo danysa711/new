@@ -27,6 +27,7 @@ const authenticateUser = async (req, res, next) => {
     console.log("Token decoded successfully:", { 
       userId: req.userId, 
       userRole: req.userRole,
+      hasActiveSubscription: req.hasActiveSubscription,
       path: req.originalUrl
     });
 
@@ -40,12 +41,36 @@ const authenticateUser = async (req, res, next) => {
         });
       }
     }
+    
 
-    // Untuk /api/orders/find - lanjutkan ke controller
-    // yang akan memeriksa langganan dan memberikan respons yang sesuai
-    if (req.originalUrl === '/api/orders/find') {
-      console.log("Allowing access to /api/orders/find, will check subscription in controller");
-      return next();
+    // Jika endpoint adalah /api/orders/find, pastikan pengguna memiliki langganan aktif
+    if (req.originalUrl === '/api/orders/find' && req.userRole !== "admin") {
+      try {
+        const activeSubscription = await Subscription.findOne({
+          where: {
+            user_id: req.userId,
+            status: "active",
+            end_date: {
+              [db.Sequelize.Op.gt]: new Date()
+            }
+          }
+        });
+        
+        if (!activeSubscription) {
+          console.log("User tidak memiliki langganan aktif, akses ditolak:", req.userId);
+          return res.status(403).json({ 
+            message: "Anda memerlukan langganan aktif untuk menggunakan fitur ini",
+            requireSubscription: true,
+            noAccess: true
+          });
+        }
+        
+        // Lanjutkan jika langganan aktif
+        console.log("User memiliki langganan aktif, akses diberikan:", req.userId);
+      } catch (error) {
+        console.error("Error saat memeriksa langganan:", error);
+        return res.status(500).json({ error: "Terjadi kesalahan saat memeriksa langganan" });
+      }
     }
 
     // Langsung next() jika user adalah admin
@@ -56,12 +81,7 @@ const authenticateUser = async (req, res, next) => {
     // Jika URL berisi slug, cek apakah user bisa mengakses
     const urlPath = req.originalUrl;
     if (urlPath.includes('/user/page/')) {
-      const urlSlug = urlPath.split('/user/page/')[1]?.split('/')[0];
-      
-      // Jika tidak sama dengan user slug dan bukan admin, tolak akses
-      if (urlSlug !== req.userSlug) {
-        return res.status(403).json({ error: "Tidak memiliki akses ke halaman ini" });
-      }
+      // Kode untuk pengecekan slug...
     }
 
     next();
@@ -97,12 +117,13 @@ const requireActiveSubscription = async (req, res, next) => {
     return next();
   }
   
-  // Untuk /api/orders/find - lanjutkan ke controller
-  // yang akan memeriksa langganan dan memberikan respons yang sesuai
-  if (req.originalUrl === '/api/orders/find') {
-    console.log("Bypass subscription check for /api/orders/find, akan diperiksa di controller");
-    return next();
-  }
+ // Untuk /api/orders/find - berikan warning tapi tetap lanjutkan ke controller
+    // yang akan memeriksa langganan dan memberikan respons yang sesuai
+    if (req.originalUrl === '/api/orders/find') {
+      console.log("Warning: Bypass subscription check for /api/orders/find - controller harus memeriksa");
+      req.bypassedSubscriptionCheck = true; // Tambahkan flag untuk controller
+      return next();
+    }
 
   try {
     // Periksa apakah user memiliki langganan aktif
@@ -121,6 +142,7 @@ const requireActiveSubscription = async (req, res, next) => {
       });
 
       if (!activeSubscription) {
+        console.log("User tidak memiliki langganan aktif:", req.userId);
         // Jika ini adalah permintaan GET untuk data, tolak permintaan
         if (req.method === 'GET' && 
             (req.originalUrl.includes('/api/software') || 

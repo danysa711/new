@@ -3,6 +3,7 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class Software extends Model {
     static associate(models) {
+      console.log("Defining Software associations");
       this.hasMany(models.SoftwareVersion, { foreignKey: "software_id" });
       this.hasMany(models.License, { foreignKey: "software_id" });
       this.hasMany(models.Order, { foreignKey: "software_id" });

@@ -67,6 +67,16 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
+
+  const requestInfo = {
+    method: req.method,
+    url: req.url,
+    userId: req.userId || 'not authenticated',
+    userRole: req.userRole || 'not authenticated',
+    timestamp: new Date().toISOString()
+  };
+
+  console.log("REQUEST:", JSON.stringify(requestInfo));
   
   next();
 });
@@ -110,7 +120,7 @@ app.get("/", (req, res) => {
           <br>
           <strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}
         </div>
-        
+
             <strong>Database Status:</strong> 
             <span id="dbStatus">Checking...</span>
           </p>

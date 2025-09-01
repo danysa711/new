@@ -4,6 +4,8 @@ const { Op } = require("sequelize");
 const getAllSoftware = async (req, res) => {
   try {
     const userId = req.userId;
+    console.log("Getting software for user:", userId, "role:", req.userRole);
+
     let softwareList;
     
     // Jika user adalah admin, ambil semua software
@@ -16,9 +18,10 @@ const getAllSoftware = async (req, res) => {
       });
     }
     
+    console.log(`Found ${softwareList.length} software items`);
     return res.status(200).json(softwareList);
   } catch (error) {
-    console.error(error);
+    console.error("Error getting software:", error);
     return res.status(500).json({ message: "Terjadi kesalahan pada server" });
   }
 };

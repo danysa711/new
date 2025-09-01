@@ -1,4 +1,4 @@
-const { Order, License, Software, SoftwareVersion, OrderLicense, db } = require("../models");
+const { Order, License, Software, SoftwareVersion, OrderLicense, Subscription, db } = require("../models");
 const { Op } = require("sequelize");
 
 const getOrders = async (req, res) => {
@@ -225,6 +225,16 @@ const findOrder = async (req, res) => {
     body: req.body
   });
 
+  // PERBAIKAN: Pastikan semua model di-import dengan benar
+  // Cek apakah model Subscription tersedia
+  if (!Subscription) {
+    console.error("Model Subscription tidak tersedia");
+    return res.status(500).json({ 
+      message: "Terjadi kesalahan konfigurasi server", 
+      error: "Model not available" 
+    });
+  }
+
   try {
     // PERBAIKAN: Periksa jika order_id atau item_name kosong
     if (!order_id || !item_name) {
@@ -234,265 +244,233 @@ const findOrder = async (req, res) => {
       });
     }
 
-    // PERBAIKAN: Cek apakah pengguna memiliki langganan aktif
-    // Jika bukan admin, verifikasi langganan aktif terlebih dahulu
-    if (req.userRole !== "admin") {
-      try {
-        // Cek apakah pengguna memiliki langganan aktif
-        const activeSubscription = await Subscription.findOne({
-          where: {
-            user_id: userId,
-            status: "active",
-            end_date: {
-              [db.Sequelize.Op.gt]: new Date()
-            }
-          }
-        });
-
-        if (!activeSubscription) {
-          console.log("User tidak memiliki langganan aktif:", userId);
-          return res.status(403).json({ 
-            message: "Anda memerlukan langganan aktif untuk menggunakan fitur ini",
-            requireSubscription: true,
-            // Tidak mengembalikan/menulis data apapun
-            noAccess: true
-          });
-        }
-      } catch (subscriptionError) {
-        console.error("Error checking subscription:", subscriptionError);
-        // Jika terjadi error saat memeriksa langganan, lanjutkan saja
-        // Agar tidak menghalangi proses pencarian pesanan
-      }
-    }
-
+    // PERBAIKAN: Batasi scope transaksi dan tangani dengan lebih baik
     try {
-      transaction = await db.sequelize.transaction({
-        isolationLevel: db.Sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED,
-      });
-    } catch (transactionError) {
-      console.error("Error creating transaction:", transactionError);
-      return res.status(500).json({ 
-        message: "Terjadi kesalahan saat memulai transaksi", 
-        error: transactionError.message 
-      });
-    }
+      // Mulai transaksi database
+      transaction = await db.sequelize.transaction();
+      
+      // Cari software berdasarkan nama DAN user_id
+      console.log("Mencari software dengan nama:", item_name, "untuk user:", userId);
+      
+      let whereCondition = {};
+      
+      // PERBAIKAN: Gunakan pendekatan yang lebih sederhana untuk mencari software
+      if (req.userRole === "admin") {
+        // Admin dapat mencari semua software
+        whereCondition = db.sequelize.where(
+          db.sequelize.fn("LOWER", db.sequelize.col("name")), 
+          db.sequelize.fn("LOWER", item_name)
+        );
+      } else {
 
-    // PERBAIKAN: Gunakan try/catch untuk setiap operasi database
-    try {
-      // 1. Pertama, coba cari software berdasarkan nama
-      let software = await Software.findOne({
-        where: {
-          [db.Sequelize.Op.and]: [
+      // Filter berdasarkan user_id jika bukan admin
+       whereCondition = {
+          [Op.and]: [
             db.sequelize.where(
               db.sequelize.fn("LOWER", db.sequelize.col("name")), 
               db.sequelize.fn("LOWER", item_name)
-            )
+            ),
+            { user_id: userId }
           ]
-        },
-        transaction,
+        };
+      }
+      
+      let software = await Software.findOne({
+        where: whereCondition,
+        transaction
       });
 
       if (!software) {
-        if (transaction) await transaction.rollback();
+        console.log("Software tidak ditemukan");
+        await transaction.rollback();
         return res.status(404).json({ message: "Software tidak ditemukan" });
       }
       
-      // Cari softwareVersion berdasarkan software_id, os, version
+      console.log("Software ditemukan:", {
+        id: software.id,
+        name: software.name,
+        requires_license: software.requires_license,
+        user_id: software.user_id
+      });
+      
+      // Cari versi software
       let softwareVersion = null;
-      try {
-        const versionQuery = { 
-          software_id: software.id
-        };
-        
-        // Tambahkan filter os dan version jika ada
-        if (os) {
-          versionQuery.os = os;
-        }
-        
-        if (version) {
-          versionQuery.version = version;
-        }
-        
-        softwareVersion = await SoftwareVersion.findOne({
-          where: versionQuery,
-          transaction,
-        });
-      } catch (versionError) {
-        console.error("Error finding software version:", versionError);
-        // Lanjutkan tanpa version
+      let versionQuery = { software_id: software.id };
+      
+      if (os) versionQuery.os = os;
+      if (version) versionQuery.version = version;
+      
+      // Filter berdasarkan user_id jika bukan admin
+      if (req.userRole !== "admin") {
+        versionQuery.user_id = userId;
       }
-
-      let licenses = [];
-      let licenseInfo = [];
+      
+      console.log("Mencari versi software dengan query:", versionQuery);
+      
+      softwareVersion = await SoftwareVersion.findOne({
+        where: versionQuery,
+        transaction
+      });
+      
+      console.log("Versi software:", softwareVersion ? {
+        id: softwareVersion.id,
+        version: softwareVersion.version,
+        os: softwareVersion.os,
+        download_link: softwareVersion.download_link ? "Ada" : "Tidak ada"
+      } : "Tidak ditemukan");
 
       // Jika software tidak butuh lisensi → return download link saja
       if (!software.requires_license) {
-        if (transaction) await transaction.commit();
+        await transaction.commit();
         return res.json({
           message: "Pesanan ditemukan dan diproses",
           item: software.name,
           order_id: null,
           download_link: softwareVersion?.download_link || null,
-          licenses: [],
+          licenses: []
         });
       }
 
-      // Jika software membutuhkan versi tapi versi tidak ditemukan → return error
+      // Jika software membutuhkan versi tapi versi tidak ditemukan → return pesan
       if (software.search_by_version && !softwareVersion) {
-        if (transaction) await transaction.commit();
+        await transaction.commit();
         return res.json({
           message: "Versi software tidak ditemukan",
           item: software.name,
           order_id: null,
           download_link: null,
-          licenses: [],
+          licenses: []
         });
       }
 
-      // Mencari lisensi
-      try {
-        let licenseQuery = { 
-          software_id: software.id, 
-          is_active: false
-        };
-
-        if (software.search_by_version && softwareVersion) {
-          licenseQuery.software_version_id = softwareVersion.id;
-        }
-
-        // Cari lisensi yang tersedia
-        licenses = await License.findAll({
-          where: licenseQuery,
-          limit: parseInt(item_amount || 1, 10),
-          lock: true,
-          transaction,
-        });
-      } catch (licensesError) {
-        console.error("Error finding licenses:", licensesError);
-        if (transaction) await transaction.rollback();
-        return res.status(500).json({ 
-          message: "Terjadi kesalahan saat mencari lisensi", 
-          error: licensesError.message 
-        });
+      // Cari lisensi
+      let licenseQuery = { 
+        software_id: software.id, 
+        is_active: false 
+      };
+      
+      if (software.search_by_version && softwareVersion) {
+        licenseQuery.software_version_id = softwareVersion.id;
       }
+      
+      // Filter berdasarkan user_id jika bukan admin
+      if (req.userRole !== "admin") {
+        licenseQuery.user_id = userId;
+      }
+      
+      console.log("Mencari lisensi dengan query:", licenseQuery);
+      
+      const licenses = await License.findAll({
+        where: licenseQuery,
+        limit: parseInt(item_amount || 1, 10),
+        transaction
+      });
+      
+      console.log(`Ditemukan ${licenses.length} lisensi dari ${item_amount || 1} yang dibutuhkan`);
 
-      // Jika lisensi tidak cukup, tetapi softwareVersion tersedia → Kembalikan download link saja
-      if (licenses.length < parseInt(item_amount || 1, 10) && software.requires_license && software.search_by_version && softwareVersion?.download_link) {
-        if (transaction) await transaction.commit();
+      // Jika lisensi tidak cukup tetapi ada download link
+      if (licenses.length < parseInt(item_amount || 1, 10) && 
+          software.requires_license && 
+          software.search_by_version && 
+          softwareVersion?.download_link) {
+        await transaction.commit();
         return res.json({
           message: "Lisensi tidak tersedia, tetapi download link diberikan",
           item: software.name,
           order_id: null,
           download_link: softwareVersion.download_link,
-          licenses: [],
+          licenses: []
         });
       }
 
+      // Jika lisensi tidak cukup sama sekali
       if (licenses.length < parseInt(item_amount || 1, 10)) {
-        if (transaction) await transaction.rollback();
+        await transaction.rollback();
         return res.status(400).json({ message: "Stok lisensi tidak cukup" });
       }
 
       // Tandai lisensi sebagai aktif
-      try {
-        await Promise.all(
-          licenses.map(async (license) => {
-            await license.update(
-              { is_active: true, used_at: new Date(), updatedAt: new Date() },
-              { transaction }
-            );
-          })
-        );
-
-        licenseInfo = licenses.map((l) => l.license_key);
-      } catch (updateLicenseError) {
-        console.error("Error updating licenses:", updateLicenseError);
-        if (transaction) await transaction.rollback();
-        return res.status(500).json({ 
-          message: "Terjadi kesalahan saat mengupdate lisensi", 
-          error: updateLicenseError.message 
-        });
+      console.log("Mengaktifkan lisensi yang ditemukan");
+      
+      const licenseIds = [];
+      const licenseKeys = [];
+      
+      for (const license of licenses) {
+        await license.update({ 
+          is_active: true, 
+          used_at: new Date()
+        }, { transaction });
+        
+        licenseIds.push(license.id);
+        licenseKeys.push(license.license_key);
       }
-
-      // Simpan order dalam database
-      let order;
-      try {
-        order = await Order.create(
-          {
-            order_id,
-            item_name,
-            os: os || '',
-            version: version || '',
-            license_count: software.requires_license ? parseInt(item_amount || 1, 10) : 0,
-            status: "processed",
-            software_id: software.id,
-            user_id: software.user_id, // Penting: gunakan user_id dari software
-            createdAt: new Date(),
-          },
-          { transaction }
-        );
-      } catch (createOrderError) {
-        console.error("Error creating order:", createOrderError);
-        if (transaction) await transaction.rollback();
-        return res.status(500).json({ 
-          message: "Terjadi kesalahan saat membuat pesanan", 
-          error: createOrderError.message 
-        });
+      
+      // Buat pesanan baru
+      console.log("Membuat pesanan baru untuk user:", userId);
+      
+      const order = await Order.create({
+        order_id,
+        item_name,
+        os: os || '',
+        version: version || '',
+        license_count: parseInt(item_amount || 1, 10),
+        status: "processed",
+        software_id: software.id,
+        user_id: userId,
+        createdAt: new Date()
+      }, { transaction });
+      
+      console.log("Pesanan berhasil dibuat dengan ID:", order.id);
+      
+      // Kaitkan lisensi dengan pesanan
+      console.log("Mengaitkan lisensi dengan pesanan");
+      
+      for (const licenseId of licenseIds) {
+        await OrderLicense.create({
+          order_id: order.id,
+          license_id: licenseId
+        }, { transaction });
       }
-
-      try {
-        await Promise.all(
-          licenses.map(async (license) => {
-            await OrderLicense.create(
-              {
-                order_id: order.id,
-                license_id: license.id,
-              },
-              { transaction }
-            );
-          })
-        );
-      } catch (createOrderLicenseError) {
-        console.error("Error creating order licenses:", createOrderLicenseError);
-        if (transaction) await transaction.rollback();
-        return res.status(500).json({ 
-          message: "Terjadi kesalahan saat mengaitkan lisensi dengan pesanan", 
-          error: createOrderLicenseError.message 
-        });
-      }
-
+      
+      // Commit transaksi
       await transaction.commit();
-
+      console.log("Transaksi berhasil dicommit");
+      
+      // Kirim respons
       return res.json({
         message: "Pesanan ditemukan dan diproses",
         item: software.name,
         order_id: order.order_id,
         download_link: softwareVersion?.download_link || null,
-        licenses: licenseInfo,
+        licenses: licenseKeys,
+        success: true
       });
-    } catch (processingError) {
-      console.error("Error processing order:", processingError);
-      if (transaction && !transaction.finished) await transaction.rollback();
+      
+    } catch (err) {
+      // Rollback transaksi jika terjadi error
+      console.error("Error dalam transaksi:", err);
+      if (transaction) await transaction.rollback();
+      
       return res.status(500).json({ 
         message: "Terjadi kesalahan saat memproses pesanan", 
-        error: processingError.message 
+        error: err.message 
       });
     }
+    
   } catch (generalError) {
-    console.error("Terjadi kesalahan umum:", generalError);
-    if (transaction && !transaction.finished) await transaction.rollback();
-    return res.status(500).json({ 
-      message: "Terjadi kesalahan pada server", 
-      error: generalError.message 
-    });
-  } finally {
+    console.error("Error umum:", generalError);
     if (transaction && !transaction.finished) {
       try {
         await transaction.rollback();
       } catch (rollbackError) {
-        console.error("Error rolling back transaction:", rollbackError);
+        console.error("Error during rollback:", rollbackError);
       }
     }
+    
+    return res.status(500).json({ 
+      message: "Terjadi kesalahan pada server", 
+      error: generalError.message
+    });
   }
 };
 
