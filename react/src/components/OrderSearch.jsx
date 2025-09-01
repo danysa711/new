@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, Alert, Spin, Typography, Divider, Tag, Space } from 'antd';
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
-import axios from 'axios'; // Pastikan axios diimpor
+import { Card, Form, Input, Button, Alert, Spin, Typography, Divider, Tag, Space, notification } from 'antd';
+import { SearchOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import axios from 'axios';
 import { getActiveBackendUrl } from '../api/utils';
 
 const { Title, Text, Paragraph } = Typography;
@@ -20,12 +20,24 @@ const OrderSearch = () => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   
   // Ambil URL backend user saat komponen dimuat
   useEffect(() => {
-    const url = getActiveBackendUrl();
-    console.log("Backend URL diatur ke:", url);
-    setBackendUrl(url);
+    try {
+      const url = getActiveBackendUrl();
+      console.log("Backend URL diatur ke:", url);
+      setBackendUrl(url);
+    } catch (err) {
+      console.error("Error mengambil backend URL:", err);
+      setBackendUrl('https://db.kinterstore.my.id');
+      
+      notification.warning({
+        message: 'Peringatan Backend URL',
+        description: 'Gagal mendapatkan URL backend kustom. Menggunakan URL default.',
+        duration: 5
+      });
+    }
   }, []);
   
   // Menangani perubahan pada form input
@@ -62,36 +74,83 @@ const OrderSearch = () => {
       console.log("Mengirim permintaan ke:", backendUrl);
       console.log("Data yang dikirim:", orderData);
       
-      // Perbaikan: Gunakan axios langsung dengan token
       // Ambil token dari localStorage
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('Anda harus login terlebih dahulu');
       }
       
-      // Panggil API untuk mencari pesanan
-      const response = await axios.post(
-        `${backendUrl}/api/orders/find`, 
-        orderData,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 15000 // Tambahkan timeout 15 detik
+      // Panggil API untuk mencari pesanan dengan retry logic
+      let response;
+      try {
+        response = await axios.post(
+          `${backendUrl}/api/orders/find`, 
+          orderData,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 15000 // Tambahkan timeout 15 detik
+          }
+        );
+      } catch (axiosError) {
+        console.error("Error initial request:", axiosError);
+        
+        // Coba lagi dengan tambahan timeout
+        if (retryCount < 2) {
+          setRetryCount(prev => prev + 1);
+          console.log(`Mencoba ulang (${retryCount + 1}/3)...`);
+          
+          // Tunggu 1 detik sebelum mencoba lagi
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          response = await axios.post(
+            `${backendUrl}/api/orders/find`, 
+            orderData,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              timeout: 30000 // Timeout lebih lama untuk retry
+            }
+          );
+        } else {
+          // Jika sudah mencoba 3 kali, lempar error
+          throw axiosError;
         }
-      );
+      }
       
       console.log("Respons API:", response.data);
+      
+      // Reset retry counter setelah berhasil
+      setRetryCount(0);
+      
+      // Cek jika respons menunjukkan langganan diperlukan
+      if (response.data.requireSubscription) {
+        setError('Anda memerlukan langganan aktif untuk menggunakan fitur ini. Silakan perbarui langganan Anda.');
+        return;
+      }
       
       setResults(response.data);
     } catch (err) {
       console.error('Error searching for order:', err);
+      setRetryCount(0);
+      
       // Perbaikan: Tangani berbagai jenis error dengan lebih baik
       if (err.response) {
         // Error dari server (status code selain 2xx)
         console.error('Server response error:', err.response.data);
-        setError(err.response.data.message || `Error ${err.response.status}: ${err.response.statusText}`);
+        
+        // Periksa apakah error terkait dengan langganan
+        if (err.response.status === 403 && err.response.data.requireSubscription) {
+          setError('Anda memerlukan langganan aktif untuk menggunakan fitur ini. Silakan perbarui langganan Anda.');
+        } else if (err.response.status === 500) {
+          setError(`Server error (500): ${err.response.data.message || 'Terjadi kesalahan pada server'}. Silakan coba lagi nanti atau hubungi administrator.`);
+        } else {
+          setError(err.response.data.message || `Error ${err.response.status}: ${err.response.statusText}`);
+        }
       } else if (err.request) {
         // Request dibuat tapi tidak ada respons
         console.error('No response received:', err.request);
@@ -123,6 +182,23 @@ const OrderSearch = () => {
             type="error"
             showIcon
             style={{ marginBottom: '20px' }}
+            action={
+              error.includes('500') && (
+                <Button 
+                  size="small" 
+                  danger
+                  onClick={() => {
+                    notification.info({
+                      message: 'Informasi Troubleshooting',
+                      description: 'Jika error 500 terus terjadi, hubungi administrator dan berikan detail produk yang Anda cari.',
+                      duration: 10
+                    });
+                  }}
+                >
+                  Info Troubleshooting
+                </Button>
+              )
+            }
           />
         )}
         
@@ -131,6 +207,10 @@ const OrderSearch = () => {
             label="Nomor Pesanan Shopee"
             name="order_id"
             rules={[{ required: true, message: 'Nomor pesanan harus diisi' }]}
+            tooltip={{ 
+              title: 'Masukkan nomor pesanan dari Shopee', 
+              icon: <InfoCircleOutlined /> 
+            }}
           >
             <Input
               value={orderData.order_id}
@@ -144,6 +224,10 @@ const OrderSearch = () => {
             label="Nama Produk"
             name="item_name"
             rules={[{ required: true, message: 'Nama produk harus diisi' }]}
+            tooltip={{ 
+              title: 'Masukkan nama produk persis seperti di Shopee', 
+              icon: <InfoCircleOutlined /> 
+            }}
           >
             <Input
               value={orderData.item_name}
@@ -158,6 +242,7 @@ const OrderSearch = () => {
               label="Variasi 1 (OS)"
               name="os"
               style={{ flex: 1 }}
+              tooltip="Misalnya: Windows, macOS, Android"
             >
               <Input
                 value={orderData.os}
@@ -171,6 +256,7 @@ const OrderSearch = () => {
               label="Variasi 2 (Versi)"
               name="version"
               style={{ flex: 1 }}
+              tooltip="Misalnya: Premium, Basic, Pro, Enterprise"
             >
               <Input
                 value={orderData.version}
@@ -184,6 +270,7 @@ const OrderSearch = () => {
           <Form.Item
             label="Jumlah Item"
             name="item_amount"
+            tooltip="Jumlah lisensi yang ingin Anda aktivasi"
           >
             <Input
               type="number"
@@ -216,6 +303,7 @@ const OrderSearch = () => {
                   });
                   setResults(null);
                   setError(null);
+                  setRetryCount(0);
                 }}
                 icon={<ReloadOutlined />}
               >
@@ -228,7 +316,10 @@ const OrderSearch = () => {
         {loading && (
           <div style={{ textAlign: 'center', padding: '20px' }}>
             <Spin size="large" />
-            <div style={{ marginTop: '10px' }}>Mencari pesanan...</div>
+            <div style={{ marginTop: '10px' }}>
+              Mencari pesanan...
+              {retryCount > 0 && <div>Percobaan ke-{retryCount + 1}</div>}
+            </div>
           </div>
         )}
         

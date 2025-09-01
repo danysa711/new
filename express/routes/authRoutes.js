@@ -1,3 +1,5 @@
+// Perbaikan untuk express/routes/authRoutes.js
+
 const express = require("express");
 const { 
   register, 
@@ -13,8 +15,11 @@ const { authenticateUser } = require("../middlewares/auth");
 
 const router = express.Router();
 
+// PENTING: Endpoints login dan register TIDAK menggunakan middleware authenticateUser
 router.post("/register", register);
 router.post("/login", login);
+
+// Endpoint yang memerlukan autentikasi
 router.put("/user", authenticateUser, updateUser);
 router.post("/user/password", authenticateUser, verifyPassword);
 router.post("/user/refresh", refreshToken);

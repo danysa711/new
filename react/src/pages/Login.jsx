@@ -1,125 +1,163 @@
-import React, { useState, useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
-import { Form, Input, Button, Card, Typography, Checkbox, Alert, Row, Col } from 'antd';
+// Perbaikan untuk React login (asumsi nama file: src/pages/Login.jsx)
+
+import React, { useState, useContext } from 'react';
+import { Form, Input, Button, Card, Typography, Alert, Spin } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { AuthContext } from '../context/AuthContext';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const Login = () => {
-  const { login } = useContext(AuthContext);
-  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const handleSubmit = async (values) => {
+  // URL backend dari env atau default
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://db.kinterstore.my.id';
+  
+  const onFinish = async (values) => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError(null);
+      console.log('Login request with values:', values);
+      console.log('Using backend URL:', backendUrl);
       
-      const { username, password, remember } = values;
+      // Langsung menggunakan axios tanpa service
+      const response = await axios.post(
+        `${backendUrl}/api/login`, 
+        values,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000 // 10 detik timeout
+        }
+      );
       
-      // Panggil fungsi login dari AuthContext
-      const result = await login(username, password, !!remember);
+      console.log('Login response:', response.data);
       
-      if (result.success) {
-        navigate('/');
+      if (response.data && response.data.token) {
+        // Simpan token dan data user
+        login(response.data.token, response.data.user);
+        
+        // Redirect berdasarkan role
+        if (response.data.user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate(`/user/page/${response.data.user.url_slug}`);
+        }
       } else {
-        setError(result.error);
+        setError('Respons login tidak valid');
       }
     } catch (err) {
-      console.error("Login error:", err);
-      setError('Login gagal. Silakan coba lagi.');
+      console.error('Login error:', err);
+      
+      // Handle berbagai jenis error
+      if (err.response) {
+        // Error dari server
+        setError(err.response.data.error || `Error ${err.response.status}: ${err.response.statusText}`);
+        console.error('Server error details:', err.response.data);
+      } else if (err.request) {
+        // Tidak ada respons
+        console.error('No response received:', err.request);
+        setError('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
+      } else {
+        // Error lainnya
+        setError(err.message || 'Terjadi kesalahan saat login');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const testConnection = async () => {
-    // Fungsi ini dihapus karena tidak diperlukan lagi
-  };
-
   return (
-    <Row justify="center" align="middle" style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <Col xs={22} sm={16} md={12} lg={8} xl={6}>
-        <Card style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', borderRadius: '8px' }}>
-          <Title level={2} style={{ textAlign: 'center', marginBottom: '24px' }}>
-            Login
-          </Title>
-          
-          {error && (
-            <Alert 
-              message={error} 
-              type="error" 
-              showIcon 
-              style={{ marginBottom: '16px' }} 
-              closable
-            />
-          )}
-          
-          <Form
-            form={form}
-            name="login"
-            initialValues={{ 
-              remember: false
-            }}
-            onFinish={handleSubmit}
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Card style={{ width: 400, boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <Title level={2}>Login</Title>
+          <Text type="secondary">Masuk ke akun Anda</Text>
+        </div>
+        
+        {error && (
+          <Alert
+            message="Login Gagal"
+            description={error}
+            type="error"
+            showIcon
+            style={{ marginBottom: 24 }}
+          />
+        )}
+        
+        <Form
+          name="login"
+          initialValues={{ remember: true }}
+          onFinish={onFinish}
+          layout="vertical"
+        >
+          <Form.Item
+            name="username"
+            label="Username atau Email"
+            rules={[{ required: true, message: 'Masukkan username atau email' }]}
           >
-            <Form.Item
-              name="username"
-              rules={[{ required: true, message: 'Masukkan username atau email' }]}
+            <Input 
+              prefix={<UserOutlined />} 
+              placeholder="Username atau Email" 
+              size="large" 
+              disabled={loading}
+            />
+          </Form.Item>
+          
+          <Form.Item
+            name="password"
+            label="Password"
+            rules={[{ required: true, message: 'Masukkan password' }]}
+          >
+            <Input.Password 
+              prefix={<LockOutlined />} 
+              placeholder="Password" 
+              size="large"
+              disabled={loading}
+            />
+          </Form.Item>
+          
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              block
+              loading={loading}
             >
-              <Input 
-                prefix={<UserOutlined />} 
-                placeholder="Username atau Email" 
-                size="large" 
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="password"
-              rules={[{ required: true, message: 'Masukkan password' }]}
-            >
-              <Input.Password 
-                prefix={<LockOutlined />} 
-                placeholder="Password" 
-                size="large" 
-              />
-            </Form.Item>
-
-            <Form.Item>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Form.Item name="remember" valuePropName="checked" noStyle>
-                  <Checkbox>Ingat Saya</Checkbox>
-                </Form.Item>
-              </div>
-            </Form.Item>
-
-            <Form.Item>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
-                loading={loading} 
-                block 
-                size="large"
-              >
-                Login
-              </Button>
-            </Form.Item>
-
-            <div style={{ textAlign: 'center' }}>
-              <Button 
-                type="link" 
-                onClick={() => navigate('/register')}
-              >
-                Belum punya akun? Daftar
-              </Button>
-            </div>
-          </Form>
-        </Card>
-      </Col>
-    </Row>
+              Login
+            </Button>
+          </Form.Item>
+        </Form>
+        
+        {loading && (
+          <div style={{ textAlign: 'center', marginTop: 24 }}>
+            <Spin />
+            <div style={{ marginTop: 8 }}>Logging in...</div>
+          </div>
+        )}
+        
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <Text type="secondary">
+            Belum punya akun? <a href="/register">Daftar sekarang</a>
+          </Text>
+        </div>
+        
+        {/* Debug info */}
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <Text type="secondary" style={{ fontSize: '10px' }}>
+            Backend URL: {backendUrl}
+          </Text>
+        </div>
+      </Card>
+    </div>
   );
 };
 

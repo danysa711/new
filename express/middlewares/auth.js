@@ -4,6 +4,12 @@ const jwt = require("jsonwebtoken");
 const { User, Subscription, db } = require("../models");
 
 const authenticateUser = async (req, res, next) => {
+  // PENTING: Tidak memerlukan autentikasi untuk endpoint login dan register
+  if (req.originalUrl === '/api/login' || req.originalUrl === '/api/register') {
+    console.log("Allowing access to authentication endpoint without token");
+    return next();
+  }
+
   const token = req.header("Authorization")?.split(" ")[1]; // Ambil token dari header
 
   if (!token) {
@@ -35,9 +41,10 @@ const authenticateUser = async (req, res, next) => {
       }
     }
 
-    // PERBAIKAN: Cek apakah ini permintaan ke /api/orders/find - BERIKAN AKSES LANGSUNG
+    // Untuk /api/orders/find - lanjutkan ke controller
+    // yang akan memeriksa langganan dan memberikan respons yang sesuai
     if (req.originalUrl === '/api/orders/find') {
-      console.log("Mengizinkan akses langsung ke /api/orders/find");
+      console.log("Allowing access to /api/orders/find, will check subscription in controller");
       return next();
     }
 
@@ -90,9 +97,10 @@ const requireActiveSubscription = async (req, res, next) => {
     return next();
   }
   
-  // PERBAIKAN: Cek apakah ini permintaan ke /api/orders/find - BERIKAN AKSES LANGSUNG
+  // Untuk /api/orders/find - lanjutkan ke controller
+  // yang akan memeriksa langganan dan memberikan respons yang sesuai
   if (req.originalUrl === '/api/orders/find') {
-    console.log("Bypass subscription check for /api/orders/find");
+    console.log("Bypass subscription check for /api/orders/find, akan diperiksa di controller");
     return next();
   }
 

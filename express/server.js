@@ -21,51 +21,121 @@ const PORT = process.env.PORT || 3500;
 
 // Definisikan corsOptions dengan semua domain yang diizinkan
 const corsOptions = {
-  origin: [
-    "*", // Izinkan semua origins
-    "https://kinterstore.my.id",       // Tambahkan domain tanpa www
-    "https://www.kinterstore.my.id", 
-    "https://db.kinterstore.my.id",
-    "http://localhost:3000",           // Untuk development
-    "http://localhost:5173",           // Untuk Vite
-    "http://localhost:5174"            // Untuk alternatif port Vite
-  ],
+  origin: function(origin, callback) {
+    // Daftar domain yang diperbolehkan
+    const allowedOrigins = [
+      "https://kinterstore.my.id",       
+      "https://www.kinterstore.my.id", 
+      "https://db.kinterstore.my.id",
+      "http://localhost:3000",           
+      "http://localhost:5173",           
+      "http://localhost:5174"            
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      console.log('Origin rejected by CORS:', origin);
+      // Izinkan semua origin untuk sementara selama debugging
+      callback(null, true);
+      // Setelah debugging selesai, kembalikan ke:
+      // callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
   optionsSuccessStatus: 200
 };
 
-// Tambahkan middleware untuk logging request
+// Tambahkan middleware untuk debugging CORS
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log('Request origin:', req.headers.origin);
   console.log('Request headers:', req.headers);
+  
+  // Pastikan headers CORS selalu ditambahkan
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   next();
 });
 
 // Gunakan CORS di seluruh aplikasi
 app.use(cors(corsOptions));
 
-// Tambahkan middleware khusus untuk preflight requests
-app.options('*', cors(corsOptions));
-
-// Tambahkan middleware untuk parsing body JSON dengan limit lebih besar
+// Tambahkan middleware untuk parsing body
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Tambahkan middleware untuk menangani CORS secara manual jika perlu
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Jika origin ada dalam daftar yang diizinkan
-  if (corsOptions.origin.includes(origin) || corsOptions.origin.includes("*")) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-    res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
-    res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
-    res.header('Access-Control-Allow-Credentials', 'true');
-  }
-  
-  next();
+// Tambahkan middleware khusus untuk preflight requests
+app.options('*', cors(corsOptions));
+
+// TAMBAHKAN HANDLER UNTUK ROOT PATH
+app.get("/", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Kinterstore API Server</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+          h1 { color: #333; }
+          .status { padding: 10px; background: #e7f7e7; border-left: 4px solid #28a745; margin: 20px 0; }
+          .endpoints { background: #f8f9fa; padding: 20px; border-radius: 5px; }
+          .endpoint { margin-bottom: 10px; }
+          .url { font-family: monospace; background: #f1f1f1; padding: 2px 5px; }
+          .method { font-size: 0.85em; color: #fff; padding: 2px 6px; border-radius: 3px; margin-left: 5px; }
+          .get { background-color: #28a745; }
+          .post { background-color: #007bff; }
+          .debug { margin-top: 30px; color: #6c757d; font-size: 0.9em; }
+          .debug code { background: #f8f9fa; padding: 2px 5px; border-radius: 3px; }
+        </style>
+      </head>
+      <body>
+        <h1>Kinterstore API Server</h1>
+        <div class="status">
+          <strong>Status:</strong> Running
+          <br>
+          <strong>Server Time:</strong> ${new Date().toISOString()}
+          <br>
+          <strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}
+        </div>
+        
+            <strong>Database Status:</strong> 
+            <span id="dbStatus">Checking...</span>
+          </p>
+          <script>
+            // Simple script to check database connection
+            fetch('/api/test')
+              .then(response => response.json())
+              .then(data => {
+                document.getElementById('dbStatus').innerHTML = 'Connected';
+                document.getElementById('dbStatus').style.color = '#28a745';
+              })
+              .catch(error => {
+                document.getElementById('dbStatus').innerHTML = 'Error connecting';
+                document.getElementById('dbStatus').style.color = '#dc3545';
+              });
+          </script>
+        </div>
+        
+        <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+          <p>Kinterstore API Server - &copy; ${new Date().getFullYear()}</p>
+          <p><small>Gunakan endpoint ini melalui aplikasi frontend atau API client.</small></p>
+        </div>
+      </body>
+    </html>
+  `);
 });
 
 // Test endpoint
