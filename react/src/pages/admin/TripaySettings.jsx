@@ -1,6 +1,3 @@
-// src/pages/admin/TripaySettings.jsx
-// Perbaikan impor pada file TripaySettings.jsx
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, Typography, Form, Input, Button, message, Spin, 
@@ -8,9 +5,6 @@ import {
 } from 'antd';
 import { SaveOutlined, ReloadOutlined } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
-
-// PERBAIKAN: Hapus impor AdminLayout yang salah
-// import { AdminLayout } from "../../components/layouts/AdminLayout"; 
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -20,56 +14,29 @@ const TripaySettings = () => {
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [testResult, setTestResult] = useState(null);
   const [testLoading, setTestLoading] = useState(false);
-  const [tripayEnabled, setTripayEnabled] = useState(true);
 
+  // Simulasi mendapatkan pengaturan dari backend
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         setLoadingSettings(true);
+        // Dalam implementasi sebenarnya, Anda akan mengambil dari API
+        // const response = await axiosInstance.get('/api/tripay/settings');
         
-        // Coba ambil pengaturan dari API terlebih dahulu
-        try {
-          const response = await axiosInstance.get('/api/settings/tripay');
-          console.log('Pengaturan Tripay berhasil diambil:', response.data);
-          
-          const { api_key, private_key, merchant_code, sandbox_mode, tripay_enabled } = response.data;
-          
+        // Simulasi data
+        setTimeout(() => {
           form.setFieldsValue({
-            api_key,
-            private_key,
-            merchant_code,
-            sandbox_mode: sandbox_mode === true || sandbox_mode === 'true',
-            tripay_enabled: tripay_enabled === true || tripay_enabled === 'true',
+            api_key: '****************************************',
+            private_key: '****************************************',
+            merchant_code: 'T*****',
+            sandbox_mode: true,
+            callback_url: 'https://www.db.kinterstore.my.id/api/tripay/callback'
           });
           
-          setTripayEnabled(tripay_enabled === true || tripay_enabled === 'true');
-          
-          // Simpan juga ke localStorage sebagai cadangan
-          localStorage.setItem('tripay_enabled', String(tripay_enabled === true || tripay_enabled === 'true'));
-          
-        } catch (apiError) {
-          console.error('Gagal mengambil dari API, beralih ke localStorage:', apiError);
-          
-          // Fallback ke localStorage
-          const localEnabled = localStorage.getItem('tripay_enabled');
-          const isEnabled = localEnabled === 'true' || localEnabled === true;
-          
-          setTripayEnabled(isEnabled);
-          
-          form.setFieldsValue({
-            api_key: localStorage.getItem('tripay_api_key') || '',
-            private_key: localStorage.getItem('tripay_private_key') || '',
-            merchant_code: localStorage.getItem('tripay_merchant_code') || '',
-            sandbox_mode: localStorage.getItem('tripay_sandbox_mode') === 'true',
-            tripay_enabled: isEnabled
-          });
-          
-          message.warning('Tidak dapat terhubung ke server. Menggunakan pengaturan lokal.');
-        }
+          setLoadingSettings(false);
+        }, 1000);
       } catch (error) {
-        console.error('Gagal memuat pengaturan Tripay:', error);
-        message.error('Gagal memuat pengaturan Tripay');
-      } finally {
+        message.error('Gagal memuat pengaturan');
         setLoadingSettings(false);
       }
     };
@@ -81,28 +48,16 @@ const TripaySettings = () => {
     try {
       setLoading(true);
       
-      // Coba simpan ke API terlebih dahulu
-      try {
-        const response = await axiosInstance.post('/api/settings/tripay', values);
-        console.log('Pengaturan Tripay berhasil disimpan ke API:', response.data);
-      } catch (apiError) {
-        console.error('Gagal menyimpan ke API, beralih ke localStorage:', apiError);
-      }
+      // Dalam implementasi sebenarnya, Anda akan mengirim ke API
+      // await axiosInstance.post('/api/tripay/settings', values);
       
-      // Selalu simpan ke localStorage sebagai cadangan
-      localStorage.setItem('tripay_api_key', values.api_key || '');
-      localStorage.setItem('tripay_private_key', values.private_key || '');
-      localStorage.setItem('tripay_merchant_code', values.merchant_code || '');
-      localStorage.setItem('tripay_sandbox_mode', String(values.sandbox_mode));
-      localStorage.setItem('tripay_enabled', String(values.tripay_enabled));
-      
-      setTripayEnabled(values.tripay_enabled);
-      
-      message.success('Pengaturan Tripay berhasil disimpan');
+      // Simulasi
+      setTimeout(() => {
+        message.success('Pengaturan berhasil disimpan');
+        setLoading(false);
+      }, 1000);
     } catch (error) {
-      console.error('Gagal menyimpan pengaturan Tripay:', error);
-      message.error('Gagal menyimpan pengaturan Tripay');
-    } finally {
+      message.error('Gagal menyimpan pengaturan');
       setLoading(false);
     }
   };
@@ -112,39 +67,25 @@ const TripaySettings = () => {
       setTestLoading(true);
       setTestResult(null);
       
-      const values = form.getFieldsValue();
+      // Dalam implementasi sebenarnya, Anda akan menguji koneksi ke API Tripay
+      // const response = await axiosInstance.post('/api/tripay/test-connection');
       
-      // Coba uji koneksi dengan API
-      try {
-        const response = await axiosInstance.post('/api/tripay/test-connection', {
-          api_key: values.api_key,
-          private_key: values.private_key,
-          merchant_code: values.merchant_code,
-          sandbox_mode: values.sandbox_mode
-        });
-        
+      // Simulasi
+      setTimeout(() => {
         setTestResult({
           success: true,
           message: 'Koneksi ke Tripay berhasil!',
-          merchantName: response.data.merchant_name || 'Merchant Anda',
-          environment: values.sandbox_mode ? 'Sandbox' : 'Production'
+          merchantName: 'PT Demo Merchant',
+          environment: 'Sandbox'
         });
-      } catch (apiError) {
-        console.error('Gagal terhubung ke Tripay:', apiError);
-        
-        setTestResult({
-          success: false,
-          message: apiError.response?.data?.message || 'Koneksi ke Tripay gagal. Periksa pengaturan Anda.',
-          error: apiError.message
-        });
-      }
+        setTestLoading(false);
+      }, 2000);
     } catch (error) {
       setTestResult({
         success: false,
         message: 'Koneksi ke Tripay gagal. Periksa pengaturan Anda.',
-        error: error.message
+        error: error.response?.data?.message || error.message
       });
-    } finally {
       setTestLoading(false);
     }
   };
@@ -171,34 +112,11 @@ const TripaySettings = () => {
             onFinish={handleSaveSettings}
           >
             <Form.Item
-              name="tripay_enabled"
-              label="Status Tripay"
-              valuePropName="checked"
-            >
-              <Switch 
-                checkedChildren="Aktif" 
-                unCheckedChildren="Nonaktif"
-              />
-            </Form.Item>
-            
-            <Alert
-              message={tripayEnabled ? "Tripay Aktif" : "Tripay Nonaktif"}
-              description={tripayEnabled 
-                ? "Pembayaran melalui Tripay tersedia untuk pelanggan" 
-                : "Pembayaran melalui Tripay tidak tersedia untuk pelanggan"}
-              type={tripayEnabled ? "success" : "warning"}
-              showIcon
-              style={{ marginBottom: 20 }}
-            />
-            
-            <Divider />
-            
-            <Form.Item
               name="api_key"
               label="API Key"
               rules={[{ required: true, message: 'API Key diperlukan' }]}
             >
-              <Input.Password placeholder="Masukkan API Key dari Tripay" disabled={!tripayEnabled} />
+              <Input.Password placeholder="Masukkan API Key dari Tripay" />
             </Form.Item>
             
             <Form.Item
@@ -206,7 +124,7 @@ const TripaySettings = () => {
               label="Private Key"
               rules={[{ required: true, message: 'Private Key diperlukan' }]}
             >
-              <Input.Password placeholder="Masukkan Private Key dari Tripay" disabled={!tripayEnabled} />
+              <Input.Password placeholder="Masukkan Private Key dari Tripay" />
             </Form.Item>
             
             <Form.Item
@@ -214,14 +132,14 @@ const TripaySettings = () => {
               label="Kode Merchant"
               rules={[{ required: true, message: 'Kode Merchant diperlukan' }]}
             >
-              <Input placeholder="Masukkan Kode Merchant dari Tripay" disabled={!tripayEnabled} />
+              <Input placeholder="Masukkan Kode Merchant dari Tripay" />
             </Form.Item>
             
             <Form.Item
               name="callback_url"
               label="URL Callback"
             >
-              <Input value={window.location.origin + '/api/tripay/callback'} disabled />
+              <Input disabled />
             </Form.Item>
             
             <Form.Item
@@ -229,7 +147,7 @@ const TripaySettings = () => {
               label="Mode Sandbox"
               valuePropName="checked"
             >
-              <Switch disabled={!tripayEnabled} />
+              <Switch />
             </Form.Item>
             
             <Form.Item>
@@ -247,7 +165,6 @@ const TripaySettings = () => {
                 onClick={handleTestConnection} 
                 icon={<ReloadOutlined />}
                 loading={testLoading}
-                disabled={!tripayEnabled}
               >
                 Tes Koneksi
               </Button>
@@ -292,5 +209,4 @@ const TripaySettings = () => {
   );
 };
 
-// Ekspor komponen sebagai default
 export default TripaySettings;

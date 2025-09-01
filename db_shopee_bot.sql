@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Aug 31, 2025 at 12:09 AM
+-- Generation Time: Sep 01, 2025 at 10:01 PM
 -- Server version: 10.11.6-MariaDB
 -- PHP Version: 8.0.30
 
@@ -45,14 +45,27 @@ CREATE TABLE `Licenses` (
 
 INSERT INTO `Licenses` (`id`, `software_id`, `software_version_id`, `license_key`, `is_active`, `used_at`, `user_id`, `createdAt`, `updatedAt`) VALUES
 (14, 25, NULL, '1231', 0, NULL, NULL, '2025-08-30 07:32:55', '2025-08-30 07:32:55'),
-(15, 26, NULL, '4ab9437ad47a', 0, '2025-08-30 12:43:58', 41, '2025-08-30 07:43:06', '2025-08-30 13:43:55'),
+(15, 26, NULL, '4ab9437ad47a', 1, '2025-09-01 10:17:12', 41, '2025-08-30 07:43:06', '2025-09-01 10:17:12'),
 (16, 27, 19, 'c847dff72cc2', 0, NULL, 41, '2025-08-30 07:53:56', '2025-08-30 07:53:56'),
 (17, 28, 20, 'df3011d54933', 0, NULL, 42, '2025-08-30 07:55:33', '2025-08-30 07:55:33'),
-(18, 29, NULL, 'da17e714e6c9', 0, NULL, 42, '2025-08-30 12:39:20', '2025-08-30 12:39:20'),
-(19, 30, NULL, 'b85f968923e4', 0, '2025-08-30 16:56:47', 42, '2025-08-30 12:48:42', '2025-08-30 17:04:36'),
-(20, 31, NULL, '972364cbf5d7', 1, '2025-08-30 17:05:07', 41, '2025-08-30 12:49:43', '2025-08-30 17:05:07'),
-(36, 27, 25, '09f2546546c8', 0, '2025-08-30 14:13:54', 41, '2025-08-30 14:07:34', '2025-08-30 23:01:50'),
-(37, 28, 26, '09f2546546c82', 0, '2025-08-30 14:11:06', 42, '2025-08-30 14:08:33', '2025-08-30 14:13:17');
+(18, 29, NULL, 'da17e714e6c9', 1, '2025-09-01 11:07:00', 42, '2025-08-30 12:39:20', '2025-09-01 11:07:00'),
+(19, 30, NULL, 'b85f968923e4', 0, '2025-09-01 12:06:59', 42, '2025-08-30 12:48:42', '2025-09-01 12:07:48'),
+(20, 31, NULL, '972364cbf5d7', 0, '2025-09-01 12:10:20', 41, '2025-08-30 12:49:43', '2025-09-01 12:10:36'),
+(36, 27, 25, '09f2546546c8', 0, '2025-08-30 14:13:54', 41, '2025-08-30 14:07:34', '2025-08-31 10:01:40'),
+(37, 28, 26, '09f2546546c82', 0, '2025-08-30 14:11:06', 42, '2025-08-30 14:08:33', '2025-08-30 14:13:17'),
+(39, 33, NULL, '11111111111', 0, NULL, 41, '2025-09-01 07:10:00', '2025-09-01 07:10:00'),
+(40, 34, NULL, '22222222222222', 0, NULL, 42, '2025-09-01 07:11:23', '2025-09-01 07:11:23'),
+(41, 29, NULL, '112', 0, NULL, 42, '2025-09-01 09:01:20', '2025-09-01 09:01:20'),
+(42, 29, NULL, '113', 0, NULL, 42, '2025-09-01 09:01:20', '2025-09-01 09:01:20'),
+(43, 29, NULL, '114', 0, NULL, 42, '2025-09-01 09:01:20', '2025-09-01 09:01:20'),
+(44, 29, NULL, '115', 0, NULL, 42, '2025-09-01 09:01:20', '2025-09-01 09:01:20'),
+(45, 26, NULL, '223', 1, '2025-09-01 10:22:21', 41, '2025-09-01 09:01:37', '2025-09-01 10:22:21'),
+(46, 26, NULL, '224', 0, '2025-09-01 09:21:44', 41, '2025-09-01 09:01:37', '2025-09-01 09:51:45'),
+(47, 26, NULL, '225', 0, '2025-09-01 09:21:44', 41, '2025-09-01 09:01:37', '2025-09-01 09:51:45'),
+(48, 26, NULL, '226', 0, NULL, 41, '2025-09-01 09:01:37', '2025-09-01 09:01:37'),
+(49, 27, 25, '123dasda', 0, NULL, 41, '2025-09-01 10:48:09', '2025-09-01 10:48:09'),
+(50, 31, NULL, '123124123123', 0, NULL, 41, '2025-09-01 12:05:36', '2025-09-01 12:05:36'),
+(51, 30, NULL, '321354984623', 0, NULL, 42, '2025-09-01 12:06:12', '2025-09-01 12:06:12');
 
 -- --------------------------------------------------------
 
@@ -73,8 +86,9 @@ CREATE TABLE `OrderLicenses` (
 --
 
 INSERT INTO `OrderLicenses` (`id`, `order_id`, `license_id`, `createdAt`, `updatedAt`) VALUES
-(5, 8, 36, '2025-08-30 14:13:54', '2025-08-30 14:13:54'),
-(16, 29, 20, '2025-08-30 17:05:07', '2025-08-30 17:05:07');
+(32, 39, 15, '2025-09-01 10:17:12', '2025-09-01 10:17:12'),
+(33, 43, 45, '2025-09-01 10:22:21', '2025-09-01 10:22:21'),
+(34, 44, 18, '2025-09-01 11:07:00', '2025-09-01 11:07:00');
 
 -- --------------------------------------------------------
 
@@ -101,8 +115,9 @@ CREATE TABLE `Orders` (
 --
 
 INSERT INTO `Orders` (`id`, `order_id`, `item_name`, `os`, `version`, `license_count`, `status`, `user_id`, `software_id`, `createdAt`, `updatedAt`) VALUES
-(8, '2508307KVWYCF4-1', 'SPSS', 'Windows', '31', 1, 'processed', 41, 27, '2025-08-30 14:13:54', '2025-08-30 14:13:54'),
-(29, '2508317VU7YU3N-1', 'SmartPLS', 'Windows', '4.1.1.4', 1, 'processed', 41, 31, '2025-08-30 17:05:07', '2025-08-30 17:05:07');
+(39, '250901C5RU11W9-1', 'Olah', 'Windows', '4.1.1.4', 1, 'processed', 41, 26, '2025-09-01 10:17:12', '2025-09-01 10:17:12'),
+(43, '250901C84APCQV-1', 'Olah', 'Windows', '4.1.1.4', 1, 'processed', 41, 26, '2025-09-01 10:22:21', '2025-09-01 10:22:21'),
+(44, '250901CAS6TDSY-1', 'Olah', 'Windows', '4.1.1.4', 1, 'processed', 42, 29, '2025-09-01 11:07:00', '2025-09-01 11:07:00');
 
 -- --------------------------------------------------------
 
@@ -141,6 +156,32 @@ CREATE TABLE `Payments` (
   `createdAt` datetime NOT NULL,
   `updatedAt` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payment_methods`
+--
+
+CREATE TABLE `payment_methods` (
+  `id` int(11) NOT NULL,
+  `name` varchar(50) NOT NULL,
+  `type` enum('manual','tripay') DEFAULT 'manual',
+  `is_active` tinyint(1) DEFAULT 1,
+  `config` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`config`))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+--
+-- Dumping data for table `payment_methods`
+--
+
+INSERT INTO `payment_methods` (`id`, `name`, `type`, `is_active`, `config`) VALUES
+(1, 'QRIS', 'manual', 1, '{\"image\":\"qris.png\"}'),
+(2, 'Dana', 'manual', 1, '{\"number\":\"08123456789\"}'),
+(3, 'Ovo', 'manual', 1, '{\"number\":\"08123456789\"}'),
+(4, 'Gopay', 'manual', 1, '{\"number\":\"08123456789\"}'),
+(5, 'Bank Transfer', 'manual', 1, '{\"bank\":\"BCA\",\"account\":\"1234567890\"}'),
+(6, 'Tripay', 'tripay', 1, '{}');
 
 -- --------------------------------------------------------
 
@@ -222,7 +263,9 @@ INSERT INTO `Software` (`id`, `user_id`, `name`, `requires_license`, `search_by_
 (28, 42, 'SPSS', 1, 1, '2025-08-30 07:54:49', '2025-08-30 07:54:49'),
 (29, 42, 'Olah', 1, 0, '2025-08-30 12:34:47', '2025-08-30 12:34:47'),
 (30, 42, 'SmartPLS', 1, 0, '2025-08-30 12:47:44', '2025-08-30 12:47:44'),
-(31, 41, 'SmartPLS', 1, 0, '2025-08-30 12:49:02', '2025-08-30 12:49:02');
+(31, 41, 'SmartPLS', 1, 0, '2025-08-30 12:49:02', '2025-08-30 12:49:02'),
+(33, 41, 'Nvivo', 1, 0, '2025-09-01 07:08:30', '2025-09-01 07:08:30'),
+(34, 42, 'Nvivo', 1, 0, '2025-09-01 07:10:50', '2025-09-01 07:10:50');
 
 -- --------------------------------------------------------
 
@@ -247,14 +290,18 @@ CREATE TABLE `SoftwareVersions` (
 
 INSERT INTO `SoftwareVersions` (`id`, `software_id`, `version`, `os`, `download_link`, `user_id`, `createdAt`, `updatedAt`) VALUES
 (17, 25, '13', '12', '13', NULL, '2025-08-30 07:32:46', '2025-08-30 07:32:46'),
-(18, 26, '4.1.1.4', 'Windows', 'https://drive.google.com/open?id=1dL9tIuCkZ3DDPY81S_dKJlpjoeoOn-to&usp=drive_fs', 41, '2025-08-30 07:42:42', '2025-08-30 07:42:42'),
-(19, 27, '31', 'Mac Intel / M1 - M4', 'https://drive.google.com/open?id=1ER_lTT6PJN-Gjhzeu55s6CjQ5hKgivXd&usp=drive_fs', 41, '2025-08-30 07:53:38', '2025-08-30 07:53:38'),
-(20, 28, '31', 'Mac Intel / M1 - M4', 'https://drive.google.com/open?id=1ER_lTT6PJN-Gjhzeu55s6CjQ5hKgivXd&usp=drive_fs', 42, '2025-08-30 07:55:10', '2025-08-30 07:55:10'),
-(21, 29, '4.1.1.4', 'Windows', 'https://drive.google.com/open?id=1dL9tIuCkZ3DDPY81S_dKJlpjoeoOn-to&usp=drive_fs', 42, '2025-08-30 12:35:06', '2025-08-30 12:35:06'),
-(22, 30, '4.1.1.4', 'Windows', 'https://mediafire.com/3333333333333', 42, '2025-08-30 12:48:09', '2025-08-30 14:48:38'),
-(23, 31, '4.1.1.4', 'Windows', 'https://mediafire.com/1231231231231', 41, '2025-08-30 12:49:15', '2025-08-30 16:50:21'),
+(18, 26, '4.1.1.4', 'Windows', 'https://mediafire.com/11111111111111111111', 41, '2025-08-30 07:42:42', '2025-09-01 09:16:54'),
+(19, 27, '31', 'Mac Intel / M1 - M4', 'https://mediafire.com/11111111111111111111', 41, '2025-08-30 07:53:38', '2025-08-31 19:24:29'),
+(20, 28, '31', 'Mac Intel / M1 - M4', 'https://mediafire.com/222222222222', 42, '2025-08-30 07:55:10', '2025-08-31 19:24:47'),
+(21, 29, '4.1.1.4', 'Windows', 'https://mediafire.com/222222222222', 42, '2025-08-30 12:35:06', '2025-08-31 19:24:58'),
+(22, 30, '4.1.1.4', 'Windows', 'https://mediafire.com/222222222222', 42, '2025-08-30 12:48:09', '2025-08-31 19:24:44'),
+(23, 31, '4.1.1.4', 'Windows', 'https://mediafire.com/11111111111111111111', 41, '2025-08-30 12:49:15', '2025-08-31 19:24:26'),
 (25, 27, '31', 'Windows', 'https://mediafire.com/1231231231231', 41, '2025-08-30 14:07:15', '2025-08-30 14:12:00'),
-(26, 28, '31', 'Windows', 'https://mediafire.com/drive/folders/1XXEEUJaG7Ew77yrLpAwMnFMia63E2nrj?usp=sharing', 42, '2025-08-30 14:08:00', '2025-08-30 14:08:14');
+(26, 28, '31', 'Windows', 'https://mediafire.com/222222222222', 42, '2025-08-30 14:08:00', '2025-08-31 19:25:02'),
+(27, 33, '15', 'Windows', 'https://mediafire.com/11111111111111111111', 41, '2025-09-01 07:09:46', '2025-09-01 07:09:46'),
+(28, 34, '15', 'Windows', 'https://mediafire.com/222222222222', 42, '2025-09-01 07:11:10', '2025-09-01 07:11:10'),
+(29, 31, '4.1.1.2', 'Mac OS', 'https://mediafire.com/11111111111111', 41, '2025-09-01 12:05:18', '2025-09-01 12:05:18'),
+(30, 30, '4.1.1.2', 'Mac OS', 'https://mediafire.com/222222222222', 42, '2025-09-01 12:05:57', '2025-09-01 12:05:57');
 
 -- --------------------------------------------------------
 
@@ -306,8 +353,8 @@ CREATE TABLE `Subscriptions` (
 --
 
 INSERT INTO `Subscriptions` (`id`, `user_id`, `start_date`, `end_date`, `status`, `payment_status`, `payment_method`, `createdAt`, `updatedAt`) VALUES
-(17, 41, '2025-08-30 07:40:01', '2025-08-31 07:40:01', 'active', 'paid', 'manual', '2025-08-30 07:40:01', '2025-08-30 07:41:14'),
-(18, 42, '2025-08-30 07:56:04', '2025-08-31 07:56:04', 'active', 'paid', 'manual', '2025-08-30 07:56:04', '2025-08-30 07:56:04');
+(17, 41, '2025-08-30 07:40:01', '2025-09-03 07:40:01', 'canceled', 'paid', 'manual', '2025-08-30 07:40:01', '2025-09-01 12:10:27'),
+(18, 42, '2025-08-30 07:56:04', '2025-09-03 07:56:04', 'active', 'paid', 'manual', '2025-08-30 07:56:04', '2025-09-01 08:43:08');
 
 -- --------------------------------------------------------
 
@@ -422,6 +469,12 @@ ALTER TABLE `Payments`
   ADD KEY `user_subscription_id` (`user_subscription_id`);
 
 --
+-- Indexes for table `payment_methods`
+--
+ALTER TABLE `payment_methods`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `Plans`
 --
 ALTER TABLE `Plans`
@@ -501,19 +554,19 @@ ALTER TABLE `UserSubscriptions`
 -- AUTO_INCREMENT for table `Licenses`
 --
 ALTER TABLE `Licenses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=39;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT for table `OrderLicenses`
 --
 ALTER TABLE `OrderLicenses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
 
 --
 -- AUTO_INCREMENT for table `Orders`
 --
 ALTER TABLE `Orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=159;
 
 --
 -- AUTO_INCREMENT for table `PaymentMethods`
@@ -526,6 +579,12 @@ ALTER TABLE `PaymentMethods`
 --
 ALTER TABLE `Payments`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `payment_methods`
+--
+ALTER TABLE `payment_methods`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `Plans`
@@ -543,13 +602,13 @@ ALTER TABLE `Settings`
 -- AUTO_INCREMENT for table `Software`
 --
 ALTER TABLE `Software`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT for table `SoftwareVersions`
 --
 ALTER TABLE `SoftwareVersions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- AUTO_INCREMENT for table `SubscriptionPlans`

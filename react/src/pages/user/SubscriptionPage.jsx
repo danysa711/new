@@ -69,36 +69,38 @@ const SubscriptionPage = () => {
 // Fungsi fetchPaymentMethods yang diperbaiki untuk SubscriptionPage.jsx
 const fetchPaymentMethods = async () => {
   try {
-    console.log('Mengambil metode pembayaran dari API...');
+    console.log('Fetching payment methods from API...');
     
     // Coba ambil dari API terlebih dahulu
     try {
       const response = await axiosInstance.get('/api/payment-methods');
       
       if (response.data && Array.isArray(response.data)) {
-        console.log('Metode pembayaran tersedia dari API:', response.data);
+        console.log('Available payment methods from API:', response.data);
         setPaymentMethods(response.data);
         return response.data;
       }
     } catch (apiErr) {
-      console.error('Gagal mengambil dari API, beralih ke localStorage:', apiErr);
+      console.error('Error fetching from API, falling back to localStorage:', apiErr);
     }
     
     // Fallback ke localStorage
-    console.log('Menggunakan localStorage untuk metode pembayaran...');
+    console.log('Using localStorage for payment methods...');
     
     // PENTING: Cek nilai tripay_enabled dengan benar
+    // Ambil nilai mentah dahulu untuk debugging
     const rawTripayEnabled = localStorage.getItem('tripay_enabled');
-    console.log('Nilai mentah tripay_enabled:', rawTripayEnabled);
+    console.log('Raw tripay_enabled value:', rawTripayEnabled);
     
     // Interpretasikan nilai dengan benar
+    // Nilai yang valid untuk menandakan "aktif": true, "true", "1", 1
     const tripayEnabled = 
       rawTripayEnabled === 'true' || 
       rawTripayEnabled === true || 
       rawTripayEnabled === '1' || 
       rawTripayEnabled === 1;
     
-    console.log('Tripay diaktifkan?', tripayEnabled);
+    console.log('Tripay enabled?', tripayEnabled);
     
     // Metode pembayaran manual dari localStorage
     let manualMethods = [];
@@ -107,12 +109,12 @@ const fetchPaymentMethods = async () => {
     if (manualMethodsStr) {
       try {
         manualMethods = JSON.parse(manualMethodsStr).filter(method => method.isActive);
-        console.log('Metode pembayaran manual dari localStorage:', manualMethods);
+        console.log('Manual payment methods from localStorage:', manualMethods);
       } catch (e) {
-        console.error('Gagal parsing metode pembayaran manual:', e);
+        console.error('Error parsing manual payment methods:', e);
       }
     } else {
-      // Data demo jika tidak ada di localStorage
+      // Demo data jika tidak ada di localStorage
       manualMethods = [
         {
           id: '1',
@@ -163,9 +165,9 @@ const fetchPaymentMethods = async () => {
       ];
       
       allMethods = [...tripayMethods];
-      console.log('Menambahkan metode pembayaran Tripay:', tripayMethods);
+      console.log('Added Tripay payment methods:', tripayMethods);
     } else {
-      console.log('Tripay dinonaktifkan, tidak menambahkan metode Tripay');
+      console.log('Tripay is disabled, not adding Tripay methods');
     }
     
     // Format metode manual
@@ -181,15 +183,62 @@ const fetchPaymentMethods = async () => {
     // Gabungkan dengan metode manual
     allMethods = [...allMethods, ...formattedManualMethods];
     
-    console.log('Metode pembayaran final:', allMethods);
+    console.log('Final payment methods:', allMethods);
     setPaymentMethods(allMethods);
     return allMethods;
   } catch (err) {
-    console.error('Gagal mengambil metode pembayaran:', err);
+    console.error('Error fetching payment methods:', err);
     message.error('Gagal memuat metode pembayaran');
     return [];
   }
 };
+
+// 2. Fungsi untuk menyetel status tripay_enabled
+// Tambahkan ini di halaman admin pembayaran
+const toggleTripayStatus = (enabled) => {
+  try {
+    // Simpan ke API
+    axiosInstance.post('/api/settings/tripay', { 
+      tripay_enabled: enabled 
+    });
+    
+    // Juga simpan ke localStorage untuk fallback
+    localStorage.setItem('tripay_enabled', enabled ? 'true' : 'false');
+    
+    message.success(`Tripay berhasil ${enabled ? 'diaktifkan' : 'dinonaktifkan'}`);
+  } catch (err) {
+    console.error('Error toggling Tripay status:', err);
+    message.error('Gagal mengubah status Tripay');
+  }
+};
+
+// 3. Debugging Function
+// Tambahkan ini ke halaman SubscriptionPage untuk memudahkan debugging
+const debugPaymentMethods = () => {
+  console.log('DEBUG INFO:');
+  console.log('tripay_enabled (localStorage):', localStorage.getItem('tripay_enabled'));
+  console.log('manual_payment_methods (localStorage):', localStorage.getItem('manual_payment_methods'));
+  console.log('Current paymentMethods state:', paymentMethods);
+  
+  // Coba periksa jika ada metode Tripay dalam state
+  const hasTripayMethods = paymentMethods.some(method => 
+    !method.isManual && ['QRIS', 'BRIVA', 'MANDIRIVA', 'BNIVA', 'BCAVA', 'OVO', 'DANA', 'LINKAJA', 'SHOPEEPAY'].includes(method.code)
+  );
+  
+  console.log('Has Tripay methods in state:', hasTripayMethods);
+  
+  message.info('Informasi debug telah dicatat di konsol browser');
+};
+  
+  // Definisikan fungsi yang hilang
+  const fetchSubscriptionPlans = async () => {
+    try {
+      console.log('Fetching subscription plans...');
+      // Fungsi ini sebenarnya sudah dihandle di useEffect utama
+    } catch (err) {
+      console.error('Error in fetchSubscriptionPlans:', err);
+    }
+  };
   
   const fetchPendingTransactions = async () => {
     try {
@@ -313,57 +362,98 @@ const fetchPaymentMethods = async () => {
   };
 
   const handlePayment = async () => {
-  try {
-    setPaymentLoading(true);
-    
-    // Validasi form
-    const values = await form.validateFields();
-    
-    if (!values.payment_method) {
-      message.warning('Silakan pilih metode pembayaran');
-      setPaymentLoading(false);
-      return;
-    }
-    
-    // Log untuk debugging
-    console.log('Nilai form:', values);
-    console.log('Paket yang dipilih:', selectedPlan);
-    
-    // Cari metode pembayaran yang dipilih
-    const selectedMethod = paymentMethods.find(m => m.code === values.payment_method);
-    console.log('Metode pembayaran yang dipilih:', selectedMethod);
-    
-    if (!selectedMethod) {
-      message.error('Metode pembayaran tidak valid');
-      setPaymentLoading(false);
-      return;
-    }
-    
-    // Jika metode pembayaran manual
-    if (selectedMethod && selectedMethod.isManual) {
-      // Simulasi transaksi dengan metode pembayaran manual
-      setTimeout(() => {
-        const manualData = selectedMethod.manualData;
+    try {
+      setPaymentLoading(true);
+      
+      // Validasi form
+      const values = await form.validateFields();
+      
+      if (!values.payment_method) {
+        message.warning('Silakan pilih metode pembayaran');
+        setPaymentLoading(false);
+        return;
+      }
+      
+      // Log untuk debugging
+      console.log('Form values:', values);
+      console.log('Selected plan:', selectedPlan);
+      
+      // Cari metode pembayaran yang dipilih
+      const selectedMethod = paymentMethods.find(m => m.code === values.payment_method);
+      console.log('Selected payment method:', selectedMethod);
+      
+      if (!selectedMethod) {
+        message.error('Metode pembayaran tidak valid');
+        setPaymentLoading(false);
+        return;
+      }
+      
+      // Jika metode pembayaran manual
+      if (selectedMethod && selectedMethod.isManual) {
+        // Simulasi transaksi dengan metode pembayaran manual
+        setTimeout(() => {
+          const manualData = selectedMethod.manualData;
+          
+          const result = {
+            reference: 'M' + Math.floor(Math.random() * 1000000000),
+            merchant_ref: 'SUB-' + (user?.id || Date.now()) + '-' + Date.now(),
+            payment_method: values.payment_method,
+            payment_name: selectedMethod.name,
+            amount: selectedPlan.price,
+            fee: 0, // Metode manual tidak ada biaya
+            total_amount: selectedPlan.price,
+            status: 'UNPAID',
+            created_at: new Date().toISOString(),
+            expired_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            payment_code: manualData.accountNumber || '',
+            account_name: manualData.accountName || '',
+            qr_url: manualData.qrImageUrl || null,
+            plan_name: selectedPlan.name,
+            instructions: manualData.instructions || 'Silakan ikuti petunjuk pembayaran',
+            payment_type: 'manual',
+            is_manual: true,
+            manualData: manualData
+          };
+          
+          // Update pending transactions
+          setPendingTransactions([result, ...pendingTransactions]);
+          
+          setPaymentResult(result);
+          setPaymentLoading(false);
+          
+          // Refresh user profile data to update subscription status
+          if (fetchUserProfile) {
+            fetchUserProfile();
+          }
+        }, 1000);
         
+        return;
+      }
+      
+      // Jika bukan metode pembayaran manual (Tripay)
+      // Simulasi pembuatan transaksi di Tripay
+      setTimeout(() => {
         const result = {
-          reference: 'M' + Math.floor(Math.random() * 1000000000),
+          reference: 'T' + Math.floor(Math.random() * 1000000000),
           merchant_ref: 'SUB-' + (user?.id || Date.now()) + '-' + Date.now(),
           payment_method: values.payment_method,
           payment_name: selectedMethod.name,
           amount: selectedPlan.price,
-          fee: 0, // Metode manual tidak ada biaya
-          total_amount: selectedPlan.price,
+          fee: selectedMethod.fee,
+          total_amount: selectedPlan.price + selectedMethod.fee,
           status: 'UNPAID',
+          payment_type: 'tripay',
           created_at: new Date().toISOString(),
           expired_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          payment_code: manualData.accountNumber || '',
-          account_name: manualData.accountName || '',
-          qr_url: manualData.qrImageUrl || null,
+          payment_code: values.payment_method === 'QRIS' ? null : '888812345678',
+          qr_url: values.payment_method === 'QRIS' ? 'https://tripay.co.id/qr/sample-qr-code.png' : null,
           plan_name: selectedPlan.name,
-          instructions: manualData.instructions || 'Silakan ikuti petunjuk pembayaran',
-          payment_type: 'manual',
-          is_manual: true,
-          manualData: manualData
+          instructions: values.payment_method === 'QRIS' 
+            ? [{ title: 'Scan QR Code', steps: ['Buka aplikasi e-wallet/mobile banking', 'Pilih menu scan QR/QRIS', 'Arahkan kamera ke kode QR', 'Ikuti instruksi untuk menyelesaikan pembayaran'] }]
+            : [
+                { title: 'ATM', steps: ['Masukkan kartu ATM & PIN', 'Pilih Menu Pembayaran', 'Pilih Virtual Account', `Masukkan kode Virtual Account 888812345678`, 'Ikuti instruksi untuk menyelesaikan'] },
+                { title: 'Mobile Banking', steps: ['Login ke aplikasi', 'Pilih Pembayaran', 'Pilih Virtual Account', `Masukkan kode Virtual Account 888812345678`, 'Konfirmasi pembayaran'] }
+              ]
         };
         
         // Update pending transactions
@@ -372,59 +462,18 @@ const fetchPaymentMethods = async () => {
         setPaymentResult(result);
         setPaymentLoading(false);
         
-        // Refresh data profil user untuk memperbarui status langganan
+        // Refresh user profile data to update subscription status
         if (fetchUserProfile) {
           fetchUserProfile();
         }
-      }, 1000);
+      }, 2000);
       
-      return;
-    }
-    
-    // Jika bukan metode pembayaran manual (Tripay)
-    // Simulasi pembuatan transaksi di Tripay
-    setTimeout(() => {
-      const result = {
-        reference: 'T' + Math.floor(Math.random() * 1000000000),
-        merchant_ref: 'SUB-' + (user?.id || Date.now()) + '-' + Date.now(),
-        payment_method: values.payment_method,
-        payment_name: selectedMethod.name,
-        amount: selectedPlan.price,
-        fee: selectedMethod.fee,
-        total_amount: selectedPlan.price + selectedMethod.fee,
-        status: 'UNPAID',
-        payment_type: 'tripay',
-        created_at: new Date().toISOString(),
-        expired_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        payment_code: values.payment_method === 'QRIS' ? null : '888812345678',
-        qr_url: values.payment_method === 'QRIS' ? 'https://tripay.co.id/qr/sample-qr-code.png' : null,
-        plan_name: selectedPlan.name,
-        instructions: values.payment_method === 'QRIS' 
-          ? [{ title: 'Scan QR Code', steps: ['Buka aplikasi e-wallet/mobile banking', 'Pilih menu scan QR/QRIS', 'Arahkan kamera ke kode QR', 'Ikuti instruksi untuk menyelesaikan pembayaran'] }]
-          : [
-              { title: 'ATM', steps: ['Masukkan kartu ATM & PIN', 'Pilih Menu Pembayaran', 'Pilih Virtual Account', `Masukkan kode Virtual Account 888812345678`, 'Ikuti instruksi untuk menyelesaikan'] },
-              { title: 'Mobile Banking', steps: ['Login ke aplikasi', 'Pilih Pembayaran', 'Pilih Virtual Account', `Masukkan kode Virtual Account 888812345678`, 'Konfirmasi pembayaran'] }
-            ]
-      };
-      
-      // Update pending transactions
-      setPendingTransactions([result, ...pendingTransactions]);
-      
-      setPaymentResult(result);
+    } catch (err) {
+      console.error('Error processing payment:', err);
+      message.error('Gagal memproses pembayaran: ' + (err.message || 'Terjadi kesalahan'));
       setPaymentLoading(false);
-      
-      // Refresh data profil user untuk memperbarui status langganan
-      if (fetchUserProfile) {
-        fetchUserProfile();
-      }
-    }, 2000);
-    
-  } catch (err) {
-    console.error('Gagal memproses pembayaran:', err);
-    message.error('Gagal memproses pembayaran: ' + (err.message || 'Terjadi kesalahan'));
-    setPaymentLoading(false);
-  }
-};
+    }
+  };
 
   // Component lifecycle hooks
   useEffect(() => {

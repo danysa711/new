@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useContext, useState } from "react";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -161,8 +161,4 @@ const AdminLayout = () => {
   );
 };
 
-// Perbaikan: Pastikan komponen diekspor dengan benar
-// Pilih salah satu metode ekspor di bawah ini:
-
-// Metode 1: Ekspor default (direkomendasikan)
 export default AdminLayout;
