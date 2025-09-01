@@ -29,87 +29,94 @@ const PaymentSettings = () => {
   
   // Ambil pengaturan dari backend/localStorage
   useEffect(() => {
-    const fetchSettings = async () => {
-  try {
-    setLoadingSettings(true);
-    
-    // Ambil pengaturan Tripay
-    const tripayResponse = await axiosInstance.get('/api/settings/tripay');
-    const tripaySettings = tripayResponse.data;
-    
-    // Ambil metode pembayaran manual
-    const manualResponse = await axiosInstance.get('/api/payment-methods/manual');
-    const manualMethods = manualResponse.data;
-    
-    // Set state
-    setTripayEnabled(tripaySettings.tripay_enabled);
-    setManualPaymentMethods(manualMethods);
-    
-    // Set form fields
-    form.setFieldsValue({
-      tripay_enabled: tripaySettings.tripay_enabled,
-      api_key: tripaySettings.api_key,
-      private_key: tripaySettings.private_key,
-      merchant_code: tripaySettings.merchant_code,
-      sandbox_mode: tripaySettings.sandbox_mode,
-      callback_url: window.location.origin + '/api/tripay/callback'
-    });
-    
-    setLoadingSettings(false);
-  } catch (error) {
-    console.error('Error loading payment settings:', error);
-    message.error('Gagal memuat pengaturan pembayaran');
-    setLoadingSettings(false);
-  }
-};
-
-// Ganti simpan pengaturan Tripay
-const handleSaveTripaySettings = async (values) => {
-  try {
-    setLoading(true);
-    
-    // Simpan ke API
-    await axiosInstance.post('/api/settings/tripay', values);
-    
-    setTripayEnabled(values.tripay_enabled);
-    message.success('Pengaturan Tripay berhasil disimpan');
-    setLoading(false);
-  } catch (error) {
-    console.error('Error saving Tripay settings:', error);
-    message.error('Gagal menyimpan pengaturan Tripay');
-    setLoading(false);
-  }
-};
-
-// Ganti simpan metode pembayaran manual
-const handleSavePaymentMethod = async () => {
-  try {
-    await manualForm.validateFields();
-    const values = manualForm.getFieldsValue();
-    
-    if (editingMethod) {
-      // Update metode yang sudah ada
-      await axiosInstance.put(`/api/payment-methods/${editingMethod.id}`, values);
-      message.success('Metode pembayaran berhasil diperbarui');
-    } else {
-      // Tambah metode baru
-      await axiosInstance.post('/api/payment-methods', values);
-      message.success('Metode pembayaran berhasil ditambahkan');
+  const fetchSettings = async () => {
+    try {
+      setLoadingSettings(true);
+      
+      // Ambil pengaturan Tripay
+      let tripaySettings = { tripay_enabled: false };
+      
+      try {
+        const tripayResponse = await axiosInstance.get('/api/settings/tripay');
+        tripaySettings = tripayResponse.data;
+        console.log('Data pengaturan Tripay:', tripaySettings);
+      } catch (tripayErr) {
+        console.error('Gagal mengambil pengaturan Tripay:', tripayErr);
+        
+        // Fallback ke localStorage
+        const tripayEnabled = localStorage.getItem('tripay_enabled');
+        tripaySettings = { 
+          tripay_enabled: tripayEnabled === 'true' || tripayEnabled === true
+        };
+      }
+      
+      // Set state
+      setTripayEnabled(tripaySettings.tripay_enabled === true || tripaySettings.tripay_enabled === 'true');
+      
+      // Ambil metode pembayaran manual
+      let manualMethods = [];
+      
+      try {
+        const manualResponse = await axiosInstance.get('/api/payment-methods/manual');
+        manualMethods = manualResponse.data;
+        console.log('Data metode pembayaran manual:', manualMethods);
+      } catch (manualErr) {
+        console.error('Gagal mengambil metode pembayaran manual:', manualErr);
+        
+        // Fallback ke localStorage
+        const storedMethods = localStorage.getItem('manual_payment_methods');
+        if (storedMethods) {
+          try {
+            manualMethods = JSON.parse(storedMethods);
+          } catch (e) {
+            console.error('Gagal parsing metode pembayaran:', e);
+            
+            // Data demo
+            manualMethods = [
+              {
+                id: '1',
+                name: 'Transfer Bank BCA',
+                type: 'bank',
+                accountNumber: '1234567890',
+                accountName: 'PT Demo Store',
+                instructions: 'Transfer ke rekening BCA a/n PT Demo Store',
+                isActive: true
+              },
+              {
+                id: '2',
+                name: 'QRIS',
+                type: 'qris',
+                qrImageUrl: 'https://example.com/qr.png',
+                instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking',
+                isActive: true
+              }
+            ];
+          }
+        }
+      }
+      
+      setManualPaymentMethods(manualMethods);
+      
+      // Set form fields
+      form.setFieldsValue({
+        tripay_enabled: tripaySettings.tripay_enabled,
+        api_key: tripaySettings.api_key,
+        private_key: tripaySettings.private_key,
+        merchant_code: tripaySettings.merchant_code,
+        sandbox_mode: tripaySettings.sandbox_mode,
+        callback_url: window.location.origin + '/api/tripay/callback'
+      });
+      
+      setLoadingSettings(false);
+    } catch (error) {
+      console.error('Gagal memuat pengaturan pembayaran:', error);
+      message.error('Gagal memuat pengaturan pembayaran');
+      setLoadingSettings(false);
     }
-    
-    // Refresh daftar metode pembayaran
-    const response = await axiosInstance.get('/api/payment-methods/manual');
-    setManualPaymentMethods(response.data);
-    
-    setModalVisible(false);
-  } catch (error) {
-    console.error('Error saving payment method:', error);
-    message.error('Gagal menyimpan metode pembayaran');
-  }
-};
+  };
 
-    fetchSettings();
-  }, [form]);
+  fetchSettings();
+}, [form]);
 
   // Simpan pengaturan Tripay
   const handleSaveTripaySettings = async (values) => {
