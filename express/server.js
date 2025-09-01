@@ -1,3 +1,5 @@
+// Perbaikan untuk express/server.js
+
 const express = require("express");
 const cors = require("cors");
 const { db } = require("./models");
@@ -34,34 +36,35 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
+// Tambahkan middleware untuk logging request
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log('Request headers:', req.headers);
+  next();
+});
+
 // Gunakan CORS di seluruh aplikasi
 app.use(cors(corsOptions));
 
 // Tambahkan middleware khusus untuk preflight requests
 app.options('*', cors(corsOptions));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Tambahkan middleware untuk parsing body JSON dengan limit lebih besar
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Tambahkan middleware untuk menangani CORS secara manual jika perlu
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
   // Jika origin ada dalam daftar yang diizinkan
-  if (corsOptions.origin.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
+  if (corsOptions.origin.includes(origin) || corsOptions.origin.includes("*")) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
     res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
     res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
     res.header('Access-Control-Allow-Credentials', 'true');
   }
   
-  next();
-});
-
-// Log all incoming requests
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log('Request origin:', req.headers.origin);
   next();
 });
 
@@ -151,6 +154,20 @@ app.use("/api/tripay", tripayRoutes);
 app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", paymentMethodRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ 
+    message: "Terjadi kesalahan pada server", 
+    error: process.env.NODE_ENV === 'production' ? undefined : err.message 
+  });
+});
+
+// Catch 404 and forward to error handler
+app.use((req, res) => {
+  res.status(404).json({ message: "Endpoint tidak ditemukan" });
+});
 
 // Start server
 app.listen(PORT, async () => {

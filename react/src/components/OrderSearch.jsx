@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, Alert, Spin, Typography, Divider, Tag, Space } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
-import { findOrders } from '../api/order-service';
+import axios from 'axios'; // Pastikan axios diimpor
 import { getActiveBackendUrl } from '../api/utils';
 
 const { Title, Text, Paragraph } = Typography;
@@ -23,7 +23,9 @@ const OrderSearch = () => {
   
   // Ambil URL backend user saat komponen dimuat
   useEffect(() => {
-    setBackendUrl(getActiveBackendUrl());
+    const url = getActiveBackendUrl();
+    console.log("Backend URL diatur ke:", url);
+    setBackendUrl(url);
   }, []);
   
   // Menangani perubahan pada form input
@@ -57,13 +59,47 @@ const OrderSearch = () => {
         throw new Error('Nomor pesanan dan nama produk harus diisi');
       }
       
-      // Panggil API untuk mencari pesanan di backend spesifik user
-      const result = await findOrders(orderData);
+      console.log("Mengirim permintaan ke:", backendUrl);
+      console.log("Data yang dikirim:", orderData);
       
-      setResults(result);
+      // Perbaikan: Gunakan axios langsung dengan token
+      // Ambil token dari localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Anda harus login terlebih dahulu');
+      }
+      
+      // Panggil API untuk mencari pesanan
+      const response = await axios.post(
+        `${backendUrl}/api/orders/find`, 
+        orderData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 15000 // Tambahkan timeout 15 detik
+        }
+      );
+      
+      console.log("Respons API:", response.data);
+      
+      setResults(response.data);
     } catch (err) {
       console.error('Error searching for order:', err);
-      setError(err.message || 'Gagal mencari pesanan. Silakan coba lagi.');
+      // Perbaikan: Tangani berbagai jenis error dengan lebih baik
+      if (err.response) {
+        // Error dari server (status code selain 2xx)
+        console.error('Server response error:', err.response.data);
+        setError(err.response.data.message || `Error ${err.response.status}: ${err.response.statusText}`);
+      } else if (err.request) {
+        // Request dibuat tapi tidak ada respons
+        console.error('No response received:', err.request);
+        setError('Tidak ada respons dari server. Silakan periksa koneksi Anda dan coba lagi.');
+      } else {
+        // Error lainnya
+        setError(err.message || 'Gagal mencari pesanan. Silakan coba lagi.');
+      }
     } finally {
       setLoading(false);
     }
@@ -74,7 +110,7 @@ const OrderSearch = () => {
       <Card title={<Title level={3}>Pencarian Pesanan</Title>}>
         <Alert
           message="Backend URL:"
-          description={backendUrl}
+          description={backendUrl || "Tidak tersedia"}
           type="info"
           showIcon
           style={{ marginBottom: '20px' }}

@@ -1,3 +1,5 @@
+// Perbaikan untuk express/middlewares/auth.js
+
 const jwt = require("jsonwebtoken");
 const { User, Subscription, db } = require("../models");
 
@@ -33,7 +35,7 @@ const authenticateUser = async (req, res, next) => {
       }
     }
 
-    // Cek apakah ini permintaan ke /api/orders/find - BERIKAN AKSES LANGSUNG
+    // PERBAIKAN: Cek apakah ini permintaan ke /api/orders/find - BERIKAN AKSES LANGSUNG
     if (req.originalUrl === '/api/orders/find') {
       console.log("Mengizinkan akses langsung ke /api/orders/find");
       return next();
@@ -88,7 +90,7 @@ const requireActiveSubscription = async (req, res, next) => {
     return next();
   }
   
-  // Cek apakah ini permintaan ke /api/orders/find - BERIKAN AKSES LANGSUNG
+  // PERBAIKAN: Cek apakah ini permintaan ke /api/orders/find - BERIKAN AKSES LANGSUNG
   if (req.originalUrl === '/api/orders/find') {
     console.log("Bypass subscription check for /api/orders/find");
     return next();
