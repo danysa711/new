@@ -149,4 +149,41 @@ router.post('/admin/settings/whatsapp-trial', authenticateUser, requireAdmin, (r
   }
 });
 
+router.get('/settings/tripay-status', async (req, res) => {
+  try {
+    const tripayEnabled = await Setting.findOne({ where: { key: 'tripay_enabled' } });
+    
+    res.json({
+      enabled: tripayEnabled ? tripayEnabled.value === 'true' : false
+    });
+  } catch (err) {
+    console.error('Error fetching Tripay status:', err);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Tambahkan endpoint untuk menyetel status Tripay
+router.post('/settings/tripay', authenticateUser, async (req, res) => {
+  try {
+    const { tripay_enabled } = req.body;
+    
+    let setting = await Setting.findOne({ where: { key: 'tripay_enabled' } });
+    
+    if (setting) {
+      setting.value = tripay_enabled ? 'true' : 'false';
+      await setting.save();
+    } else {
+      await Setting.create({
+        key: 'tripay_enabled',
+        value: tripay_enabled ? 'true' : 'false'
+      });
+    }
+    
+    res.json({ message: 'Tripay settings updated', status: tripay_enabled });
+  } catch (err) {
+    console.error('Error updating Tripay settings:', err);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 module.exports = router;
