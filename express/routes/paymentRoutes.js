@@ -4,6 +4,12 @@ const router = express.Router();
 const { authenticateUser, requireAdmin } = require('../middlewares/auth');
 const {
   getAllPaymentMethods,
+  getManualPaymentMethods,
+  createPaymentMethod,
+  updatePaymentMethod,
+  deletePaymentMethod,
+  toggleTripayStatus,
+  getTripayStatus,
   getAllPaymentMethodsFallback,
   createManualTransaction,
   updateManualTransactionStatus,
@@ -16,6 +22,25 @@ const {
 // ====== Endpoint untuk Metode Pembayaran ======
 // Mendapatkan semua metode pembayaran (publik)
 router.get('/payment-methods', getAllPaymentMethods);
+
+// Mendapatkan semua metode pembayaran manual (admin only)
+router.get('/payment-methods/manual', [authenticateUser, requireAdmin], getManualPaymentMethods);
+
+// Membuat metode pembayaran baru
+router.post('/payment-methods', [authenticateUser, requireAdmin], createPaymentMethod);
+
+// Update metode pembayaran
+router.put('/payment-methods/:id', [authenticateUser, requireAdmin], updatePaymentMethod);
+
+// Hapus metode pembayaran
+router.delete('/payment-methods/:id', [authenticateUser, requireAdmin], deletePaymentMethod);
+
+// ====== Endpoint untuk Tripay ======
+// Toggle status Tripay (aktif/nonaktif)
+router.post('/settings/tripay', [authenticateUser, requireAdmin], toggleTripayStatus);
+
+// Dapatkan status Tripay
+router.get('/settings/tripay-status', getTripayStatus);
 
 // ====== Endpoint untuk Transaksi ======
 // Membuat transaksi manual

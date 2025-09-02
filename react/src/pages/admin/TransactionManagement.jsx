@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Card, Typography, Table, Tag, Button, DatePicker, 
   Select, Input, Space, message, Badge, Descriptions, Modal, Tooltip, 
-  Alert, Statistic, Row, Col, Popconfirm
+  Tabs, Alert, Statistic, Row, Col, Popconfirm
 } from 'antd';
 import { 
   SearchOutlined, SyncOutlined, EyeOutlined, 
-  CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined,
+  CheckCircleOutlined, CloseCircleOutlined,
   InfoCircleOutlined, ReloadOutlined, CopyOutlined,
   DollarOutlined, BankOutlined, QrcodeOutlined,
   WalletOutlined
@@ -17,8 +17,9 @@ import moment from 'moment';
 const { Title, Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
+const { TabPane } = Tabs;
 
-const TripayTransactions = () => {
+const TransactionManagement = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState([moment().subtract(30, 'days'), moment()]);
@@ -240,10 +241,10 @@ const TripayTransactions = () => {
     },
     {
       title: 'Tanggal',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
+      dataIndex: 'created_at',
+      key: 'created_at',
       render: (date) => moment(date).format('DD MMM YYYY HH:mm'),
-      sorter: (a, b) => moment(a.createdAt).unix() - moment(b.createdAt).unix(),
+      sorter: (a, b) => moment(a.created_at).unix() - moment(b.created_at).unix(),
       defaultSortOrder: 'descend',
     },
     {
@@ -412,7 +413,7 @@ const TripayTransactions = () => {
       
       <Modal
         title="Detail Transaksi"
-        open={detailModalVisible}
+        visible={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={[
           <Button key="close" onClick={() => setDetailModalVisible(false)}>
@@ -470,7 +471,7 @@ const TripayTransactions = () => {
                 <Text strong>Rp {selectedTransaction.total_amount.toLocaleString('id-ID')}</Text>
               </Descriptions.Item>
               <Descriptions.Item label="Tanggal Dibuat">
-                {moment(selectedTransaction.createdAt).format('DD MMMM YYYY HH:mm:ss')}
+                {moment(selectedTransaction.created_at).format('DD MMMM YYYY HH:mm:ss')}
               </Descriptions.Item>
               {selectedTransaction.paid_at && (
                 <Descriptions.Item label="Tanggal Pembayaran">
@@ -571,4 +572,4 @@ const TripayTransactions = () => {
   );
 };
 
-export default TripayTransactions;
+export default TransactionManagement;

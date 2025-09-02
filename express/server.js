@@ -1,4 +1,4 @@
-// Perbaikan untuk express/server.js
+// Perbaikan pada server.js
 
 const express = require("express");
 const cors = require("cors");
@@ -14,7 +14,7 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const tripayRoutes = require("./routes/tripayRoutes");
 const publicApiRoutes = require("./routes/publicApiRoutes");
 const settingsRoutes = require('./routes/settingsRoutes');
-const paymentMethodRoutes = require('./routes/paymentMethodRoutes');
+const paymentRoutes = require('./routes/paymentRoutes'); // Pastikan ini ada
 
 const app = express();
 const PORT = process.env.PORT || 3500;
@@ -41,8 +41,6 @@ const corsOptions = {
       console.log('Origin rejected by CORS:', origin);
       // Izinkan semua origin untuk sementara selama debugging
       callback(null, true);
-      // Setelah debugging selesai, kembalikan ke:
-      // callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -153,7 +151,7 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "API is working", timestamp: new Date().toISOString() });
 });
 
-// Endpoint global untuk payment-methods
+// Endpoint global untuk payment-methods (buat cadangan endpoint ini secara langsung di server.js)
 app.get('/api/payment-methods', async (req, res) => {
   try {
     // Data default
@@ -222,6 +220,95 @@ app.get('/api/payment-methods', async (req, res) => {
   }
 });
 
+// Endpoint untuk Tripay status (tambahkan sebagai backup)
+app.get('/api/settings/tripay-status', async (req, res) => {
+  try {
+    let enabled = false;
+    try {
+      const tripayEnabled = await db.Setting.findOne({ where: { key: 'tripay_enabled' } });
+      enabled = tripayEnabled ? tripayEnabled.value === 'true' : false;
+    } catch (err) {
+      console.error('Error checking Tripay status from DB:', err);
+    }
+    
+    res.json({ enabled: enabled });
+  } catch (error) {
+    console.error('Error in Tripay status endpoint:', error);
+    res.json({ enabled: false });
+  }
+});
+
+app.post('/api/transactions/filter', async (req, res) => {
+  try {
+    // Beri respons dengan array kosong jika terjadi error
+    res.json([]);
+  } catch (error) {
+    console.error('Error in transactions filter endpoint:', error);
+    res.json([]);
+  }
+});
+
+// Tambahkan endpoint ini di server.js sebelum app.use("/api", paymentRoutes);
+
+// Endpoint untuk payment-methods/manual
+app.get('/api/payment-methods/manual', async (req, res) => {
+  try {
+    // Data default untuk metode pembayaran manual
+    const manualMethods = [
+      {
+        id: 1,
+        name: 'Transfer Bank BCA',
+        type: 'bank',
+        accountNumber: '1234567890',
+        accountName: 'PT Demo Store',
+        instructions: 'Transfer ke rekening BCA a/n PT Demo Store',
+        isActive: true
+      },
+      {
+        id: 2,
+        name: 'QRIS',
+        type: 'qris',
+        qrImageUrl: 'https://example.com/qr.png',
+        instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking',
+        isActive: true
+      },
+      {
+        id: 3,
+        name: 'DANA',
+        type: 'ewallet',
+        accountNumber: '08123456789',
+        accountName: 'PT Demo Store',
+        instructions: 'Transfer ke akun DANA a/n PT Demo Store',
+        isActive: true
+      },
+      {
+        id: 4,
+        name: 'OVO',
+        type: 'ewallet',
+        accountNumber: '08123456789',
+        accountName: 'PT Demo Store',
+        instructions: 'Transfer ke akun OVO a/n PT Demo Store',
+        isActive: true
+      },
+      {
+        id: 5,
+        name: 'GoPay',
+        type: 'ewallet',
+        accountNumber: '08123456789',
+        accountName: 'PT Demo Store',
+        instructions: 'Transfer ke akun GoPay a/n PT Demo Store',
+        isActive: true
+      }
+    ];
+    
+    // Kirim response
+    res.json(manualMethods);
+  } catch (error) {
+    console.error('Error dalam endpoint /api/payment-methods/manual:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 // Routes
 app.use("/api", licenseRoutes);
 app.use("/api", softwareRoutes);
@@ -233,7 +320,7 @@ app.use("/api", subscriptionRoutes);
 app.use("/api/tripay", tripayRoutes);
 app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
-app.use("/api", paymentMethodRoutes);
+app.use("/api", paymentRoutes); // Pastikan ini ada
 
 // Error handling middleware
 app.use((err, req, res, next) => {

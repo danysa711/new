@@ -1,5 +1,5 @@
 // controllers/paymentController.js
-const { PaymentMethod, Setting, Transaction, Subscription, SubscriptionPlan } = require('../models');
+const { PaymentMethod, Setting, Transaction, Subscription, SubscriptionPlan, db } = require('../models');
 const crypto = require('crypto');
 
 // Fungsi untuk memperbarui langganan setelah pembayaran berhasil
@@ -100,6 +100,150 @@ const getAllPaymentMethods = async (req, res) => {
   } catch (error) {
     console.error('Error in getAllPaymentMethods:', error);
     res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// Get all manual payment methods (admin only)
+const getManualPaymentMethods = async (req, res) => {
+  try {
+    const manualMethods = await PaymentMethod.findAll();
+    res.json(manualMethods);
+  } catch (error) {
+    console.error('Error fetching manual payment methods:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// Create a new payment method
+const createPaymentMethod = async (req, res) => {
+  try {
+    const {
+      name,
+      type,
+      accountNumber,
+      accountName,
+      instructions,
+      qrImageUrl,
+      isActive
+    } = req.body;
+    
+    const newMethod = await PaymentMethod.create({
+      name,
+      type,
+      accountNumber,
+      accountName,
+      instructions,
+      qrImageUrl,
+      isActive: isActive || true
+    });
+    
+    res.status(201).json(newMethod);
+  } catch (error) {
+    console.error('Error creating payment method:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// Update a payment method
+const updatePaymentMethod = async (req, res) => {
+  try {
+    const {
+      name,
+      type,
+      accountNumber,
+      accountName,
+      instructions,
+      qrImageUrl,
+      isActive
+    } = req.body;
+    
+    const method = await PaymentMethod.findByPk(req.params.id);
+    
+    if (!method) {
+      return res.status(404).json({ message: 'Metode pembayaran tidak ditemukan' });
+    }
+    
+    // Update fields
+    if (name) method.name = name;
+    if (type) method.type = type;
+    if (accountNumber !== undefined) method.accountNumber = accountNumber;
+    if (accountName !== undefined) method.accountName = accountName;
+    if (instructions !== undefined) method.instructions = instructions;
+    if (qrImageUrl !== undefined) method.qrImageUrl = qrImageUrl;
+    if (isActive !== undefined) method.isActive = isActive;
+    
+    await method.save();
+    
+    res.json(method);
+  } catch (error) {
+    console.error('Error updating payment method:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// Delete a payment method
+const deletePaymentMethod = async (req, res) => {
+  try {
+    const method = await PaymentMethod.findByPk(req.params.id);
+    
+    if (!method) {
+      return res.status(404).json({ message: 'Metode pembayaran tidak ditemukan' });
+    }
+    
+    await method.destroy();
+    
+    res.json({ message: 'Metode pembayaran berhasil dihapus' });
+  } catch (error) {
+    console.error('Error deleting payment method:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// Toggle Tripay status (enable/disable)
+const toggleTripayStatus = async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    
+    // Cari setting Tripay
+    let tripayEnabled = await Setting.findOne({ where: { key: 'tripay_enabled' } });
+    
+    // Jika setting belum ada, buat baru
+    if (!tripayEnabled) {
+      tripayEnabled = await Setting.create({
+        key: 'tripay_enabled',
+        value: enabled.toString(),
+        description: 'Status aktif/nonaktif integrasi Tripay'
+      });
+    } else {
+      // Update setting yang ada
+      tripayEnabled.value = enabled.toString();
+      await tripayEnabled.save();
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Tripay berhasil ${enabled ? 'diaktifkan' : 'dinonaktifkan'}`,
+      tripay_enabled: enabled
+    });
+  } catch (error) {
+    console.error('Error toggling Tripay status:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// Get Tripay status
+const getTripayStatus = async (req, res) => {
+  try {
+    const tripayEnabled = await Setting.findOne({ where: { key: 'tripay_enabled' } });
+    
+    // Handle kasus ketika database tidak tersedia
+    res.json({ 
+      enabled: tripayEnabled ? tripayEnabled.value === 'true' : false
+    });
+  } catch (error) {
+    console.error('Error getting Tripay status:', error);
+    // Kirim response success dengan enabled: false sebagai fallback
+    res.json({ enabled: false, error: 'Database error' });
   }
 };
 
@@ -293,6 +437,60 @@ const getTransactionByReference = async (req, res) => {
   }
 };
 
+// Filter transactions (Admin only)
+const filterTransactions = async (req, res) => {
+  try {
+    const { status, startDate, endDate, search } = req.body;
+    
+    // Buat filter dasar
+    const whereConditions = {};
+    
+    // Filter berdasarkan status
+    if (status && status !== 'ALL') {
+      whereConditions.status = status;
+    }
+    
+    // Filter berdasarkan tanggal
+    if (startDate || endDate) {
+      whereConditions.createdAt = {};
+      
+      if (startDate) {
+        whereConditions.createdAt[db.Sequelize.Op.gte] = new Date(startDate);
+      }
+      
+      if (endDate) {
+        const nextDay = new Date(endDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        whereConditions.createdAt[db.Sequelize.Op.lt] = nextDay;
+      }
+    }
+    
+    // Filter berdasarkan pencarian (reference, merchant_ref, customer_name, customer_email)
+    if (search) {
+      whereConditions[db.Sequelize.Op.or] = [
+        { reference: { [db.Sequelize.Op.like]: `%${search}%` } },
+        { merchant_ref: { [db.Sequelize.Op.like]: `%${search}%` } },
+        { customer_name: { [db.Sequelize.Op.like]: `%${search}%` } },
+        { customer_email: { [db.Sequelize.Op.like]: `%${search}%` } }
+      ];
+    }
+    
+    // Ambil transaksi
+    const transactions = await Transaction.findAll({
+      where: whereConditions,
+      include: [
+        { model: User, attributes: ['username', 'email'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    res.json(transactions);
+  } catch (error) {
+    console.error('Error filtering transactions:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 // Fallback jika model belum ada
 const getAllPaymentMethodsFallback = async (req, res) => {
   try {
@@ -412,11 +610,18 @@ const getAllPaymentMethodsFallback = async (req, res) => {
 
 module.exports = {
   getAllPaymentMethods,
+  getManualPaymentMethods,
+  createPaymentMethod,
+  updatePaymentMethod,
+  deletePaymentMethod,
+  toggleTripayStatus,
+  getTripayStatus,
   getAllPaymentMethodsFallback,
   createManualTransaction,
   updateManualTransactionStatus,
   getUserActiveTransactions,
   getUserTransactionHistory,
   getTransactionByReference,
+  filterTransactions,
   updateSubscriptionAfterPayment
 };

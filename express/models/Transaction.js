@@ -1,4 +1,4 @@
-// models/transaction.js
+// models/Transaction.js
 module.exports = (sequelize, DataTypes) => {
   const Transaction = sequelize.define('Transaction', {
     reference: {
@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     subscription_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
     payment_method: {
       type: DataTypes.STRING,
@@ -31,16 +31,16 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     amount: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: false
     },
     fee: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
       defaultValue: 0
     },
     total_amount: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: false
     },
     status: {
@@ -98,8 +98,12 @@ module.exports = (sequelize, DataTypes) => {
 
   Transaction.associate = function(models) {
     Transaction.belongsTo(models.User, { foreignKey: 'user_id' });
-    Transaction.belongsTo(models.Subscription, { foreignKey: 'subscription_id' });
-    Transaction.belongsTo(models.SubscriptionPlan, { foreignKey: 'plan_id' });
+    if (models.Subscription) {
+      Transaction.belongsTo(models.Subscription, { foreignKey: 'subscription_id' });
+    }
+    if (models.SubscriptionPlan) {
+      Transaction.belongsTo(models.SubscriptionPlan, { foreignKey: 'plan_id' });
+    }
   };
 
   return Transaction;
