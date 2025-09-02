@@ -1,4 +1,23 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = require('@whiskeysockets/baileys');
+// Deklarasi variabel untuk Baileys
+let makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore;
+
+// Import baileys secara dinamis
+const importBaileys = async () => {
+  try {
+    const baileys = await import('@whiskeysockets/baileys');
+    makeWASocket = baileys.default;
+    useMultiFileAuthState = baileys.useMultiFileAuthState;
+    DisconnectReason = baileys.DisconnectReason;
+    fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+    makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore;
+    console.log("Baileys modules imported successfully");
+    return true;
+  } catch (error) {
+    console.error("Error importing Baileys:", error);
+    return false;
+  }
+};
+
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
 const path = require('path');
@@ -20,9 +39,15 @@ let socket = null;
 let isClientReady = false;
 let qr = null;
 let qrGenerated = false;
+let initializationPromise = null;
 
 // Fungsi untuk menginisialisasi socket
 const initSocket = async () => {
+  // Pastikan baileys sudah diimpor
+  if (!makeWASocket) {
+    await importBaileys();
+  }
+  
   ensureAuthDir();
   
   if (socket !== null && isClientReady) {
@@ -30,80 +55,102 @@ const initSocket = async () => {
     return socket;
   }
   
+  // Jika sedang dalam proses inisialisasi, tunggu proses tersebut
+  if (initializationPromise) {
+    return initializationPromise;
+  }
+  
   console.log('Menginisialisasi Baileys client');
   
-  // Menggunakan auth state dari file
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_PATH);
-  
-  // Ambil versi terbaru
-  const { version } = await fetchLatestBaileysVersion();
-  
-  // Buat socket
-  socket = makeWASocket({
-    version,
-    auth: {
-      creds: state.creds,
-      keys: makeCacheableSignalKeyStore(state.keys, console.log)
-    },
-    printQRInTerminal: false,
-    markOnlineOnConnect: true,
-    defaultQueryTimeoutMs: 60000,
-    getMessage: async () => {
-      return { conversation: 'Hello' };
-    }
-  });
-  
-  // Handle koneksi
-  socket.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect, qr: newQr } = update;
-    
-    if (newQr) {
-      qr = newQr;
-      qrGenerated = true;
-      console.log('QR code baru diterima');
+  // Buat promise untuk inisialisasi
+  initializationPromise = (async () => {
+    try {
+      // Menggunakan auth state dari file
+      const { state, saveCreds } = await useMultiFileAuthState(AUTH_PATH);
       
-      // Tampilkan QR di terminal (opsional)
-      qrcode.generate(newQr, { small: true });
-    }
-    
-    if (connection === 'open') {
-      isClientReady = true;
-      qr = null;
-      qrGenerated = false;
-      console.log('Baileys client terhubung');
-    }
-    
-    if (connection === 'close') {
-      isClientReady = false;
+      // Ambil versi terbaru
+      const { version } = await fetchLatestBaileysVersion();
       
-      const shouldReconnect = (lastDisconnect?.error instanceof Boom) ? 
-        lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut : true;
-      
-      console.log('Koneksi terputus karena ', lastDisconnect?.error, ', mencoba kembali: ', shouldReconnect);
-      
-      if (shouldReconnect) {
-        setTimeout(() => {
-          socket = null;
-          initSocket();
-        }, 5000);
-      } else {
-        console.log('Koneksi terputus secara permanen, logout berhasil');
-        // Hapus credentials jika logout
-        if (fs.existsSync(AUTH_PATH)) {
-          fs.rmdirSync(AUTH_PATH, { recursive: true });
+      // Buat socket
+      socket = makeWASocket({
+        version,
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(state.keys, console.log)
+        },
+        printQRInTerminal: false,
+        markOnlineOnConnect: true,
+        defaultQueryTimeoutMs: 60000,
+        getMessage: async () => {
+          return { conversation: 'Hello' };
         }
-      }
+      });
+      
+      // Handle koneksi
+      socket.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr: newQr } = update;
+        
+        if (newQr) {
+          qr = newQr;
+          qrGenerated = true;
+          console.log('QR code baru diterima');
+          
+          // Tampilkan QR di terminal (opsional)
+          qrcode.generate(newQr, { small: true });
+        }
+        
+        if (connection === 'open') {
+          isClientReady = true;
+          qr = null;
+          qrGenerated = false;
+          console.log('Baileys client terhubung');
+        }
+        
+        if (connection === 'close') {
+          isClientReady = false;
+          
+          const shouldReconnect = (lastDisconnect?.error instanceof Boom) ? 
+            lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut : true;
+          
+          console.log('Koneksi terputus karena ', lastDisconnect?.error, ', mencoba kembali: ', shouldReconnect);
+          
+          if (shouldReconnect) {
+            initializationPromise = null;
+            socket = null;
+            setTimeout(() => {
+              initSocket();
+            }, 5000);
+          } else {
+            console.log('Koneksi terputus secara permanen, logout berhasil');
+            // Hapus credentials jika logout
+            if (fs.existsSync(AUTH_PATH)) {
+              fs.rmdirSync(AUTH_PATH, { recursive: true });
+            }
+          }
+        }
+      });
+      
+      // Save credentials on update
+      socket.ev.on('creds.update', saveCreds);
+      
+      return socket;
+    } catch (error) {
+      console.error("Error initializing Baileys client:", error);
+      initializationPromise = null;
+      throw error;
     }
-  });
+  })();
   
-  // Save credentials on update
-  socket.ev.on('creds.update', saveCreds);
-  
-  return socket;
+  return initializationPromise;
 };
 
 // Fungsi untuk mendapatkan QR code
 const getQrCode = async () => {
+  // Pastikan baileys sudah diimpor
+  if (!makeWASocket) {
+    await importBaileys();
+  }
+  
   if (!socket) {
     await initSocket();
   }
@@ -117,6 +164,11 @@ const getQrCode = async () => {
 
 // Fungsi untuk mengirim pesan
 const sendMessage = async (number, message) => {
+  // Pastikan baileys sudah diimpor
+  if (!makeWASocket) {
+    await importBaileys();
+  }
+  
   if (!socket || !isClientReady) {
     console.log('Baileys client belum siap');
     return false;
@@ -138,6 +190,11 @@ const sendMessage = async (number, message) => {
 
 // Fungsi untuk mengirim pesan ke grup
 const sendGroupMessage = async (groupId, message) => {
+  // Pastikan baileys sudah diimpor
+  if (!makeWASocket) {
+    await importBaileys();
+  }
+  
   if (!socket || !isClientReady) {
     console.log('Baileys client belum siap');
     return false;
@@ -159,6 +216,11 @@ const sendGroupMessage = async (groupId, message) => {
 
 // Fungsi untuk logout
 const logout = async () => {
+  // Pastikan baileys sudah diimpor
+  if (!makeWASocket) {
+    await importBaileys();
+  }
+  
   if (!socket) {
     return true;
   }
@@ -189,12 +251,20 @@ const isReady = () => {
 };
 
 // Fungsi untuk mendapatkan client
-const getClient = () => {
+const getClient = async () => {
+  // Pastikan baileys sudah diimpor
+  if (!makeWASocket) {
+    await importBaileys();
+  }
+  
   if (!socket) {
     return initSocket();
   }
   return socket;
 };
+
+// Inisialisasi modul Baileys saat file ini dimuat
+importBaileys();
 
 module.exports = {
   initSocket,
