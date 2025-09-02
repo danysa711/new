@@ -1,3 +1,4 @@
+// react/src/pages/user/UserPaymentPage.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   Card, Typography, Tabs, Table, Tag, Button, Space,
@@ -10,166 +11,64 @@ import {
   BankOutlined, QrcodeOutlined, WalletOutlined
 } from '@ant-design/icons';
 import { AuthContext } from '../../context/AuthContext';
+import { PaymentContext } from '../../context/PaymentContext'; // Import PaymentContext
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
-import { 
-  getAllAvailablePaymentMethods,
-  subscribeToPaymentUpdates
-} from '../../utils/paymentStorage';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { Panel } = Collapse;
 
 const UserPaymentPage = () => {
-  const { user } = useContext(AuthContext);
-  const [loading, setLoading] = useState(true);
-  const [activePayments, setActivePayments] = useState([]);
-  const [paymentHistory, setPaymentHistory] = useState([]);
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
+  const { user, fetchUserProfile } = useContext(AuthContext);
+  const { 
+    paymentMethods, 
+    pendingTransactions, 
+    transactionHistory, 
+    loading, 
+    checkTransactionStatus,
+    refreshTransactions,
+    refreshHistory
+  } = useContext(PaymentContext); // Gunakan PaymentContext
+  
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   
   // Efek untuk memuat data pembayaran saat komponen dimuat
   useEffect(() => {
-    fetchPaymentData();
-    
-    // Subscribe ke perubahan pengaturan pembayaran
-    const unsubscribe = subscribeToPaymentUpdates((event) => {
-      console.log('Payment settings updated:', event);
-      
-      // Hanya perlu memuat ulang metode pembayaran jika ada perubahan terkait
-      if (event.action === 'methods_updated' || 
-          event.action === 'tripay_status_updated' || 
-          event.action === 'tripay_config_updated') {
-        // Ambil metode pembayaran yang tersedia
-        const methods = getAllAvailablePaymentMethods();
-        setAvailablePaymentMethods(methods);
-      }
+    // Data sudah dimuat oleh PaymentContext
+    console.log("UserPaymentPage mounted", { 
+      pendingTransactions, 
+      transactionHistory, 
+      paymentMethods 
     });
-    
-    // Cleanup pada unmount
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-  
-  // Fungsi untuk memuat data pembayaran
-  const fetchPaymentData = async () => {
-    try {
-      setLoading(true);
-      
-      // 1. Ambil metode pembayaran yang tersedia dari localStorage
-      const methods = getAllAvailablePaymentMethods();
-      setAvailablePaymentMethods(methods);
-      
-      try {
-        // 2. Coba ambil transaksi aktif (belum lunas) dari API
-        const activeResponse = await axiosInstance.get('/api/transactions/active');
-        if (activeResponse.status === 200 && Array.isArray(activeResponse.data)) {
-          setActivePayments(activeResponse.data);
-        } else {
-          // Fallback ke array kosong jika API error atau format tidak sesuai
-          setActivePayments([]);
-        }
-      } catch (activeError) {
-        console.warn('Error fetching active transactions:', activeError);
-        // Fallback ke data dummy untuk demo
-        setActivePayments([
-          {
-            reference: 'DEMO-001',
-            merchant_ref: 'SUB-1-1-123456789',
-            user_id: 1,
-            subscription_id: 1,
-            payment_method: 'MANUAL_1',
-            payment_name: 'Transfer Bank BCA',
-            payment_type: 'manual',
-            amount: 250000,
-            fee: 0,
-            total_amount: 250000,
-            status: 'UNPAID',
-            payment_code: '1234567890',
-            account_name: 'PT Demo Store',
-            customer_name: user?.username || 'Demo User',
-            customer_email: user?.email || 'demo@example.com',
-            plan_id: 1,
-            plan_name: 'Paket Bulanan',
-            createdAt: new Date(),
-            expired_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
-          }
-        ]);
-      }
-      
-      try {
-        // 3. Coba ambil riwayat transaksi dari API
-        const historyResponse = await axiosInstance.get('/api/transactions/history');
-        if (historyResponse.status === 200 && Array.isArray(historyResponse.data)) {
-          setPaymentHistory(historyResponse.data);
-        } else {
-          // Fallback ke array kosong jika API error atau format tidak sesuai
-          setPaymentHistory([]);
-        }
-      } catch (historyError) {
-        console.warn('Error fetching transaction history:', historyError);
-        // Fallback ke data dummy untuk demo
-        setPaymentHistory([
-          {
-            reference: 'DEMO-002',
-            merchant_ref: 'SUB-1-1-987654321',
-            user_id: 1,
-            subscription_id: 1,
-            payment_method: 'MANUAL_2',
-            payment_name: 'QRIS',
-            payment_type: 'manual',
-            amount: 250000,
-            fee: 0,
-            total_amount: 250000,
-            status: 'PAID',
-            qr_url: 'https://example.com/qr.png',
-            customer_name: user?.username || 'Demo User',
-            customer_email: user?.email || 'demo@example.com',
-            plan_id: 1,
-            plan_name: 'Paket Bulanan',
-            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            paid_at: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000)
-          }
-        ]);
-      }
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching payment data:', error);
-      message.error('Gagal memuat data pembayaran');
-      setLoading(false);
-    }
-  };
+  }, [pendingTransactions, transactionHistory, paymentMethods]);
   
   // Fungsi untuk memeriksa status pembayaran
-  const checkPaymentStatus = async (reference) => {
+  const handleCheckStatus = async (reference) => {
     try {
       setCheckingStatus(true);
       message.loading('Memeriksa status pembayaran...', 1);
       
-      try {
-        // Coba periksa status via API
-        const response = await axiosInstance.get(`/api/transactions/${reference}/check`);
-        
-        if (response.data.success) {
-          if (response.data.newStatus === 'PAID') {
-            message.success('Pembayaran telah berhasil diverifikasi!');
-            fetchPaymentData(); // Refresh data
-            setModalVisible(false);
-          } else {
-            message.info('Status pembayaran belum berubah, silakan coba beberapa saat lagi');
+      const result = await checkTransactionStatus(reference);
+      
+      if (result.success) {
+        if (result.newStatus === 'PAID') {
+          message.success('Pembayaran telah berhasil diverifikasi!');
+          
+          // Update profil user untuk mendapatkan status langganan terbaru
+          if (fetchUserProfile) {
+            await fetchUserProfile();
           }
+          
+          // Tutup modal jika terbuka
+          setModalVisible(false);
         } else {
-          message.info(response.data.message || 'Status pembayaran belum berubah');
+          message.info('Status pembayaran belum berubah, silakan coba beberapa saat lagi');
         }
-      } catch (apiError) {
-        console.warn('Error checking payment status:', apiError);
-        // Fallback untuk demo
-        message.info('Status pembayaran belum berubah, silakan coba beberapa saat lagi');
+      } else {
+        message.info(result.message || 'Status pembayaran belum berubah');
       }
       
       setCheckingStatus(false);
@@ -234,8 +133,8 @@ const UserPaymentPage = () => {
   // Render icon untuk tipe pembayaran
   const renderPaymentTypeIcon = (type, method) => {
     if (type === 'manual') {
-      if (method.includes('QRIS')) return <QrcodeOutlined />;
-      if (method.includes('BANK')) return <BankOutlined />;
+      if (method && method.includes('QRIS')) return <QrcodeOutlined />;
+      if (method && method.includes('BANK')) return <BankOutlined />;
       return <WalletOutlined />;
     }
     return <InfoCircleOutlined />;
@@ -245,7 +144,7 @@ const UserPaymentPage = () => {
   const renderPaymentInstructions = (payment) => {
     if (!payment) return null;
     
-    const { payment_type, qr_url, payment_code, instructions, account_name } = payment;
+    const { payment_type, qr_url, payment_code, instructions, account_name, payment_method } = payment;
     
     // Jika pembayaran manual
     if (payment_type === 'manual') {
@@ -254,7 +153,7 @@ const UserPaymentPage = () => {
           <Divider />
           <Title level={4}>Instruksi Pembayaran</Title>
           
-          {payment.payment_method.includes('QRIS') && qr_url && (
+          {payment_method && payment_method.includes('QRIS') && qr_url && (
             <div style={{ textAlign: 'center' }}>
               <img 
                 src={qr_url} 
@@ -265,10 +164,10 @@ const UserPaymentPage = () => {
             </div>
           )}
           
-          {payment_code && !payment.payment_method.includes('QRIS') && (
+          {payment_code && payment_method && !payment_method.includes('QRIS') && (
             <div>
               <Alert
-                message={payment.payment_method.includes('BANK') ? "Rekening Tujuan" : "Akun Tujuan"}
+                message={payment_method.includes('BANK') ? "Rekening Tujuan" : "Akun Tujuan"}
                 description={
                   <>
                     <Text copyable strong style={{ fontSize: '16px' }}>
@@ -315,7 +214,7 @@ const UserPaymentPage = () => {
         <Divider />
         <Title level={4}>Instruksi Pembayaran</Title>
         
-        {payment.payment_method === 'QRIS' && qr_url && (
+        {payment_method === 'QRIS' && qr_url && (
           <div style={{ textAlign: 'center' }}>
             <img 
               src={qr_url} 
@@ -326,7 +225,7 @@ const UserPaymentPage = () => {
           </div>
         )}
         
-        {payment.payment_method !== 'QRIS' && payment_code && (
+        {payment_method && payment_method !== 'QRIS' && payment_code && (
           <div>
             <Alert
               message="Kode Pembayaran"
@@ -440,7 +339,7 @@ const UserPaymentPage = () => {
       title: 'Jumlah',
       dataIndex: 'total_amount',
       key: 'total_amount',
-      render: (amount) => `Rp ${amount.toLocaleString('id-ID')}`
+      render: (amount) => `Rp ${parseInt(amount).toLocaleString('id-ID')}`
     },
     {
       title: 'Status',
@@ -472,7 +371,7 @@ const UserPaymentPage = () => {
               size="small"
               icon={<ReloadOutlined />}
               loading={checkingStatus}
-              onClick={() => checkPaymentStatus(record.reference)}
+              onClick={() => handleCheckStatus(record.reference)}
             >
               Cek Status
             </Button>
@@ -508,7 +407,7 @@ const UserPaymentPage = () => {
       title: 'Jumlah',
       dataIndex: 'total_amount',
       key: 'total_amount',
-      render: (amount) => `Rp ${amount.toLocaleString('id-ID')}`
+      render: (amount) => `Rp ${parseInt(amount).toLocaleString('id-ID')}`
     },
     {
       title: 'Status',
@@ -553,10 +452,10 @@ const UserPaymentPage = () => {
       
       <Tabs defaultActiveKey="active">
         <TabPane tab="Pembayaran Aktif" key="active">
-          {activePayments.length > 0 ? (
+          {pendingTransactions && pendingTransactions.length > 0 ? (
             <Card>
               <Table 
-                dataSource={activePayments}
+                dataSource={pendingTransactions}
                 columns={activePaymentColumns}
                 rowKey="reference"
                 pagination={false}
@@ -573,7 +472,7 @@ const UserPaymentPage = () => {
         <TabPane tab="Riwayat Pembayaran" key="history">
           <Card>
             <Table 
-              dataSource={paymentHistory}
+              dataSource={transactionHistory}
               columns={paymentHistoryColumns}
               rowKey="reference"
               pagination={{ pageSize: 10 }}
@@ -584,7 +483,7 @@ const UserPaymentPage = () => {
         
         <TabPane tab="Metode Pembayaran" key="methods">
           <Card>
-            {availablePaymentMethods.length > 0 ? (
+            {paymentMethods && paymentMethods.length > 0 ? (
               <div>
                 <Paragraph>
                   Berikut adalah metode pembayaran yang tersedia untuk pembayaran langganan Anda:
@@ -601,7 +500,7 @@ const UserPaymentPage = () => {
                     }
                     key="bank"
                   >
-                    {availablePaymentMethods
+                    {paymentMethods
                       .filter(method => method.type === 'bank')
                       .map(method => (
                         <Card 
@@ -648,7 +547,7 @@ const UserPaymentPage = () => {
                     }
                     key="ewallet"
                   >
-                    {availablePaymentMethods
+                    {paymentMethods
                       .filter(method => method.type === 'ewallet')
                       .map(method => (
                         <Card 
@@ -695,7 +594,7 @@ const UserPaymentPage = () => {
                     }
                     key="qris"
                   >
-                    {availablePaymentMethods
+                    {paymentMethods
                       .filter(method => method.type === 'qris')
                       .map(method => (
                         <Card 
@@ -783,22 +682,22 @@ const UserPaymentPage = () => {
                 <Text copyable>{selectedPayment.reference}</Text>
               </Descriptions.Item>
               <Descriptions.Item label="Paket">
-                {selectedPayment.plan_name}
+                {selectedPayment.plan_name || '-'}
               </Descriptions.Item>
               <Descriptions.Item label="Metode Pembayaran">
                 {selectedPayment.payment_name}
               </Descriptions.Item>
               <Descriptions.Item label="Jumlah">
                 <Text strong>
-                  Rp {(selectedPayment.amount || 0).toLocaleString('id-ID')}
+                  Rp {parseInt(selectedPayment.amount || 0).toLocaleString('id-ID')}
                 </Text>
               </Descriptions.Item>
               <Descriptions.Item label="Biaya Admin">
-                Rp {(selectedPayment.fee || 0).toLocaleString('id-ID')}
+                Rp {parseInt(selectedPayment.fee || 0).toLocaleString('id-ID')}
               </Descriptions.Item>
               <Descriptions.Item label="Total Pembayaran">
                 <Text strong>
-                  Rp {(selectedPayment.total_amount || 0).toLocaleString('id-ID')}
+                  Rp {parseInt(selectedPayment.total_amount || 0).toLocaleString('id-ID')}
                 </Text>
               </Descriptions.Item>
               <Descriptions.Item label="Tanggal Dibuat">
@@ -829,7 +728,7 @@ const UserPaymentPage = () => {
                   type="primary"
                   icon={<ReloadOutlined />}
                   loading={checkingStatus}
-                  onClick={() => checkPaymentStatus(selectedPayment.reference)}
+                  onClick={() => handleCheckStatus(selectedPayment.reference)}
                 >
                   Periksa Status Pembayaran
                 </Button>

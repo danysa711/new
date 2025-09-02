@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import { ConnectionProvider } from "./context/ConnectionContext"; // Import ConnectionProvider
+import { PaymentProvider } from "./context/PaymentContext";
 import MainLayout from "./components/layouts/MainLayout";
 import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
@@ -72,33 +73,35 @@ useEffect(() => {
   return (
     <AuthProvider>
       <ConnectionProvider> {/* Tambahkan ConnectionProvider */}
-        <Router>
-          <Routes>
-            {/* Rute publik */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/connection-settings" element={<ConnectionSettings />} /> {/* Rute untuk pengaturan koneksi */}
+        <PaymentProvider>  {/* Tambahkan PaymentProvider di sini */}
+          <Router>
+            <Routes>
+              {/* Rute publik */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/connection-settings" element={<ConnectionSettings />} /> {/* Rute untuk pengaturan koneksi */}
             
-            {/* Rute akar mengarahkan berdasarkan peran pengguna */}
-            <Route path="/" element={<HomeRedirect />} />
+              {/* Rute akar mengarahkan berdasarkan peran pengguna */}
+              <Route path="/" element={<HomeRedirect />} />
             
-            {/* Rute pengguna */}
-            <Route path="/user/page/:slug/*" element={<UserLayout />} />
+              {/* Rute pengguna */}
+              <Route path="/user/page/:slug/*" element={<UserLayout />} />
             
-            {/* Rute admin */}
-            <Route path="/admin/*" element={<AdminLayout />} />
+              {/* Rute admin */}
+              <Route path="/admin/*" element={<AdminLayout />} />
             
-            {/* Rute yang Dilindungi Lama */}
-            <Route element={<ProtectedRoute />}>
+              {/* Rute yang Dilindungi Lama */}
+              <Route element={<ProtectedRoute />}>
               <Route path="/legacy/*" element={<MainLayout />} />
-            </Route>
+              </Route>
             
-            {/* Rute penangkap semua */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+              {/* Rute penangkap semua */}
+              <Route path="*" element={<Navigate to="/" replace />} />
 
-            <Route path="/user/page/:slug/orders/search" element={<OrderSearch />} />
-          </Routes>
-        </Router>
+              <Route path="/user/page/:slug/orders/search" element={<OrderSearch />} />
+            </Routes>
+          </Router>
+        </PaymentProvider>
       </ConnectionProvider>
     </AuthProvider>
   );
