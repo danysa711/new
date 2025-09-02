@@ -6,7 +6,7 @@ import {
 } from 'antd';
 import { 
   QrcodeOutlined, UploadOutlined, CheckCircleOutlined,
-  InfoCircleOutlined, CopyOutlined, RetryOutlined
+  InfoCircleOutlined, CopyOutlined, ReloadOutlined
 } from '@ant-design/icons';
 import axiosInstance from '../services/axios';
 
@@ -210,7 +210,7 @@ const QrisPaymentForm = ({ plan, onFinish }) => {
             <Button 
               key="retry" 
               type="primary" 
-              icon={<RetryOutlined />}
+              icon={<ReloadOutlined />}
               onClick={retryApiCall}
             >
               Coba Lagi
