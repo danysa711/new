@@ -1,6 +1,7 @@
+// express/controllers/tripayController.js
 const crypto = require('crypto');
 const axios = require('axios');
-const { Subscription, User, SubscriptionPlan, Setting, db } = require('../models');
+const { Subscription, User, SubscriptionPlan, Setting, Transaction, db } = require('../models');
 
 // Konfigurasi Tripay
 const TRIPAY_API_KEY = process.env.TRIPAY_API_KEY || 'your-api-key';
@@ -286,7 +287,7 @@ const createTransaction = async (req, res) => {
     });
 
     // Simpan data transaksi di database
-    const transaction = await db.sequelize.transaction();
+    const dbTransaction = await db.sequelize.transaction();
     
     try {
       // Cek apakah user sudah memiliki langganan aktif
@@ -298,9 +299,10 @@ const createTransaction = async (req, res) => {
             [db.Sequelize.Op.gt]: new Date()
           }
         },
-        transaction
+        transaction: dbTransaction
       });
 
+      let subscriptionId;
       const startDate = new Date();
       let endDate = new Date();
       endDate.setDate(endDate.getDate() + plan.duration_days);
@@ -314,16 +316,12 @@ const createTransaction = async (req, res) => {
           end_date: endDate,
           payment_status: 'pending',
           payment_method: 'tripay',
-          updatedAt: new Date()
-        }, { transaction });
-        
-        // Simpan referensi transaksi ke subscription yang ada
-        await activeSubscription.update({
+          updatedAt: new Date(),
           tripay_reference: response.data.data.reference,
           tripay_merchant_ref: merchantRef
-        }, { transaction });
+        }, { transaction: dbTransaction });
         
-        await transaction.commit();
+        subscriptionId = activeSubscription.id;
       } else {
         // Jika belum ada langganan aktif, buat langganan baru
         const newSubscription = await Subscription.create({
@@ -335,18 +333,17 @@ const createTransaction = async (req, res) => {
           payment_method: 'tripay',
           tripay_reference: response.data.data.reference,
           tripay_merchant_ref: merchantRef
-        }, { transaction });
+        }, { transaction: dbTransaction });
         
-        await transaction.commit();
+        subscriptionId = newSubscription.id;
       }
       
       // Buat entri di tabel Transaction
-      const { Transaction } = require('../models');
       await Transaction.create({
         reference: response.data.data.reference,
         merchant_ref: merchantRef,
         user_id: userId,
-        subscription_id: activeSubscription ? activeSubscription.id : newSubscription.id,
+        subscription_id: subscriptionId,
         payment_method: payment_method,
         payment_name: response.data.data.payment_name,
         payment_type: 'tripay',
@@ -363,7 +360,9 @@ const createTransaction = async (req, res) => {
         plan_id: plan_id,
         plan_name: plan.name,
         expired_at: response.data.data.expired_time
-      });
+      }, { transaction: dbTransaction });
+      
+      await dbTransaction.commit();
       
       // Return response ke client
       return res.status(200).json({
@@ -372,7 +371,7 @@ const createTransaction = async (req, res) => {
         data: response.data.data
       });
     } catch (error) {
-      await transaction.rollback();
+      await dbTransaction.rollback();
       throw error;
     }
   } catch (error) {
@@ -455,7 +454,6 @@ const checkTransactionStatus = async (req, res) => {
       const tripayStatus = response.data.data.status;
       
       // Jika status di Tripay berbeda dengan status di database, update status
-      const { Transaction } = require('../models');
       const transaction = await Transaction.findOne({ where: { reference } });
       
       if (transaction) {
@@ -481,13 +479,21 @@ const checkTransactionStatus = async (req, res) => {
             const parts = transaction.merchant_ref.split('-');
             if (parts.length >= 3 && parts[0] === 'SUB') {
               const userId = parts[1];
-              const subscriptionId = parts[2];
+              // PERBAIKAN: Jika subscriptionId tidak ada, gunakan userId saja
+              // Ini untuk kasus SUB-userId-timestamp
+              let subscriptionId;
+              
+              if (isNaN(parseInt(parts[2]))) {
+                // parts[2] bukan angka, kemungkinan timestamp
+                subscriptionId = null;
+              } else {
+                subscriptionId = parts[2];
+              }
               
               // Ambil paket langganan
               let durationDays = 30; // Default
               
               if (transaction.plan_id) {
-                const { SubscriptionPlan } = require('../models');
                 const plan = await SubscriptionPlan.findByPk(transaction.plan_id);
                 if (plan) {
                   durationDays = plan.duration_days;
@@ -563,77 +569,61 @@ const handleCallback = async (req, res) => {
     const dbTransaction = await db.sequelize.transaction();
     
     try {
-      // Cari subscription berdasarkan reference
-      const subscription = await Subscription.findOne({
-        where: {
-          tripay_reference: reference
-        },
-        transaction: dbTransaction
+      // Cari transaksi berdasarkan reference
+      const transaction = await Transaction.findOne({
+        where: { reference }
       });
       
-      if (!subscription) {
-        // Jika tidak ditemukan di tabel subscription, cari di tabel transaction
-        const { Transaction } = require('../models');
-        const transaction = await Transaction.findOne({
-          where: { reference }
-        });
+      if (!transaction) {
+        await dbTransaction.rollback();
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      
+      // Update status transaksi
+      let newStatus = transaction.status;
+      
+      if (status === 'PAID') newStatus = 'PAID';
+      else if (status === 'EXPIRED') newStatus = 'EXPIRED';
+      else if (status === 'FAILED') newStatus = 'FAILED';
+      
+      // Update transaksi
+      await transaction.update({
+        status: newStatus,
+        paid_at: newStatus === 'PAID' ? new Date() : transaction.paid_at
+      }, { transaction: dbTransaction });
+      
+      // Jika status PAID, update langganan
+      if (newStatus === 'PAID') {
+        const { updateSubscriptionAfterPayment } = require('./paymentController');
         
-        if (!transaction) {
-          await dbTransaction.rollback();
-          return res.status(404).json({ error: 'Transaction not found' });
-        }
+        // Ekstrak user_id dan subscription_id dari merchant_ref
+        const parts = transaction.merchant_ref.split('-');
+        let userId, subscriptionId;
         
-        // Update status transaksi
-        let newStatus = transaction.status;
-        
-        if (status === 'PAID') newStatus = 'PAID';
-        else if (status === 'EXPIRED') newStatus = 'EXPIRED';
-        else if (status === 'FAILED') newStatus = 'FAILED';
-        
-        // Update transaksi
-        await transaction.update({
-          status: newStatus,
-          paid_at: newStatus === 'PAID' ? new Date() : transaction.paid_at
-        }, { transaction: dbTransaction });
-        
-        // Jika status PAID, update langganan
-        if (newStatus === 'PAID') {
-          const { updateSubscriptionAfterPayment } = require('./paymentController');
-          
-          // Ekstrak user_id dan subscription_id dari merchant_ref
-          const parts = transaction.merchant_ref.split('-');
-          if (parts.length >= 3 && parts[0] === 'SUB') {
-            const userId = parts[1];
-            const subscriptionId = parts[2];
-            
-            // Ambil paket langganan
-            let durationDays = 30; // Default
-            
-            if (transaction.plan_id) {
-              const { SubscriptionPlan } = require('../models');
-              const plan = await SubscriptionPlan.findByPk(transaction.plan_id);
-              if (plan) {
-                durationDays = plan.duration_days;
-              }
-            }
-            
-            // Update langganan
-            await updateSubscriptionAfterPayment(userId, subscriptionId, durationDays);
+        if (parts.length >= 3 && parts[0] === 'SUB') {
+          userId = parts[1];
+          // PERBAIKAN: Jika subscriptionId tidak ada, gunakan userId saja
+          // Ini untuk kasus SUB-userId-timestamp
+          if (isNaN(parseInt(parts[2]))) {
+            // parts[2] bukan angka, kemungkinan timestamp
+            subscriptionId = null;
+          } else {
+            subscriptionId = parts[2];
           }
         }
-      } else {
-        // Update status subscription berdasarkan status pembayaran
-        if (status === 'PAID') {
-          await subscription.update({
-            payment_status: 'paid',
-            updatedAt: new Date()
-          }, { transaction: dbTransaction });
-        } else if (status === 'EXPIRED' || status === 'FAILED') {
-          await subscription.update({
-            payment_status: 'failed',
-            updatedAt: new Date()
-          }, { transaction: dbTransaction });
+        
+        // Ambil paket langganan
+        let durationDays = 30; // Default
+        
+        if (transaction.plan_id) {
+          const plan = await SubscriptionPlan.findByPk(transaction.plan_id);
+          if (plan) {
+            durationDays = plan.duration_days;
+          }
         }
+        
+        // Update langganan
+        await updateSubscriptionAfterPayment(userId, subscriptionId, durationDays);
       }
       
       await dbTransaction.commit();

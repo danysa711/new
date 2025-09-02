@@ -1,0 +1,22 @@
+{
+  "name": "api-proxy-server",
+  "version": "1.0.0",
+  "description": "API Proxy untuk domain frontend",
+  "main": "api-proxy.js",
+  "scripts": {
+    "start": "node api-proxy.js",
+    "dev": "nodemon api-proxy.js",
+    "build-frontend": "cd ../react && npm run build",
+    "deploy": "npm run build-frontend && npm start"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^2.0.6",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
