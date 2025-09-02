@@ -3,6 +3,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
+const puppeteer = require('puppeteer'); // Tambahkan import puppeteer
 
 // Pastikan direktori auth ada
 const ensureAuthDir = () => {
@@ -22,48 +23,62 @@ const initClient = () => {
   ensureAuthDir();
   
   if (client !== null) {
-    console.log('WhatsApp client already initialized');
+    console.log('WhatsApp client sudah diinisialisasi');
     return client;
   }
   
-  console.log('Initializing WhatsApp client');
+  console.log('Menginisialisasi WhatsApp client');
+  
+  // Konfigurasi puppeteer untuk whatsapp-web.js
+  const puppeteerOptions = {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ],
+    executablePath: puppeteer.executablePath()
+  };
   
   client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: {
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
+    puppeteer: puppeteerOptions
   });
   
   client.on('qr', (qrCode) => {
-    console.log('QR code received');
+    console.log('QR code diterima');
     qr = qrCode;
   });
   
   client.on('ready', () => {
-    console.log('WhatsApp client is ready');
+    console.log('WhatsApp client siap digunakan');
     isClientReady = true;
     qr = null;
   });
   
   client.on('authenticated', () => {
-    console.log('WhatsApp client authenticated');
+    console.log('WhatsApp client terautentikasi');
   });
   
   client.on('auth_failure', (error) => {
-    console.error('WhatsApp authentication failed:', error);
+    console.error('Autentikasi WhatsApp gagal:', error);
     isClientReady = false;
   });
   
   client.on('disconnected', () => {
-    console.log('WhatsApp client disconnected');
+    console.log('WhatsApp client terputus');
     isClientReady = false;
     client = null;
-    initClient(); // Re-initialize on disconnect
+    // Inisialisasi ulang saat terputus dengan delay
+    setTimeout(() => initClient(), 5000);
   });
   
   client.initialize().catch(error => {
-    console.error('Error initializing WhatsApp client:', error);
+    console.error('Error inisialisasi WhatsApp client:', error);
     isClientReady = false;
   });
   
@@ -83,7 +98,7 @@ const getQrCode = async () => {
   try {
     return await qrcode.toDataURL(qr);
   } catch (error) {
-    console.error('Error generating QR code:', error);
+    console.error('Error membuat QR code:', error);
     return null;
   }
 };
@@ -91,7 +106,7 @@ const getQrCode = async () => {
 // Fungsi untuk mengirim pesan
 const sendMessage = async (number, message) => {
   if (!client || !isClientReady) {
-    console.log('WhatsApp client not ready');
+    console.log('WhatsApp client belum siap');
     return false;
   }
   
@@ -101,10 +116,10 @@ const sendMessage = async (number, message) => {
     
     // Kirim pesan
     await client.sendMessage(formattedNumber, message);
-    console.log(`Message sent to ${formattedNumber}`);
+    console.log(`Pesan terkirim ke ${formattedNumber}`);
     return true;
   } catch (error) {
-    console.error('Error sending WhatsApp message:', error);
+    console.error('Error mengirim pesan WhatsApp:', error);
     return false;
   }
 };
@@ -112,7 +127,7 @@ const sendMessage = async (number, message) => {
 // Fungsi untuk mengirim pesan ke grup
 const sendGroupMessage = async (groupId, message) => {
   if (!client || !isClientReady) {
-    console.log('WhatsApp client not ready');
+    console.log('WhatsApp client belum siap');
     return false;
   }
   
@@ -122,10 +137,10 @@ const sendGroupMessage = async (groupId, message) => {
     
     // Kirim pesan
     await client.sendMessage(formattedGroupId, message);
-    console.log(`Message sent to group ${formattedGroupId}`);
+    console.log(`Pesan terkirim ke grup ${formattedGroupId}`);
     return true;
   } catch (error) {
-    console.error('Error sending WhatsApp group message:', error);
+    console.error('Error mengirim pesan grup WhatsApp:', error);
     return false;
   }
 };
@@ -141,10 +156,10 @@ const logout = async () => {
     client = null;
     isClientReady = false;
     qr = null;
-    console.log('WhatsApp client logged out');
+    console.log('WhatsApp client berhasil logout');
     return true;
   } catch (error) {
-    console.error('Error logging out WhatsApp client:', error);
+    console.error('Error saat logout WhatsApp client:', error);
     return false;
   }
 };

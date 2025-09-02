@@ -1,0 +1,26 @@
+diff --git a/node_modules/tar-fs/index.js b/node_modules/tar-fs/index.js
+index 40cb0dd..04cff66 100644
+--- a/node_modules/tar-fs/index.js
++++ b/node_modules/tar-fs/index.js
+@@ -91,7 +91,19 @@ var mapStream = function(cwd, ignore, filter, map) {
+ }
+ 
+ var strip = function(map, level) {
+-  return function(header) {
++  return function(header, cb) {
++    // Proteksi path traversal
++    if (header.name.indexOf('../') !== -1 || header.name.indexOf('..\\') !== -1) {
++      if (typeof cb === 'function') {
++        return cb(new Error('Path traversal attack detected: ' + header.name));
++      }
++      // Jika tidak ada callback, lanjutkan dengan nama file yang telah diamankan
++      header.name = header.name.replace(/\.\.\//g, '').replace(/\.\.\\/g, '');
++    }
++    
++    // Jika symlink, pastikan targetnya tidak mencoba keluar dari direktori
++    if (header.type === 'symlink' && (header.linkname.indexOf('../') !== -1 || header.linkname.indexOf('..\\') !== -1)) {
++      header.linkname = header.linkname.replace(/\.\.\//g, '').replace(/\.\.\\/g, '');
++    }
+     var i = 0;
+     while (i++ < level) {
+       header.name = header.name.split('/').slice(1).join('/');

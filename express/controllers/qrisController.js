@@ -33,7 +33,7 @@ const sendWhatsAppNotification = async (qrisPayment) => {
     });
     
     if (!groupSettings) {
-      console.error("WhatsApp group settings not found");
+      console.error("Pengaturan grup WhatsApp tidak ditemukan");
       return false;
     }
     
@@ -42,7 +42,7 @@ const sendWhatsAppNotification = async (qrisPayment) => {
     const plan = await SubscriptionPlan.findByPk(qrisPayment.plan_id);
     
     if (!user || !plan) {
-      console.error("User or plan not found");
+      console.error("User atau plan tidak ditemukan");
       return false;
     }
     
@@ -53,13 +53,20 @@ const sendWhatsAppNotification = async (qrisPayment) => {
     message = message.replace("{amount}", qrisPayment.total_amount);
     message = message.replace("{reference}", qrisPayment.reference);
     
-    // Kirim ke WhatsApp menggunakan client
-    const whatsappClient = require('../utils/whatsapp-client');
+    // Kirim ke WhatsApp menggunakan Baileys client
+    const baileysClient = require('../utils/baileys/baileys-client');
     
-    if (whatsappClient.isReady()) {
+    // Coba inisialisasi client jika belum
+    if (!baileysClient.isReady()) {
+      await baileysClient.initSocket();
+      // Tunggu 3 detik untuk inisialisasi
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    
+    if (baileysClient.isReady()) {
       // Jika ada group_id, kirim ke grup
       if (groupSettings.group_id) {
-        const sent = await whatsappClient.sendGroupMessage(
+        const sent = await baileysClient.sendGroupMessage(
           groupSettings.group_id,
           message
         );
@@ -82,7 +89,7 @@ const sendWhatsAppNotification = async (qrisPayment) => {
         });
         
         if (admin && admin.whatsapp_number) {
-          const sent = await whatsappClient.sendMessage(
+          const sent = await baileysClient.sendMessage(
             admin.whatsapp_number,
             message
           );
@@ -99,10 +106,10 @@ const sendWhatsAppNotification = async (qrisPayment) => {
       }
     }
     
-    console.log("WhatsApp client not ready or message not sent");
+    console.log("Baileys client belum siap atau pesan tidak terkirim");
     return false;
   } catch (error) {
-    console.error("Error in sendWhatsAppNotification:", error);
+    console.error("Error dalam sendWhatsAppNotification:", error);
     return false;
   }
 };

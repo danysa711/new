@@ -1,19 +1,19 @@
-// express/controllers/whatsAppLoginController.js
 const { User } = require("../models");
-const whatsappClient = require('../utils/whatsapp-client');
+const baileysClient = require('../utils/baileys/baileys-client');
+const qrcode = require('qrcode');
 
 // Membuat QR code untuk login WhatsApp
 const generateWhatsAppQR = async (req, res) => {
   try {
     // Inisialisasi client WhatsApp
-    whatsappClient.initClient();
+    await baileysClient.initSocket();
     
     // Tunggu beberapa detik untuk mendapatkan QR code
     let attempts = 0;
     let qrCode = null;
     
-    while (attempts < 10 && !qrCode) {
-      qrCode = await whatsappClient.getQrCode();
+    while (attempts < 15 && !qrCode) {
+      qrCode = await baileysClient.getQrCode();
       if (!qrCode) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
@@ -22,19 +22,22 @@ const generateWhatsAppQR = async (req, res) => {
     
     if (!qrCode) {
       return res.status(500).json({ 
-        error: "Failed to generate QR code", 
+        error: "Gagal membuat QR code", 
         message: "Gagal membuat QR code, silakan coba lagi" 
       });
     }
     
-    // Send QR code to client
+    // Generate QR code ke base64
+    const qrImage = await qrcode.toDataURL(qrCode);
+    
+    // Kirim QR code ke client
     res.status(200).json({
-      message: "QR code generated successfully",
-      qr_code: qrCode,
+      message: "QR code berhasil dibuat",
+      qr_code: qrImage,
       instructions: "Scan QR code dengan aplikasi WhatsApp di ponsel Anda"
     });
   } catch (error) {
-    console.error("Error generating WhatsApp QR:", error);
+    console.error("Error saat membuat QR WhatsApp:", error);
     return res.status(500).json({ error: "Server error", message: error.message });
   }
 };
@@ -45,7 +48,7 @@ const getWhatsAppStatus = async (req, res) => {
     const userId = req.userId;
     
     // Cek status client
-    const isConnected = whatsappClient.isReady();
+    const isConnected = baileysClient.isReady();
     
     // Update status user
     if (isConnected) {
@@ -54,7 +57,7 @@ const getWhatsAppStatus = async (req, res) => {
       if (user) {
         await user.update({ 
           whatsapp_connected: true,
-          whatsapp_number: user.whatsapp_number || "Not set"
+          whatsapp_number: user.whatsapp_number || "Belum diatur"
         });
       }
     }
@@ -64,7 +67,7 @@ const getWhatsAppStatus = async (req, res) => {
       message: isConnected ? "WhatsApp terhubung" : "WhatsApp tidak terhubung"
     });
   } catch (error) {
-    console.error("Error getting WhatsApp status:", error);
+    console.error("Error mendapatkan status WhatsApp:", error);
     return res.status(500).json({ error: "Server error", message: error.message });
   }
 };
@@ -75,46 +78,46 @@ const logoutWhatsApp = async (req, res) => {
     const userId = req.userId;
     
     // Logout dari WhatsApp
-    const success = await whatsappClient.logout();
+    const success = await baileysClient.logout();
     
     if (success) {
-      // Update user dengan WhatsApp disconnected status
+      // Update user dengan status WhatsApp terputus
       await User.update(
         { whatsapp_connected: false },
         { where: { id: userId } }
       );
       
       return res.status(200).json({
-        message: "WhatsApp logged out successfully"
+        message: "Berhasil logout dari WhatsApp"
       });
     } else {
       return res.status(500).json({
-        error: "Failed to logout from WhatsApp"
+        error: "Gagal logout dari WhatsApp"
       });
     }
   } catch (error) {
-    console.error("Error logging out WhatsApp:", error);
+    console.error("Error saat logout WhatsApp:", error);
     return res.status(500).json({ error: "Server error", message: error.message });
   }
 };
 
-// Manually connect WhatsApp
+// Hubungkan WhatsApp secara manual
 const connectWhatsApp = async (req, res) => {
   try {
     const userId = req.userId;
     const { whatsapp_number } = req.body;
     
     if (!whatsapp_number) {
-      return res.status(400).json({ error: "WhatsApp number is required" });
+      return res.status(400).json({ error: "Nomor WhatsApp harus diisi" });
     }
     
-    // Test send message
-    const message = "WhatsApp verification test message";
+    // Pesan tes
+    const message = "Pesan tes verifikasi WhatsApp";
     const formattedNumber = whatsapp_number.replace(/[^0-9]/g, "");
     
     // Jika client belum ready, gunakan update manual
-    if (!whatsappClient.isReady()) {
-      // Update user with WhatsApp connected status
+    if (!baileysClient.isReady()) {
+      // Update user dengan status WhatsApp terhubung
       await User.update(
         { 
           whatsapp_connected: true,
@@ -124,17 +127,17 @@ const connectWhatsApp = async (req, res) => {
       );
       
       return res.status(200).json({
-        message: "WhatsApp connected successfully (manual mode)",
+        message: "WhatsApp berhasil terhubung (mode manual)",
         whatsapp_number: formattedNumber,
-        note: "WhatsApp client is not ready, using manual mode"
+        note: "WhatsApp client belum siap, menggunakan mode manual"
       });
     }
     
-    // Jika client ready, coba kirim test message
-    const sent = await whatsappClient.sendMessage(formattedNumber, message);
+    // Jika client ready, coba kirim pesan tes
+    const sent = await baileysClient.sendMessage(formattedNumber, message);
     
     if (sent) {
-      // Update user with WhatsApp connected status
+      // Update user dengan status WhatsApp terhubung
       await User.update(
         { 
           whatsapp_connected: true,
@@ -144,17 +147,17 @@ const connectWhatsApp = async (req, res) => {
       );
       
       return res.status(200).json({
-        message: "WhatsApp connected successfully",
+        message: "WhatsApp berhasil terhubung",
         whatsapp_number: formattedNumber
       });
     } else {
       return res.status(500).json({
-        error: "Failed to send test message",
-        message: "WhatsApp connected but test message failed"
+        error: "Gagal mengirim pesan tes",
+        message: "WhatsApp terhubung tetapi gagal mengirim pesan tes"
       });
     }
   } catch (error) {
-    console.error("Error connecting WhatsApp:", error);
+    console.error("Error saat menghubungkan WhatsApp:", error);
     return res.status(500).json({ error: "Server error", message: error.message });
   }
 };
