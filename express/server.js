@@ -13,6 +13,9 @@ const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const publicApiRoutes = require("./routes/publicApiRoutes");
 const settingsRoutes = require('./routes/settingsRoutes');
+const qrisRoutes = require("./routes/qrisRoutes");
+const whatsAppRoutes = require("./routes/whatsAppRoutes");
+const { ensureQrisTables } = require("./utils/fix-qris-endpoints");
 
 
 const app = express();
@@ -155,6 +158,8 @@ app.use("/api", userRoutes);
 app.use("/api", subscriptionRoutes);
 app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
+app.use("/api", qrisRoutes); 
+app.use("/api", whatsAppRoutes);
 
 
 // Error handling middleware
@@ -176,6 +181,8 @@ app.listen(PORT, async () => {
   try {
     await db.sequelize.authenticate();
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
+// Pastikan tabel QRIS sudah ada dan berisi data default
+    await ensureQrisTables();
   } catch (error) {
     console.error("❌ Gagal menyambungkan database:", error);
   }

@@ -1,5 +1,8 @@
+// src/context/ConnectionContext.jsx
+
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { AuthContext } from "./AuthContext";
+import { message } from 'antd';
 
 // Konstanta untuk status koneksi
 export const CONNECTION_STATUS = {
@@ -22,21 +25,6 @@ export const ConnectionProvider = ({ children }) => {
   const [connectionStatus, setConnectionStatus] = useState("checking");
   const [proxyEnabled, setProxyEnabled] = useState(localStorage.getItem("useProxyApi") === "true");
   
-useEffect(() => {
-  // Penanganan khusus saat status koneksi berubah
-  if (connectionStatus === 'subscription_expired') {
-    // Simpan flag di localStorage bahwa langganan telah kedaluwarsa
-    localStorage.setItem('subscription_expired', 'true');
-    
-    // Tampilkan pesan ke pengguna
-    console.log('Langganan kedaluwarsa: Beberapa fitur mungkin terbatas. Data yang diubah hanya akan tersimpan secara lokal.');
-    
-    // Kita tidak perlu mengalihkan pengguna, biarkan mereka tetap menggunakan UI
-  } else {
-    localStorage.removeItem('subscription_expired');
-  }
-}, [connectionStatus]);
-
   // Update backendUrl ketika user berubah
   useEffect(() => {
     if (user?.backend_url) {
@@ -67,15 +55,16 @@ useEffect(() => {
 
       try {
         setConnectionStatus("checking");
-        // Test connection dengan endpoint sederhana
+        
+        // Gunakan endpoint yang tersedia (tidak menggunakan /api/test yang 404)
         let testUrl;
         
         if (proxyEnabled) {
           // Jika proxy diaktifkan, gunakan domain frontend + /api
-          testUrl = '/api/test';
+          testUrl = '/api/subscriptions/user';
         } else {
           // Jika tidak, gunakan backendUrl langsung
-          testUrl = `${backendUrl}/api/test`;
+          testUrl = `${backendUrl}/api/subscriptions/user`;
         }
         
         console.log("Memeriksa koneksi ke:", testUrl);
@@ -93,18 +82,9 @@ useEffect(() => {
         if (contentType && contentType.includes("application/json")) {
           // Jika respons OK dan content-type adalah JSON, koneksi berhasil
           if (response.ok) {
-            const data = await response.json();
-            console.log("Data respons:", data);
-            
-            if (data && data.message === "API is working") {
-              setIsConnected(true);
-              setConnectionStatus("connected");
-              console.log("Koneksi berhasil!");
-            } else {
-              setIsConnected(false);
-              setConnectionStatus("error");
-              console.log("Format respons tidak valid");
-            }
+            setIsConnected(true);
+            setConnectionStatus("connected");
+            console.log("Koneksi berhasil!");
           } else {
             // Periksa jika ini masalah langganan kedaluwarsa
             if (response.status === 403) {
@@ -186,6 +166,64 @@ useEffect(() => {
     return () => clearInterval(intervalId);
   }, [backendUrl, user, proxyEnabled]);
 
+  // Fungsi manualCheckConnection untuk tombol "Coba Lagi"
+  const manualCheckConnection = async () => {
+    message.info('Memeriksa koneksi...', 2);
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    
+    if (!token) {
+      message.error('Anda belum login', 3);
+      return;
+    }
+    
+    try {
+      setConnectionStatus("checking");
+      
+      // Buat array endpoint untuk dicoba
+      const endpointsToTry = [
+        '/api/subscriptions/user',
+        '/api/subscription-plans',
+        '/api/user/profile'
+      ];
+      
+      // Coba setiap endpoint sampai salah satu berhasil
+      for (const endpoint of endpointsToTry) {
+        try {
+          const testUrl = proxyEnabled ? endpoint : `${backendUrl}${endpoint}`;
+          console.log("Memeriksa koneksi ke:", testUrl);
+          
+          const response = await fetch(testUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.ok) {
+            setIsConnected(true);
+            setConnectionStatus("connected");
+            message.success('Koneksi berhasil!', 3);
+            console.log("Koneksi berhasil!");
+            return;
+          }
+        } catch (err) {
+          console.error(`Error mencoba endpoint ${endpoint}:`, err);
+          // Lanjutkan ke endpoint berikutnya
+          continue;
+        }
+      }
+      
+      // Jika semua endpoint gagal
+      setIsConnected(false);
+      setConnectionStatus("error");
+      message.error('Gagal terhubung ke server. Silakan coba lagi nanti.', 3);
+    } catch (err) {
+      console.error("Error koneksi:", err);
+      setIsConnected(false);
+      setConnectionStatus("error");
+      message.error('Error koneksi: ' + err.message, 3);
+    }
+  };
+
   return (
     <ConnectionContext.Provider
       value={{
@@ -193,79 +231,7 @@ useEffect(() => {
         isConnected,
         proxyEnabled,
         setProxyEnabled,
-        checkConnection: () => {
-          const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-          if (!token) return;
-          
-          // Panggil cek koneksi ulang
-          setConnectionStatus("checking");
-          
-          // Jika user memiliki langganan aktif, langsung set connected
-          if (user && user.hasActiveSubscription) {
-            setIsConnected(true);
-            setConnectionStatus("connected");
-            return;
-          }
-          
-          // Test connection dengan endpoint sederhana
-          let testUrl = proxyEnabled ? '/api/test' : `${backendUrl}/api/test`;
-          
-          fetch(testUrl, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-          .then(response => {
-            // Cek content-type sebelum parsing JSON
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-              if (response.ok) return response.json();
-              
-              // Periksa status 403 untuk kemungkinan langganan kedaluwarsa
-              if (response.status === 403) {
-                // Coba untuk mendapatkan error JSON
-                return response.json().catch(() => {
-                  // Jika gagal, kemungkinan HTML
-                  throw new Error('subscription_expired');
-                });
-              }
-              
-              throw new Error(`HTTP error ${response.status}`);
-            } else {
-              // Jika bukan JSON, kemungkinan HTML error
-              if (response.status === 403) {
-                throw new Error('subscription_expired');
-              }
-              throw new Error(`Invalid content-type: ${contentType}`);
-            }
-          })
-          .then(data => {
-            // Cek apakah ini error dengan flag subscriptionRequired
-            if (data && data.subscriptionRequired) {
-              setIsConnected(false);
-              setConnectionStatus("subscription_expired");
-              return;
-            }
-            
-            if (data && data.message === "API is working") {
-              setIsConnected(true);
-              setConnectionStatus("connected");
-            } else {
-              setIsConnected(false);
-              setConnectionStatus("error");
-            }
-          })
-          .catch(err => {
-            console.error("Error checking connection:", err);
-            // Periksa untuk kesalahan langganan kedaluwarsa
-            if (err.message === 'subscription_expired' || err.response?.data?.subscriptionRequired) {
-              setIsConnected(false);
-              setConnectionStatus("subscription_expired");
-              console.log("Langganan kedaluwarsa");
-              return;
-            }
-            setIsConnected(false);
-            setConnectionStatus("error");
-          });
-        },
+        checkConnection: manualCheckConnection,
         backendUrl
       }}
     >

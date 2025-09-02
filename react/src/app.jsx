@@ -72,8 +72,8 @@ useEffect(() => {
 
   return (
     <AuthProvider>
-      <ConnectionProvider> {/* Tambahkan ConnectionProvider */}
-        <PaymentProvider>  {/* Tambahkan PaymentProvider di sini */}
+    <ConnectionProvider>
+      <PaymentProvider> {/* Tambahkan ConnectionProvider */}
           <Router>
             <Routes>
               {/* Rute publik */}
@@ -101,9 +101,9 @@ useEffect(() => {
               <Route path="/user/page/:slug/orders/search" element={<OrderSearch />} />
             </Routes>
           </Router>
-        </PaymentProvider>
-      </ConnectionProvider>
-    </AuthProvider>
+      </PaymentProvider>
+    </ConnectionProvider>
+  </AuthProvider>
   );
 };
 

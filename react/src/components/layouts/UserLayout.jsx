@@ -28,10 +28,11 @@ import OrderTable from "../tables/OrderTable";
 import HomeView from "../tables/HomeView";
 import ChangePass from "../../pages/ChangePass";
 import SubscriptionPage from "../../pages/user/SubscriptionPage";
-import UserPaymentPage from "../../pages/user/UserPaymentPage";
 import SoftwareTable from "../tables/SoftwareTable";
 import VersionTable from "../tables/VersionTable";
 import LicenseTable from "../tables/LicenseTable";
+// Import UserPaymentPage dengan benar
+import UserPaymentPage from "../../pages/user/UserPaymentPage";
 import BackendSettings from "../../pages/user/BackendSettings"; // Impor halaman BackendSettings (buat setelah ini)
 import axiosInstance from "../../services/axios";
 

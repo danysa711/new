@@ -21,10 +21,21 @@ import ChangePass from "../../pages/ChangePass";
 import UserManagement from "../../pages/admin/UserManagement";
 import SubscriptionManagement from "../../pages/admin/SubscriptionManagement";
 import SubscriptionPlans from "../../pages/admin/SubscriptionPlans";
-import TripaySettings from "../../pages/admin/TripaySettings";
-import TripayTransactions from "../../pages/admin/TripayTransactions";
 import RequestTrialSettings from "../../pages/admin/RequestTrialSettings";
-import PaymentSettings from "../../pages/admin/PaymentSettings";
+import QrisSettings from "../../pages/admin/QrisSettings";
+import QrisPaymentVerification from "../../pages/admin/QrisPaymentVerification";
+import WhatsAppGroupSettings from "../../pages/admin/WhatsAppGroupSettings";
+import WhatsAppLogin from "../../pages/admin/WhatsAppLogin";
+
+// Membuat komponen placeholder sementara untuk menggantikan TripayTransactions
+const PaymentSettings = () => (
+  <div>
+    <Typography.Title level={3}>Pengaturan Pembayaran</Typography.Title>
+    <Typography.Paragraph>
+      Pengaturan pembayaran hanya mendukung QRIS. Silakan gunakan menu Pengaturan QRIS.
+    </Typography.Paragraph>
+  </div>
+);
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -91,11 +102,20 @@ const AdminLayout = () => {
               label: "Pembayaran", 
               children: [
                 { key: "/admin/payment/settings", label: "Pengaturan Pembayaran" },
-                { key: "/admin/tripay/transactions", label: "Transaksi" },
-                { key: "/admin/tripay/settings", label: "Pengaturan Tripay" },
+                { key: "/admin/payment/qris-settings", label: "Pengaturan QRIS" },
+                { key: "/admin/payment/qris-verification", label: "Verifikasi QRIS" },
               ]
             },
-            { key: "/admin/request-trial-settings", icon: <WhatsAppOutlined />, label: "Setting Trial" },
+            { 
+              key: "whatsapp-menu", 
+              icon: <WhatsAppOutlined />, 
+              label: "WhatsApp", 
+              children: [
+                { key: "/admin/whatsapp/login", label: "Login WhatsApp" },
+                { key: "/admin/whatsapp/group-settings", label: "Pengaturan Grup" },
+                { key: "/admin/request-trial-settings", label: "Setting Trial" },
+              ]
+            },
             { key: "/admin/change-password", icon: <SettingOutlined />, label: "Ganti Password" },
             { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
           ]}
@@ -149,11 +169,13 @@ const AdminLayout = () => {
             <Route path="/users" element={<UserManagement />} />
             <Route path="/subscriptions" element={<SubscriptionManagement />} />
             <Route path="/subscription-plans" element={<SubscriptionPlans />} />
-            <Route path="/tripay/transactions" element={<TripayTransactions />} />
-            <Route path="/tripay/settings" element={<TripaySettings />} />
             <Route path="/payment/settings" element={<PaymentSettings />} />
             <Route path="/request-trial-settings" element={<RequestTrialSettings />} />
             <Route path="/change-password" element={<ChangePass />} />
+            <Route path="/payment/qris-settings" element={<QrisSettings />} />
+            <Route path="/payment/qris-verification" element={<QrisPaymentVerification />} />
+            <Route path="/whatsapp/login" element={<WhatsAppLogin />} />
+            <Route path="/whatsapp/group-settings" element={<WhatsAppGroupSettings />} />
           </Routes>
         </Content>
       </Layout>

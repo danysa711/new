@@ -3,6 +3,9 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 const { Sequelize } = require("sequelize");
+const QrisPayment = require("./QrisPayment");
+const QrisSettings = require("./QrisSettings");
+const WhatsAppGroupSettings = require("./WhatsAppGroupSettings");
 
 const User = sequelize.define(
   "User",
@@ -410,4 +413,9 @@ Transaction.belongsTo(User, { foreignKey: 'user_id' });
 Transaction.belongsTo(Subscription, { foreignKey: 'subscription_id' });
 Transaction.belongsTo(SubscriptionPlan, { foreignKey: 'plan_id' });
 
-module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, WhatsAppTrialSettings, Transaction, db };
+QrisPayment.belongsTo(User, { foreignKey: 'user_id' });
+QrisPayment.belongsTo(SubscriptionPlan, { foreignKey: 'plan_id' });
+User.hasMany(QrisPayment, { foreignKey: 'user_id' });
+SubscriptionPlan.hasMany(QrisPayment, { foreignKey: 'plan_id' });
+
+module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, WhatsAppTrialSettings, Transaction, QrisPayment, QrisSettings, WhatsAppGroupSettings, db };
