@@ -1,5 +1,10 @@
 import React, { createContext, useState, useEffect } from "react";
-import axiosInstance from '../services/axios';
+import { 
+  triggerPaymentUpdate, 
+  subscribeToPaymentUpdates,
+  getTripayStatus
+} from "../utils/paymentStorage";
+import axiosInstance from "../services/axios";
 import { message } from 'antd';
 
 // Konstanta untuk strategi retry
@@ -23,7 +28,7 @@ export const PaymentProvider = ({ children }) => {
         throw error;
       }
       
-      console.log(`Retry attempt remaining: ${retries}. Retrying in ${delay}ms...`);
+      console.log(`Sisa percobaan: ${retries}. Mencoba ulang dalam ${delay}ms...`);
       
       // Tunggu sebelum retry
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -47,7 +52,7 @@ export const PaymentProvider = ({ children }) => {
         setApiStatus('available');
       }
     } catch (error) {
-      console.error('Error loading pending transactions:', error);
+      console.error('Error memuat transaksi tertunda:', error);
       setApiStatus('unavailable');
       message.error('Gagal memuat transaksi - silakan coba lagi nanti', 3);
     }
@@ -65,7 +70,7 @@ export const PaymentProvider = ({ children }) => {
         setApiStatus('available');
       }
     } catch (error) {
-      console.error('Error loading transaction history:', error);
+      console.error('Error memuat riwayat transaksi:', error);
       setApiStatus('unavailable');
       message.error('Gagal memuat riwayat transaksi - silakan coba lagi nanti', 3);
     }
@@ -94,7 +99,7 @@ export const PaymentProvider = ({ children }) => {
         message: response.data?.message || 'Status belum berubah'
       };
     } catch (error) {
-      console.error('Error checking transaction status:', error);
+      console.error('Error memeriksa status transaksi:', error);
       message.error('Gagal memeriksa status transaksi - silakan coba lagi nanti', 3);
       return {
         success: false,
@@ -114,7 +119,7 @@ export const PaymentProvider = ({ children }) => {
         await loadPendingTransactions();
         await loadTransactionHistory();
       } catch (error) {
-        console.error('Error loading initial payment data:', error);
+        console.error('Error memuat data pembayaran awal:', error);
         setApiStatus('unavailable');
         message.error('Gagal memuat data pembayaran - silakan coba lagi nanti', 3);
       } finally {
@@ -152,7 +157,7 @@ export const PaymentProvider = ({ children }) => {
       await loadTransactionHistory();
       message.success('Data transaksi berhasil diperbarui', 2);
     } catch (error) {
-      console.error('Error manually refreshing data:', error);
+      console.error('Error saat manual refresh:', error);
       message.error('Gagal memperbarui data - silakan coba lagi nanti', 3);
     } finally {
       setLoading(false);

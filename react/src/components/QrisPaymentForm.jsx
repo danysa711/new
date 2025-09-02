@@ -1,4 +1,3 @@
-// react/src/components/QrisPaymentForm.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Card, Button, Typography, Alert, Spin, Result,
@@ -8,6 +7,7 @@ import {
   QrcodeOutlined, UploadOutlined, CheckCircleOutlined,
   InfoCircleOutlined, CopyOutlined, ReloadOutlined
 } from '@ant-design/icons';
+import qrisService from '../services/qrisService';
 import axiosInstance from '../services/axios';
 
 const { Title, Text, Paragraph } = Typography;
@@ -26,7 +26,7 @@ const fetchWithRetry = async (apiCall, retries = MAX_RETRIES, delay = INITIAL_RE
       throw error;
     }
     
-    console.log(`Retry attempt remaining: ${retries}. Retrying in ${delay}ms...`);
+    console.log(`Sisa percobaan: ${retries}. Mencoba ulang dalam ${delay}ms...`);
     
     // Tunggu sebelum retry
     await new Promise(resolve => setTimeout(resolve, delay));
@@ -45,59 +45,116 @@ const QrisPaymentForm = ({ plan, onFinish }) => {
   const [error, setError] = useState(null);
   const [retryingApi, setRetryingApi] = useState(false);
 
-  // Mendapatkan pengaturan QRIS
+  // Mendapatkan pengaturan QRIS dengan fallback ke data lokal
   useEffect(() => {
     const fetchQrisSettings = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        setRetryingApi(true);
-        
-        const response = await fetchWithRetry(
-          () => axiosInstance.get('/api/qris-settings')
-        );
-        
-        setQrisSettings(response.data);
-        setRetryingApi(false);
-      } catch (error) {
-        console.error("Error fetching QRIS settings:", error);
-        setError("Gagal memuat pengaturan QRIS. Silakan coba lagi nanti.");
-        setRetryingApi(false);
-      } finally {
-        setLoading(false);
-      }
-    };
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const settings = await qrisService.getQrisSettings();
+    setQrisSettings(settings);
+  } catch (error) {
+    console.error("Error saat memuat pengaturan QRIS:", error);
+    setError("Gagal memuat pengaturan QRIS. Menggunakan data default.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Ganti fungsi createQrisPayment dengan:
+const createQrisPayment = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const response = await qrisService.createQrisPayment(plan.id);
+    
+    if (response.success && response.payment) {
+      setPaymentData(response.payment);
+      setCurrentStep(1);
+    }
+  } catch (error) {
+    console.error("Error creating QRIS payment:", error);
+    setError("Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Ganti fungsi uploadPaymentProof dengan:
+const uploadPaymentProof = async (file) => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    // Validasi file
+    if (!file) {
+      message.error("Silakan pilih file gambar");
+      setLoading(false);
+      return;
+    }
+    
+    const isImage = file.type.startsWith('image/');
+    if (!isImage) {
+      message.error("File harus berupa gambar (JPG, PNG)");
+      setLoading(false);
+      return;
+    }
+    
+    const response = await qrisService.uploadPaymentProof(paymentData.reference, file);
+    
+    if (response.success && response.payment) {
+      setPaymentProof(URL.createObjectURL(file));
+      message.success("Bukti pembayaran berhasil diunggah");
+      setCurrentStep(2);
+    }
+  } catch (error) {
+    console.error("Error uploading payment proof:", error);
+    setError("Gagal mengunggah bukti pembayaran. Silakan coba lagi nanti.");
+  } finally {
+    setLoading(false);
+  }
+};
     
     fetchQrisSettings();
   }, []);
 
   // Membuat transaksi QRIS
   const createQrisPayment = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setRetryingApi(true);
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const response = await axiosInstance.post('/api/qris-payment', {
+      plan_id: plan.id
+    });
+    
+    if (response.data && response.data.payment) {
+      // Pastikan total_amount atau amount tersedia
+      const paymentData = response.data.payment;
       
-      const response = await fetchWithRetry(
-        () => axiosInstance.post('/api/qris-payment', {
-          plan_id: plan.id
-        })
-      );
-      
-      if (response.data && response.data.payment) {
-        setPaymentData(response.data.payment);
-        setCurrentStep(1);
+      // Jika amount tidak ada, gunakan total_amount
+      if (!paymentData.amount && paymentData.total_amount) {
+        paymentData.amount = paymentData.total_amount;
       }
       
-      setRetryingApi(false);
-    } catch (error) {
-      console.error("Error creating QRIS payment:", error);
-      setError("Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
-      setRetryingApi(false);
-    } finally {
-      setLoading(false);
+      setPaymentData(paymentData);
+      setCurrentStep(1);
     }
-  };
+  } catch (error) {
+    console.error("Error creating QRIS payment:", error);
+    
+    // Tampilkan error spesifik jika tersedia
+    if (error.response?.data?.error) {
+      setError(`Gagal membuat pembayaran QRIS: ${error.response.data.error}`);
+    } else {
+      setError("Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Upload bukti pembayaran
   const uploadPaymentProof = async (file) => {

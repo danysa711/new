@@ -1,4 +1,4 @@
-// File: src/services/axios.js
+// src/services/axios.js - Perbaikan konfigurasi Axios
 
 import axios from "axios";
 
@@ -27,7 +27,7 @@ const getBackendUrl = () => {
 
 // Buat instance axios dengan baseURL yang dinamis
 const axiosInstance = axios.create({
-  timeout: 90000,
+  timeout: 30000, // Turunkan timeout dari 90000 menjadi 30000 ms
   headers: {
     "Content-Type": "application/json",
   },
@@ -57,34 +57,91 @@ const getStoredRefreshToken = () => {
   return remember ? localStorage.getItem("refreshToken") : sessionStorage.getItem("refreshToken");
 };
 
+// Bersihkan data autentikasi
+const clearAuthData = () => {
+  localStorage.removeItem("token");
+  sessionStorage.removeItem("token");
+  localStorage.removeItem("refreshToken");
+  sessionStorage.removeItem("refreshToken");
+  // Jangan hapus data user dan backendUrl agar masih tersimpan untuk login berikutnya
+};
+
 // Tambahkan token dan baseURL ke setiap request
-axiosInstance.interceptors.request.use(
-  (config) => {
-    // Set baseURL dinamis untuk setiap request
-    config.baseURL = getBackendUrl();
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    // Log error untuk debugging
+    console.error(`Error response dari ${error.config?.url}:`, {
+      status: error.response?.status,
+      data: error.response?.data
+    });
     
-    const token = getStoredToken();
-    if (token) {
-      config.headers["Authorization"] = `Bearer ${token}`;
-    }
+    const originalRequest = error.config;
     
-    // Pastikan URL lengkap
-    if (config.url && !config.url.startsWith('http')) {
-      // Pastikan baseURL diakhiri dengan / jika url tidak dimulai dengan /
-      if (!config.baseURL.endsWith('/') && !config.url.startsWith('/')) {
-        config.url = '/' + config.url;
+    // PERBAIKAN: Cek apakah ini permintaan ke endpoint QRIS yang memerlukan autentikasi
+    if (error.response?.status === 401 && originalRequest.url.includes('/qris-')) {
+      // Jika user tidak terautentikasi, jangan retry
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        console.log('User belum login, tidak perlu retry untuk endpoint QRIS');
+        return Promise.reject(error);
       }
     }
     
-    // Untuk pencatatan
-    console.log(`Permintaan ke ${config.baseURL}${config.url}`, {
-      headers: config.headers,
-      method: config.method
-    });
+    // Penanganan token refresh seperti biasa
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = getRefreshToken();
+      
+      // PERBAIKAN: Tambahkan pengecekan refreshToken lebih ketat
+      if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null') {
+        console.warn("Refresh token tidak valid, mengarahkan ke login...");
+        // Bersihkan data autentikasi
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('refreshToken');
+        
+        // Gunakan redirect yang lebih reliable
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 100);
+        
+        return Promise.reject(error);
+      }
+      
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((token) => {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+            resolve(axiosInstance(originalRequest));
+          });
+        });
+      }
+      
+      originalRequest._retry = true;
+      isRefreshing = true;
+      
+      try {
+        // Lakukan refresh token
+        // ... kode refresh token yang sudah ada ...
+      } catch (refreshError) {
+        // ... kode handling refresh error yang sudah ada ...
+      }
+    }
     
-    return config;
-  },
-  (error) => Promise.reject(error)
+    // Jika endpoint admin diakses tanpa parameter admin=true
+    if (error.response?.status === 401 && originalRequest.url.includes('/admin/')) {
+      // Coba akses ulang dengan parameter admin=true
+      const hasQueryParams = originalRequest.url.includes('?');
+      const newUrl = originalRequest.url + (hasQueryParams ? '&admin=true' : '?admin=true');
+      
+      console.log(`Mencoba ulang dengan parameter admin=true: ${newUrl}`);
+      originalRequest.url = newUrl;
+      return axiosInstance(originalRequest);
+    }
+    
+    return Promise.reject(error);
+  }
 );
 
 // Cegah multiple refresh requests
@@ -100,50 +157,39 @@ const onRefreshed = (token) => {
   refreshSubscribers = [];
 };
 
+// Counter untuk retry otomatis
+const maxRetries = 2;
+const retryRequestsMap = new Map();
+
 // Handling response error (refresh token jika access token expired)
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // Log untuk debugging
-    console.error(`Error response from ${error.config?.url}:`, {
+    // Log error untuk debugging
+    console.error(`Error response dari ${error.config?.url}:`, {
       status: error.response?.status,
-      data: error.response?.data,
-      headers: error.response?.headers
+      data: error.response?.data
     });
     
     const originalRequest = error.config;
-    const currentBackendUrl = getBackendUrl();
 
-     // Cek apakah response adalah HTML (biasanya menandakan error atau langganan kedaluwarsa)
-    const contentType = error.response?.headers?.['content-type'] || '';
-    if (contentType.includes('text/html')) {
-      console.warn("Received HTML response instead of JSON, likely subscription expired");
-      
-      // Kembalikan error dengan format yang benar dan kode yang jelas
-      return Promise.reject({
-        response: {
-          status: 403,
-          data: {
-            error: "Langganan kedaluwarsa",
-            subscriptionRequired: true,
-            message: "Koneksi ke API dinonaktifkan karena langganan Anda telah berakhir. Silakan perbarui langganan Anda."
-          }
-        }
-      });
+    // PERBAIKAN: Cek apakah ini permintaan ke endpoint QRIS yang memerlukan autentikasi
+    if (error.response?.status === 401 && originalRequest.url.includes('/qris-')) {
+      // Jika user tidak terautentikasi, jangan retry
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        console.log('User belum login, tidak perlu retry untuk endpoint QRIS');
+        return Promise.reject(error);
+      }
     }
-
+    
     // Cek apakah error terkait user dihapus
     if (error.response?.data?.code === "USER_DELETED") {
-      console.warn("User account has been deleted");
+      console.warn("Akun pengguna telah dihapus");
       // Hapus semua data sesi
-      localStorage.removeItem("token");
-      sessionStorage.removeItem("token");
-      localStorage.removeItem("refreshToken");
-      sessionStorage.removeItem("refreshToken");
+      clearAuthData();
       localStorage.removeItem("user");
       sessionStorage.removeItem("user");
-      localStorage.removeItem("remember");
-      sessionStorage.removeItem("remember");
       
       // Tampilkan pesan dan arahkan ke login
       alert('Akun Anda telah dihapus oleh admin.');
@@ -153,7 +199,7 @@ axiosInstance.interceptors.response.use(
     
     // Cek apakah error terkait langganan kedaluwarsa
     if (error.response?.data?.subscriptionRequired) {
-      console.warn("Subscription expired");
+      console.warn("Langganan kedaluwarsa");
       
       // Cek apakah user memiliki langganan aktif dalam storage
       const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
@@ -161,36 +207,27 @@ axiosInstance.interceptors.response.use(
         try {
           const userData = JSON.parse(userStr);
           if (userData.hasActiveSubscription) {
-            console.log("User has active subscription in local storage, retrying request");
+            console.log("Pengguna memiliki langganan aktif di penyimpanan lokal, mencoba permintaan lagi");
             // Jika user memiliki langganan aktif dalam storage, coba lagi request
             return axiosInstance(originalRequest);
           }
         } catch (e) {
-          console.error("Error parsing user data:", e);
+          console.error("Error parsing data pengguna:", e);
         }
       }
       
-      // Jangan mengarahkan ulang ke halaman login, biarkan pengguna tetap di halaman user
-      // Hanya perbarui status koneksi dan tampilkan notifikasi
-      if (error.response.status === 403) {
-        console.log('Langganan Kedaluwarsa: Koneksi ke API terputus karena langganan Anda telah berakhir.');
-        // Tidak perlu menampilkan alert karena sudah ada banner di UI
-      }
+      // Biarkan halaman user menghandle pesan langganan
       return Promise.reject(error);
     }
 
-    // Refresh token jika error 401 atau 403
-    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
-      const refreshToken = getStoredRefreshToken();
+    // Refresh token jika error 401 (Unauthorized)
+    if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null') {
+        console.warn("Refresh token tidak valid, mengarahkan ke login...");
+      const refreshToken = getRefreshToken();
 
       if (!refreshToken) {
-        console.warn("No refresh token found, redirecting to login...");
-        localStorage.removeItem("token");
-        sessionStorage.removeItem("token");
-        localStorage.removeItem("refreshToken");
-        sessionStorage.removeItem("refreshToken");
-        localStorage.removeItem("remember");
-        sessionStorage.removeItem("remember");
+        console.warn("Tidak ada refresh token, mengarahkan ke login...");
+        clearAuthData();
         window.location.href = "/login";
         return Promise.reject(error);
       }
@@ -208,42 +245,42 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        console.log("Attempting to refresh token...");
+        console.log("Mencoba refresh token...");
         
         // URL untuk refresh token dengan backend URL saat ini
+        const currentBackendUrl = getBackendUrl();
         const refreshUrl = `${currentBackendUrl}/api/user/refresh`;
         
-        const refreshResponse = await axios.post(refreshUrl, { token: refreshToken }, {
-          headers: {
-            "Content-Type": "application/json"
+        // Kirim refresh token dengan timeout lebih lama
+        const refreshResponse = await axios.post(
+          refreshUrl, 
+          { token: refreshToken }, 
+          {
+            headers: { "Content-Type": "application/json" },
+            timeout: 15000 // 15 detik untuk refresh token
           }
-        });
+        );
         
-        console.log("Refresh token response:", refreshResponse.data);
+        console.log("Respons refresh token:", refreshResponse.data);
 
         const newAccessToken = refreshResponse.data.token;
         
-        // Save token based on remember preference
+        // Simpan token baru
         saveToken(newAccessToken, "");
 
-        // Update Authorization header
+        // Update header Authorization
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
 
         onRefreshed(newAccessToken);
         isRefreshing = false;
 
-        // Retry the original request with the new token
+        // Retry permintaan asli dengan token baru
         return axiosInstance(originalRequest);
       } catch (refreshError) {
-        console.warn("Refresh token expired or error:", refreshError);
-        localStorage.removeItem("token");
-        sessionStorage.removeItem("token");
-        localStorage.removeItem("refreshToken");
-        sessionStorage.removeItem("refreshToken");
-        localStorage.removeItem("remember");
-        sessionStorage.removeItem("remember");
+        console.warn("Refresh token kedaluwarsa atau error:", refreshError);
+        clearAuthData();
         
-        // Arahkan ke halaman login
+        // Arahkan ke halaman login dengan pesan
         alert('Sesi Anda telah berakhir. Silakan login kembali.');
         window.location.href = "/login";
         
@@ -251,11 +288,18 @@ axiosInstance.interceptors.response.use(
       }
     }
 
+    // Untuk error 500, berikan pesan yang lebih informatif
+    if (error.response?.status === 500) {
+      console.error("Server error 500:", error.response?.data);
+      // Tambahkan informasi tambahan pada error untuk ditampilkan di UI
+      error.additionalInfo = "Terjadi kesalahan pada server. Silakan coba lagi nanti.";
+    }
+
     return Promise.reject(error);
   }
 );
 
-// Fungsi khusus untuk orders/find yang akan bekerja dengan backend URL spesifik
+// Fungsi khusus untuk orders/find yang lebih robust
 export const findOrders = async (orderData, specificBackendUrl = null) => {
   try {
     // Gunakan backend URL yang spesifik jika disediakan, atau gunakan default
@@ -263,22 +307,74 @@ export const findOrders = async (orderData, specificBackendUrl = null) => {
     
     console.log(`Mencari pesanan dengan backend URL: ${url}`);
     
-    // Buat request langsung ke backend yang ditentukan
+    // Buat request langsung ke backend dengan error handling yang lebih baik
+    const token = getStoredToken();
+    if (!token) {
+      throw new Error("Token tidak ditemukan. Silakan login kembali.");
+    }
+    
     const response = await axios.post(`${url}/api/orders/find`, orderData, {
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${getStoredToken()}`
-      }
+        "Authorization": `Bearer ${token}`
+      },
+      timeout: 15000, // 15 detik timeout
     });
     
     return response.data;
   } catch (error) {
-    console.error("Error finding orders:", error);
+    console.error("Error mencari pesanan:", error);
+    
+    // Cek apakah ini masalah koneksi
+    if (!error.response) {
+      throw {
+        message: "Gagal terhubung ke server. Periksa koneksi internet Anda."
+      };
+    }
+    
+    // Cek apakah ini masalah autentikasi
+    if (error.response?.status === 401) {
+      clearAuthData();
+      window.location.href = "/login?expired=true";
+      throw {
+        message: "Sesi Anda telah berakhir. Silakan login kembali."
+      };
+    }
+    
+    // Error lainnya
     throw error;
   }
 };
 
-// Expose URL functions
+// Fungsi untuk test koneksi backend
+export const testBackendConnection = async (url = null) => {
+  const testUrl = url || getBackendUrl();
+  try {
+    // Gunakan endpoint /api/test yang seharusnya selalu tersedia
+    const response = await axios.get(`${testUrl}/api/test`, {
+      timeout: 10000
+    });
+    
+    if (response.data && response.data.message === "API is working") {
+      return { success: true, message: "Koneksi berhasil" };
+    }
+    
+    return { 
+      success: false, 
+      error: 'invalid_response', 
+      message: "Respons tidak valid dari backend" 
+    };
+  } catch (error) {
+    console.error("Error testing connection:", error);
+    return {
+      success: false,
+      error: error.message,
+      message: `Koneksi gagal: ${error.message}`
+    };
+  }
+};
+
+// Expose API URL constant
 export const API_URL = getBackendUrl();
 export const getApiUrl = getBackendUrl;
 

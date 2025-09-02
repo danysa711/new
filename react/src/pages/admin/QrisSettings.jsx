@@ -27,33 +27,59 @@ const QrisSettings = () => {
   // Memuat data pengaturan QRIS
   useEffect(() => {
     const fetchSettings = async () => {
-      try {
-        setLoading(true);
-        const response = await axiosInstance.get('/api/admin/qris-settings');
-        const settings = response.data;
-        
-        setInitialValues({
-          merchant_name: settings.merchant_name,
-          is_active: settings.is_active,
-          expiry_hours: settings.expiry_hours,
-          instructions: settings.instructions
-        });
-        
-        setImageUrl(settings.qris_image);
-        form.setFieldsValue({
-          merchant_name: settings.merchant_name,
-          is_active: settings.is_active,
-          expiry_hours: settings.expiry_hours,
-          instructions: settings.instructions
-        });
-        
-      } catch (error) {
-        console.error("Error fetching QRIS settings:", error);
+  try {
+    setLoading(true);
+    
+    try {
+      // Tambahkan parameter admin=true
+      const response = await axiosInstance.get('/api/admin/qris-settings?admin=true');
+      const settings = response.data;
+      
+      setInitialValues({
+        merchant_name: settings.merchant_name,
+        is_active: settings.is_active,
+        expiry_hours: settings.expiry_hours,
+        instructions: settings.instructions
+      });
+      
+      setImageUrl(settings.qris_image);
+      form.setFieldsValue({
+        merchant_name: settings.merchant_name,
+        is_active: settings.is_active,
+        expiry_hours: settings.expiry_hours,
+        instructions: settings.instructions
+      });
+    } catch (error) {
+      console.error("Error fetching QRIS settings:", error);
+      
+      // Pesan error spesifik
+      if (error.response?.status === 500) {
+        message.error("Server error: Tabel QRIS mungkin belum dibuat. Lihat konsol untuk detail.");
+        console.error("Jalankan SQL untuk membuat tabel QrisSettings dan QrisPayments");
+      } else if (error.response?.status === 401) {
+        message.error("Akses ditolak. Pastikan Anda memiliki hak admin.");
+      } else {
         message.error("Gagal memuat pengaturan QRIS");
-      } finally {
-        setLoading(false);
       }
-    };
+      
+      // Set nilai default
+      const defaultValues = {
+        merchant_name: 'Kinterstore',
+        is_active: true,
+        expiry_hours: 24,
+        instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda.'
+      };
+      
+      setInitialValues(defaultValues);
+      form.setFieldsValue(defaultValues);
+    }
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    message.error("Terjadi kesalahan tak terduga");
+  } finally {
+    setLoading(false);
+  }
+};
     
     fetchSettings();
   }, [form]);

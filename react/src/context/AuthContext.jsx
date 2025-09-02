@@ -86,10 +86,20 @@ export const AuthProvider = ({ children }) => {
 
   // Fungsi untuk logout
   const logout = () => {
+  localStorage.removeItem('token');
+  sessionStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  sessionStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  sessionStorage.removeItem('user');
     apiLogout();
     setToken(null);
     setUser(null);
-  };
+    
+    setTimeout(() => {
+    window.location.href = '/login';
+  }, 100);
+};
 
   // Fungsi untuk update data user
   const updateUserData = (userData) => {

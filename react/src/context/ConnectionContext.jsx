@@ -45,93 +45,107 @@ export const ConnectionProvider = ({ children }) => {
   // Cek koneksi saat URL berubah atau user login/logout
   useEffect(() => {
     const checkConnection = async () => {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      
-      if (!token) {
-        setIsConnected(false);
-        setConnectionStatus("disconnected");
-        return;
-      }
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  
+  if (!token) {
+    setIsConnected(false);
+    setConnectionStatus("disconnected");
+    return;
+  }
 
+  try {
+    setConnectionStatus("checking");
+    
+    // Gunakan endpoint yang lebih reliable (/api/test) untuk cek koneksi
+    let testUrl;
+    
+    if (proxyEnabled) {
+      // Jika proxy diaktifkan, gunakan domain frontend + /api
+      testUrl = '/api/test';
+    } else {
+      // Jika tidak, gunakan backendUrl langsung
+      testUrl = `${backendUrl}/api/test`;
+    }
+    
+    console.log("Memeriksa koneksi ke:", testUrl);
+
+    const response = await fetch(testUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      // Tambahkan timeout untuk fetch
+      signal: AbortSignal.timeout(10000) // 10 detik timeout
+    });
+    
+    console.log("Status respons:", response.status);
+    
+    // Periksa status respons
+    if (response.ok) {
       try {
-        setConnectionStatus("checking");
-        
-        // Gunakan endpoint yang tersedia (tidak menggunakan /api/test yang 404)
-        let testUrl;
-        
-        if (proxyEnabled) {
-          // Jika proxy diaktifkan, gunakan domain frontend + /api
-          testUrl = '/api/subscriptions/user';
-        } else {
-          // Jika tidak, gunakan backendUrl langsung
-          testUrl = `${backendUrl}/api/subscriptions/user`;
-        }
-        
-        console.log("Memeriksa koneksi ke:", testUrl);
-
-        const response = await fetch(testUrl, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        console.log("Status respons:", response.status);
-        
-        // Cek Content-Type sebelum parsing ke JSON
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
-          // Jika respons OK dan content-type adalah JSON, koneksi berhasil
-          if (response.ok) {
+          const data = await response.json();
+          if (data && data.message === "API is working") {
             setIsConnected(true);
             setConnectionStatus("connected");
             console.log("Koneksi berhasil!");
-          } else {
-            // Periksa jika ini masalah langganan kedaluwarsa
-            if (response.status === 403) {
-              try {
-                const errorData = await response.json();
-                if (errorData && errorData.subscriptionRequired) {
-                  setIsConnected(false);
-                  setConnectionStatus("subscription_expired");
-                  console.log("Langganan kedaluwarsa");
-                  return;
-                }
-              } catch (e) {
-                console.error("Gagal parse respons error:", e);
-              }
-            }
-            
-            // Jika bukan masalah langganan, set sebagai error umum
-            setIsConnected(false);
-            setConnectionStatus("error");
-            console.log("Koneksi gagal dengan status:", response.status);
-          }
-        } else {
-          // Jika content-type bukan JSON (mungkin HTML), kemungkinan langganan kedaluwarsa
-          if (response.status === 403) {
-            setIsConnected(false);
-            setConnectionStatus("subscription_expired");
-            console.log("Langganan kedaluwarsa (respons HTML)");
             return;
-          } else {
-            setIsConnected(false);
-            setConnectionStatus("error");
-            console.log("Koneksi gagal: respons bukan JSON");
           }
         }
-      } catch (err) {
-        console.error("Error koneksi:", err);
-        // Tambahkan penanganan khusus dalam checkConnection
-        if (err.response?.data?.subscriptionRequired) {
+      } catch (jsonError) {
+        console.error("Gagal memproses respons JSON:", jsonError);
+      }
+    }
+      
+    // Jika respons bukan OK atau bukan JSON valid, coba endpoint fallback
+    if (response.status === 403) {
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.subscriptionRequired) {
           setIsConnected(false);
           setConnectionStatus("subscription_expired");
           console.log("Langganan kedaluwarsa");
           return;
         }
-        setIsConnected(false);
-        setConnectionStatus("error");
+      } catch (e) {
+        console.error("Gagal parse respons error:", e);
       }
-    };
+    }
+    
+    // Coba endpoint fallback yang tidak memerlukan autentikasi
+    const fallbackUrl = proxyEnabled ? '/api/settings/public' : `${backendUrl}/api/settings/public`;
+    console.log("Mencoba endpoint fallback:", fallbackUrl);
+    
+    const fallbackResponse = await fetch(fallbackUrl, {
+      signal: AbortSignal.timeout(5000) // 5 detik timeout untuk fallback
+    });
+    
+    if (fallbackResponse.ok) {
+      setIsConnected(true);
+      setConnectionStatus("connected");
+      console.log("Koneksi berhasil via fallback!");
+      return;
+    }
+    
+    // Jika masih gagal, set status error
+    setIsConnected(false);
+    setConnectionStatus("error");
+    console.log("Koneksi gagal dengan semua endpoint");
+  } catch (err) {
+    console.error("Error koneksi:", err);
+    
+    // Tambahkan penanganan khusus dalam checkConnection
+    if (err.response?.data?.subscriptionRequired) {
+      setIsConnected(false);
+      setConnectionStatus("subscription_expired");
+      console.log("Langganan kedaluwarsa");
+      return;
+    }
+    
+    setIsConnected(false);
+    setConnectionStatus("error");
+  }
+};
 
     // Jika user dan token ada, cek status langganan
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -179,48 +193,64 @@ export const ConnectionProvider = ({ children }) => {
     try {
       setConnectionStatus("checking");
       
-      // Buat array endpoint untuk dicoba
-      const endpointsToTry = [
-        '/api/subscriptions/user',
-        '/api/subscription-plans',
-        '/api/user/profile'
-      ];
+      // Gunakan endpoint /api/test yang reliable
+      const testUrl = proxyEnabled ? '/api/test' : `${backendUrl}/api/test`;
+      console.log("Memeriksa koneksi ke:", testUrl);
       
-      // Coba setiap endpoint sampai salah satu berhasil
-      for (const endpoint of endpointsToTry) {
-        try {
-          const testUrl = proxyEnabled ? endpoint : `${backendUrl}${endpoint}`;
-          console.log("Memeriksa koneksi ke:", testUrl);
-          
-          const response = await fetch(testUrl, {
-            headers: {
-              'Authorization': `Bearer ${token}`
+      const response = await fetch(testUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        signal: AbortSignal.timeout(10000) // 10 detik timeout
+      });
+      
+      if (response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          try {
+            const data = await response.json();
+            if (data && data.message === "API is working") {
+              setIsConnected(true);
+              setConnectionStatus("connected");
+              message.success('Koneksi berhasil!', 3);
+              console.log("Koneksi berhasil!");
+              return;
             }
-          });
-          
-          if (response.ok) {
-            setIsConnected(true);
-            setConnectionStatus("connected");
-            message.success('Koneksi berhasil!', 3);
-            console.log("Koneksi berhasil!");
-            return;
+          } catch (e) {
+            console.error("Error parsing JSON:", e);
           }
-        } catch (err) {
-          console.error(`Error mencoba endpoint ${endpoint}:`, err);
-          // Lanjutkan ke endpoint berikutnya
-          continue;
         }
       }
       
-      // Jika semua endpoint gagal
-      setIsConnected(false);
-      setConnectionStatus("error");
-      message.error('Gagal terhubung ke server. Silakan coba lagi nanti.', 3);
+      // Jika tidak berhasil, coba beri pesan yang lebih spesifik berdasarkan status kode
+      if (response.status === 401) {
+        message.error('Sesi Anda telah berakhir. Silakan login kembali.', 3);
+        setIsConnected(false);
+        setConnectionStatus("disconnected");
+      } else if (response.status === 403) {
+        message.warning('Akses ditolak. Langganan Anda mungkin telah berakhir.', 3);
+        setIsConnected(false);
+        setConnectionStatus("subscription_expired");
+      } else if (response.status >= 500) {
+        message.error(`Kesalahan server (${response.status}). Silakan coba lagi nanti.`, 3);
+        setIsConnected(false);
+        setConnectionStatus("error");
+      } else {
+        message.error('Gagal terhubung ke server. Silakan coba lagi nanti.', 3);
+        setIsConnected(false);
+        setConnectionStatus("error");
+      }
     } catch (err) {
       console.error("Error koneksi:", err);
       setIsConnected(false);
       setConnectionStatus("error");
-      message.error('Error koneksi: ' + err.message, 3);
+      
+      // Cek apakah ini error timeout
+      if (err.name === 'AbortError') {
+        message.error('Koneksi timeout. Server mungkin tidak merespons.', 3);
+      } else {
+        message.error('Error koneksi: ' + (err.message || 'Tidak diketahui'), 3);
+      }
     }
   };
 

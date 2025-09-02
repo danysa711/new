@@ -1,10 +1,7 @@
-// Updated src/pages/Login.jsx with elegant chat support button
-
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
 import { Form, Input, Button, Card, Typography, Alert, Spin, Tooltip } from 'antd';
 import { UserOutlined, LockOutlined, CommentOutlined, SendOutlined } from '@ant-design/icons';
 import { AuthContext } from '../context/AuthContext';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
@@ -14,50 +11,19 @@ const Login = () => {
   const [error, setError] = useState(null);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [supportNumber, setSupportNumber] = useState('');
-
-  // URL backend dari env atau default
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://db.kinterstore.my.id';
   
-  // Fetch support number from backend
-  useEffect(() => {
-    const fetchSupportNumber = async () => {
-      try {
-        const response = await axios.get(`${backendUrl}/api/settings/support-number`);
-        if (response.data && response.data.whatsappNumber) {
-          setSupportNumber(response.data.whatsappNumber);
-        } else {
-          // Fallback to default if not found
-          setSupportNumber('6281284712684');
-        }
-      } catch (error) {
-        console.error('Error fetching support number:', error);
-        // Use default number if failed to fetch
-        setSupportNumber('6281284712684');
-      }
-    };
-
-    fetchSupportNumber();
-  }, [backendUrl]);
+  // PERBAIKAN: Gunakan nilai default langsung, tidak perlu fetch dari API
+  const supportNumber = '6281284712684';
 
   const onFinish = async (values) => {
     setLoading(true);
     setError(null);
     
     try {
-      console.log('Login request with values:', values);
-      console.log('Using backend URL:', backendUrl);
-      
-      // SOLUSI: Gunakan AuthContext login function dengan parameter yang benar
+      // Login dengan benar
       const response = await login(values.username, values.password, true);
       
-      console.log('Login response:', response);
-      
-      // PERBAIKAN: Gunakan response, bukan result yang tidak didefinisikan
       if (response.success) {
-        console.log('Login berhasil, user:', response.user);
-        
-        // Redirect berdasarkan role
         if (response.user.role === 'admin') {
           navigate('/admin/dashboard');
         } else {
@@ -76,10 +42,8 @@ const Login = () => {
 
   // Handle WhatsApp support click
   const handleSupportClick = () => {
-    if (supportNumber) {
-      const whatsappUrl = `https://wa.me/${supportNumber}?text=Halo Admin, saya dengan username: ... butuh bantuan ...`;
-      window.open(whatsappUrl, '_blank');
-    }
+    const whatsappUrl = `https://wa.me/${supportNumber}?text=Halo Admin, saya butuh bantuan untuk login.`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -148,7 +112,7 @@ const Login = () => {
         {loading && (
           <div style={{ textAlign: 'center', marginTop: 24 }}>
             <Spin />
-            <div style={{ marginTop: 8 }}>Logging in...</div>
+            <div style={{ marginTop: 8 }}>Sedang login...</div>
           </div>
         )}
         
@@ -159,16 +123,14 @@ const Login = () => {
         </div>
       </Card>
       
-      {/* Elegant Chat Support Button */}
+      {/* Tombol Chat Support */}
       <Tooltip 
         title="Butuh bantuan? Hubungi support chat"
         placement="left"
         color="#333"
         overlayInnerStyle={{ fontWeight: 500 }}
       >
-        <div
-          onClick={handleSupportClick}
-          style={{
+        <div onClick={handleSupportClick} style={{
             position: 'absolute',
             bottom: 32,
             right: 32,
@@ -203,7 +165,7 @@ const Login = () => {
             justifyContent: 'center',
             alignItems: 'center'
           }}>
-            {/* Main chat bubble icon */}
+            {/* Icon chat bubble utama */}
             <CommentOutlined 
               style={{ 
                 fontSize: '32px',
@@ -214,7 +176,7 @@ const Login = () => {
               }} 
             />
             
-            {/* Decorative send icon */}
+            {/* Icon send dekoratif */}
             <SendOutlined 
               style={{
                 position: 'absolute',
@@ -228,7 +190,7 @@ const Login = () => {
               }}
             />
             
-            {/* Subtle pulse animation */}
+            {/* Animasi pulse */}
             <div style={{
               position: 'absolute',
               width: '100%',
@@ -239,7 +201,7 @@ const Login = () => {
               zIndex: 0
             }} />
             
-            {/* Adding style for pulse animation */}
+            {/* Style untuk animasi pulse */}
             <style>{`
               @keyframes pulse {
                 0% {
@@ -259,7 +221,6 @@ const Login = () => {
           </div>
         </div>
       </Tooltip>
-      
     </div>
   );
 };

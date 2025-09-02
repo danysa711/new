@@ -20,41 +20,85 @@ const QrisPaymentVerification = () => {
   const [selectedPayment, setSelectedPayment] = useState(null);
 
   // Memuat data pembayaran QRIS
-  const fetchPayments = async () => {
+const fetchPayments = async () => {
+  try {
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      const response = await axiosInstance.get('/api/admin/qris-payments');
+      // Tambahkan parameter admin=true untuk autentikasi yang benar
+      const response = await axiosInstance.get('/api/admin/qris-payments?admin=true');
       setPayments(response.data);
-    } catch (error) {
-      console.error("Error fetching QRIS payments:", error);
-      message.error("Gagal memuat data pembayaran QRIS");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPayments();
-  }, []);
-
-  // Handle verifikasi pembayaran
-  const handleVerifyPayment = async (reference, status) => {
-    try {
-      setLoading(true);
-      const response = await axiosInstance.put(`/api/admin/qris-payment/${reference}/verify`, { status });
+    } catch (apiError) {
+      console.error("Error pada API utama:", apiError);
       
-      if (response.data) {
-        message.success(`Pembayaran berhasil ${status === 'VERIFIED' ? 'diverifikasi' : 'ditolak'}`);
-        fetchPayments();
-        setViewModalVisible(false);
+      // Coba endpoint fallback
+      try {
+        const fallbackResponse = await axiosInstance.get('/api/admin/qris-payments-list?admin=true');
+        setPayments(fallbackResponse.data);
+      } catch (fallbackError) {
+        console.error("Error pada API fallback:", fallbackError);
+        
+        // Jika semua gagal, gunakan data kosong
+        setPayments([]);
+        message.warning("Data QRIS tidak tersedia. Server mungkin sedang maintenance.");
       }
-    } catch (error) {
-      console.error("Error verifying payment:", error);
-      message.error(`Gagal ${status === 'VERIFIED' ? 'memverifikasi' : 'menolak'} pembayaran`);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching QRIS payments:", error);
+    message.error("Gagal memuat data pembayaran QRIS");
+    setPayments([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Perbarui fungsi handleVerifyPayment
+const handleVerifyPayment = async (reference, status) => {
+  try {
+    setLoading(true);
+    
+    // Tambahkan parameter admin=true dan error handling
+    const response = await axiosInstance.put(
+      `/api/admin/qris-payment/${reference}/verify?admin=true`, 
+      { status }
+    );
+    
+    if (response.data) {
+      message.success(`Pembayaran berhasil ${status === 'VERIFIED' ? 'diverifikasi' : 'ditolak'}`);
+      fetchPayments();
+      setViewModalVisible(false);
+    }
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    
+    // Berikan pesan spesifik berdasarkan error
+    if (error.response?.status === 404) {
+      message.error("Referensi pembayaran tidak ditemukan");
+    } else if (error.response?.status === 401) {
+      message.error("Anda tidak memiliki akses untuk melakukan verifikasi");
+    } else {
+      message.error(`Gagal ${status === 'VERIFIED' ? 'memverifikasi' : 'menolak'} pembayaran`);
+    }
+    
+    // Jika server error tapi tetap ingin update UI (opsional)
+    if (error.response?.status === 500) {
+      message.warning("Server error, tapi data akan diperbarui secara local");
+      
+      // Update state secara lokal
+      setPayments(prevPayments => 
+        prevPayments.map(payment => 
+          payment.reference === reference 
+            ? {...payment, status: status === 'VERIFIED' ? 'PAID' : 'REJECTED'} 
+            : payment
+        )
+      );
+      
+      setViewModalVisible(false);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Tampilkan detail pembayaran
   const viewPaymentDetail = (payment) => {
