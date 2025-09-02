@@ -190,14 +190,12 @@ exports.getTripayStatus = async (req, res) => {
   try {
     const tripayEnabled = await Setting.findOne({ where: { key: 'tripay_enabled' } });
     
-    // Handle kasus ketika database tidak tersedia
     res.json({ 
       enabled: tripayEnabled ? tripayEnabled.value === 'true' : false
     });
   } catch (error) {
     console.error('Error getting Tripay status:', error);
-    // Kirim response success dengan enabled: false sebagai fallback
-    res.json({ enabled: false, error: 'Database error' });
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 

@@ -9,31 +9,25 @@ const {
   updateManualTransactionStatus,
   getUserActiveTransactions,
   getUserTransactionHistory,
-  getTransactionByReference,
-  filterTransactions
+  getTransactionByReference
 } = require('../controllers/paymentController');
 
-// ====== Endpoint untuk Metode Pembayaran ======
-// Mendapatkan semua metode pembayaran (publik)
-router.get('/payment-methods', getAllPaymentMethods);
+// Endpoint untuk mendapatkan semua metode pembayaran
+router.get('/payment-methods', getAllPaymentMethodsFallback);
 
-// ====== Endpoint untuk Transaksi ======
-// Membuat transaksi manual
+// Endpoint untuk membuat transaksi manual
 router.post('/transactions/manual', authenticateUser, createManualTransaction);
 
-// Mengupdate status transaksi (Admin only)
+// Endpoint untuk mengupdate status transaksi (Admin only)
 router.put('/transactions/:reference/status', [authenticateUser, requireAdmin], updateManualTransactionStatus);
 
-// Mendapatkan transaksi aktif user
+// Endpoint untuk mendapatkan transaksi aktif user
 router.get('/transactions/active', authenticateUser, getUserActiveTransactions);
 
-// Mendapatkan riwayat transaksi user
+// Endpoint untuk mendapatkan riwayat transaksi user
 router.get('/transactions/history', authenticateUser, getUserTransactionHistory);
 
-// Mendapatkan detail transaksi berdasarkan reference
+// Endpoint untuk mendapatkan detail transaksi berdasarkan reference
 router.get('/transactions/:reference', authenticateUser, getTransactionByReference);
-
-// Filter transaksi (Admin only)
-router.post('/transactions/filter', [authenticateUser, requireAdmin], filterTransactions);
 
 module.exports = router;
