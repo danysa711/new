@@ -11,10 +11,9 @@ const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
-const tripayRoutes = require("./routes/tripayRoutes");
 const publicApiRoutes = require("./routes/publicApiRoutes");
 const settingsRoutes = require('./routes/settingsRoutes');
-const paymentRoutes = require('./routes/paymentRoutes'); // Pastikan ini ada
+
 
 const app = express();
 const PORT = process.env.PORT || 3500;
@@ -146,169 +145,6 @@ app.get("/", (req, res) => {
   `);
 });
 
-// Test endpoint
-app.get("/api/test", (req, res) => {
-  res.json({ message: "API is working", timestamp: new Date().toISOString() });
-});
-
-// Endpoint global untuk payment-methods (buat cadangan endpoint ini secara langsung di server.js)
-app.get('/api/payment-methods', async (req, res) => {
-  try {
-    // Data default
-    let methods = [
-      // Manual methods (default)
-      {
-        code: 'MANUAL_1',
-        name: 'Transfer Bank BCA',
-        type: 'bank',
-        fee: 0,
-        isManual: true,
-        manualData: {
-          id: 1,
-          name: 'Transfer Bank BCA',
-          type: 'bank',
-          accountNumber: '1234567890',
-          accountName: 'PT Demo Store',
-          instructions: 'Transfer ke rekening BCA a/n PT Demo Store',
-          isActive: true
-        }
-      },
-      {
-        code: 'MANUAL_2',
-        name: 'QRIS',
-        type: 'qris',
-        fee: 0,
-        isManual: true,
-        manualData: {
-          id: 2,
-          name: 'QRIS',
-          type: 'qris',
-          qrImageUrl: 'https://example.com/qr.png',
-          instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking',
-          isActive: true
-        }
-      }
-    ];
-    
-    // Cek apakah Tripay diaktifkan
-    try {
-      const tripayEnabled = await db.Setting.findOne({ where: { key: 'tripay_enabled' } });
-      if (tripayEnabled && tripayEnabled.value === 'true') {
-        // Tambahkan metode Tripay
-        const tripayMethods = [
-          { code: 'QRIS', name: 'QRIS', type: 'qris', fee: 800 },
-          { code: 'BRIVA', name: 'Bank BRI', type: 'bank', fee: 4000 },
-          { code: 'MANDIRIVA', name: 'Bank Mandiri', type: 'bank', fee: 4000 },
-          { code: 'BNIVA', name: 'Bank BNI', type: 'bank', fee: 4000 },
-          { code: 'BCAVA', name: 'Bank BCA', type: 'bank', fee: 4000 },
-          { code: 'OVO', name: 'OVO', type: 'ewallet', fee: 2000 },
-          { code: 'DANA', name: 'DANA', type: 'ewallet', fee: 2000 },
-          { code: 'LINKAJA', name: 'LinkAja', type: 'ewallet', fee: 2000 },
-          { code: 'SHOPEEPAY', name: 'ShopeePay', type: 'ewallet', fee: 2000 }
-        ];
-        methods = [...tripayMethods, ...methods];
-      }
-    } catch (settingError) {
-      console.error('Error checking Tripay status:', settingError);
-      // Anggap Tripay tidak aktif
-    }
-    
-    res.json(methods);
-  } catch (error) {
-    console.error('Error in payment methods endpoint:', error);
-    res.status(500).json({ message: 'Server Error' });
-  }
-});
-
-// Endpoint untuk Tripay status (tambahkan sebagai backup)
-app.get('/api/settings/tripay-status', async (req, res) => {
-  try {
-    let enabled = false;
-    try {
-      const tripayEnabled = await db.Setting.findOne({ where: { key: 'tripay_enabled' } });
-      enabled = tripayEnabled ? tripayEnabled.value === 'true' : false;
-    } catch (err) {
-      console.error('Error checking Tripay status from DB:', err);
-    }
-    
-    res.json({ enabled: enabled });
-  } catch (error) {
-    console.error('Error in Tripay status endpoint:', error);
-    res.json({ enabled: false });
-  }
-});
-
-app.post('/api/transactions/filter', async (req, res) => {
-  try {
-    // Beri respons dengan array kosong jika terjadi error
-    res.json([]);
-  } catch (error) {
-    console.error('Error in transactions filter endpoint:', error);
-    res.json([]);
-  }
-});
-
-// Tambahkan endpoint ini di server.js sebelum app.use("/api", paymentRoutes);
-
-// Endpoint untuk payment-methods/manual
-app.get('/api/payment-methods/manual', async (req, res) => {
-  try {
-    // Data default untuk metode pembayaran manual
-    const manualMethods = [
-      {
-        id: 1,
-        name: 'Transfer Bank BCA',
-        type: 'bank',
-        accountNumber: '1234567890',
-        accountName: 'PT Demo Store',
-        instructions: 'Transfer ke rekening BCA a/n PT Demo Store',
-        isActive: true
-      },
-      {
-        id: 2,
-        name: 'QRIS',
-        type: 'qris',
-        qrImageUrl: 'https://example.com/qr.png',
-        instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking',
-        isActive: true
-      },
-      {
-        id: 3,
-        name: 'DANA',
-        type: 'ewallet',
-        accountNumber: '08123456789',
-        accountName: 'PT Demo Store',
-        instructions: 'Transfer ke akun DANA a/n PT Demo Store',
-        isActive: true
-      },
-      {
-        id: 4,
-        name: 'OVO',
-        type: 'ewallet',
-        accountNumber: '08123456789',
-        accountName: 'PT Demo Store',
-        instructions: 'Transfer ke akun OVO a/n PT Demo Store',
-        isActive: true
-      },
-      {
-        id: 5,
-        name: 'GoPay',
-        type: 'ewallet',
-        accountNumber: '08123456789',
-        accountName: 'PT Demo Store',
-        instructions: 'Transfer ke akun GoPay a/n PT Demo Store',
-        isActive: true
-      }
-    ];
-    
-    // Kirim response
-    res.json(manualMethods);
-  } catch (error) {
-    console.error('Error dalam endpoint /api/payment-methods/manual:', error);
-    res.status(500).json({ message: 'Server Error' });
-  }
-});
-
 // Routes
 app.use("/api", licenseRoutes);
 app.use("/api", softwareRoutes);
@@ -317,10 +153,9 @@ app.use("/api", orderRoutes);
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
 app.use("/api", subscriptionRoutes);
-app.use("/api/tripay", tripayRoutes);
 app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
-app.use("/api", paymentRoutes); // Pastikan ini ada
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

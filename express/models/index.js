@@ -367,7 +367,6 @@ const db = {
   Subscription,
   SubscriptionPlan,
   WhatsAppTrialSettings,
-  Transaction,
 };
 
 Object.keys(db).forEach((modelName) => {
