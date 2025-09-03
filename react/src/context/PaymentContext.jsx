@@ -1,3 +1,5 @@
+// src/context/PaymentContext.jsx
+
 import React, { createContext, useState, useEffect } from "react";
 import { 
   triggerPaymentUpdate, 
@@ -41,6 +43,8 @@ export const PaymentProvider = ({ children }) => {
   // Fungsi untuk memuat transaksi aktif
   const loadPendingTransactions = async () => {
     try {
+      setLoading(true);
+      
       const response = await fetchWithRetry(
         () => axiosInstance.get('/api/qris-payments')
       );
@@ -51,16 +55,22 @@ export const PaymentProvider = ({ children }) => {
         setPendingTransactions(pendingQris);
         setApiStatus('available');
       }
+      return response.data;
     } catch (error) {
       console.error('Error memuat transaksi tertunda:', error);
       setApiStatus('unavailable');
       message.error('Gagal memuat transaksi - silakan coba lagi nanti', 3);
+      return [];
+    } finally {
+      setLoading(false);
     }
   };
 
   // Fungsi untuk memuat riwayat transaksi
   const loadTransactionHistory = async () => {
     try {
+      setLoading(true);
+      
       const response = await fetchWithRetry(
         () => axiosInstance.get('/api/qris-payments')
       );
@@ -69,11 +79,20 @@ export const PaymentProvider = ({ children }) => {
         setTransactionHistory(response.data);
         setApiStatus('available');
       }
+      return response.data;
     } catch (error) {
       console.error('Error memuat riwayat transaksi:', error);
       setApiStatus('unavailable');
       message.error('Gagal memuat riwayat transaksi - silakan coba lagi nanti', 3);
+      return [];
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Alias untuk loadTransactionHistory (untuk kompatibilitas)
+  const loadTransactionsHistory = async () => {
+    return await loadTransactionHistory();
   };
 
   // Fungsi untuk memeriksa status transaksi
@@ -115,9 +134,32 @@ export const PaymentProvider = ({ children }) => {
       setApiStatus('checking');
       
       try {
-        // Muat data transaksi
-        await loadPendingTransactions();
-        await loadTransactionHistory();
+        // Muat data transaksi dengan membuat fungsi terpisah yang aman
+        const fetchTransactions = async () => {
+          try {
+            // Memanggil fungsi yang telah didefinisikan, bukan loadTransactionsHistory
+            const transactions = await loadTransactionHistory();
+            return transactions;
+          } catch (e) {
+            console.error('Error fetching transactions:', e);
+            return [];
+          }
+        };
+        
+        // Muat data transaksi tertunda
+        const fetchPending = async () => {
+          try {
+            const pending = await loadPendingTransactions();
+            return pending;
+          } catch (e) {
+            console.error('Error fetching pending transactions:', e);
+            return [];
+          }
+        };
+        
+        // Jalankan kedua fungsi secara bersamaan
+        await Promise.all([fetchTransactions(), fetchPending()]);
+        
       } catch (error) {
         console.error('Error memuat data pembayaran awal:', error);
         setApiStatus('unavailable');
@@ -172,6 +214,7 @@ export const PaymentProvider = ({ children }) => {
       apiStatus,
       refreshTransactions: loadPendingTransactions,
       refreshHistory: loadTransactionHistory,
+      loadTransactionsHistory, // Tambahkan alias ini di sini
       checkTransactionStatus,
       manualRefresh
     }}>

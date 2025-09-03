@@ -67,81 +67,33 @@ const clearAuthData = () => {
 };
 
 // Tambahkan token dan baseURL ke setiap request
-axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    // Log error untuk debugging
-    console.error(`Error response dari ${error.config?.url}:`, {
-      status: error.response?.status,
-      data: error.response?.data
+axiosInstance.interceptors.request.use(
+  (config) => {
+    // Set baseURL dinamis untuk setiap request
+    config.baseURL = getBackendUrl();
+    
+    const token = getStoredToken();
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+    
+    // Pastikan URL lengkap
+    if (config.url && !config.url.startsWith('http')) {
+      // Pastikan baseURL diakhiri dengan / jika url tidak dimulai dengan /
+      if (!config.baseURL.endsWith('/') && !config.url.startsWith('/')) {
+        config.url = '/' + config.url;
+      }
+    }
+    
+    // Untuk pencatatan
+    console.log(`Permintaan ke ${config.baseURL}${config.url}`, {
+      headers: config.headers,
+      method: config.method
     });
     
-    const originalRequest = error.config;
-    
-    // PERBAIKAN: Cek apakah ini permintaan ke endpoint QRIS yang memerlukan autentikasi
-    if (error.response?.status === 401 && originalRequest.url.includes('/qris-')) {
-      // Jika user tidak terautentikasi, jangan retry
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (!token) {
-        console.log('User belum login, tidak perlu retry untuk endpoint QRIS');
-        return Promise.reject(error);
-      }
-    }
-    
-    // Penanganan token refresh seperti biasa
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      const refreshToken = getRefreshToken();
-      
-      // PERBAIKAN: Tambahkan pengecekan refreshToken lebih ketat
-      if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null') {
-        console.warn("Refresh token tidak valid, mengarahkan ke login...");
-        // Bersihkan data autentikasi
-        localStorage.removeItem('token');
-        sessionStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        sessionStorage.removeItem('refreshToken');
-        
-        // Gunakan redirect yang lebih reliable
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 100);
-        
-        return Promise.reject(error);
-      }
-      
-      if (isRefreshing) {
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((token) => {
-            originalRequest.headers['Authorization'] = `Bearer ${token}`;
-            resolve(axiosInstance(originalRequest));
-          });
-        });
-      }
-      
-      originalRequest._retry = true;
-      isRefreshing = true;
-      
-      try {
-        // Lakukan refresh token
-        // ... kode refresh token yang sudah ada ...
-      } catch (refreshError) {
-        // ... kode handling refresh error yang sudah ada ...
-      }
-    }
-    
-    // Jika endpoint admin diakses tanpa parameter admin=true
-    if (error.response?.status === 401 && originalRequest.url.includes('/admin/')) {
-      // Coba akses ulang dengan parameter admin=true
-      const hasQueryParams = originalRequest.url.includes('?');
-      const newUrl = originalRequest.url + (hasQueryParams ? '&admin=true' : '?admin=true');
-      
-      console.log(`Mencoba ulang dengan parameter admin=true: ${newUrl}`);
-      originalRequest.url = newUrl;
-      return axiosInstance(originalRequest);
-    }
-    
-    return Promise.reject(error);
-  }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 // Cegah multiple refresh requests
@@ -173,6 +125,21 @@ axiosInstance.interceptors.response.use(
     
     const originalRequest = error.config;
 
+     // Jika endpoint qris-payments error, dan ini bukan permintaan retry
+    if (error.response?.status === 500 && 
+        originalRequest.url.includes('/api/qris-payments') && 
+        !originalRequest._isRetryQRIS) {
+
+    // Tandai bahwa ini sudah dicoba untuk endpoint qris-payments
+      originalRequest._isRetryQRIS = true;
+
+    // Coba endpoint alternatif
+      originalRequest.url = originalRequest.url.replace('/api/qris-payments', '/api/user/qris-payments');
+      
+      console.log(`Mencoba endpoint alternatif: ${originalRequest.url}`);
+      return axiosInstance(originalRequest);
+    }
+    
     // PERBAIKAN: Cek apakah ini permintaan ke endpoint QRIS yang memerlukan autentikasi
     if (error.response?.status === 401 && originalRequest.url.includes('/qris-')) {
       // Jika user tidak terautentikasi, jangan retry

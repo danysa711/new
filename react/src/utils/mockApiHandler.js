@@ -1,12 +1,5 @@
 // src/utils/mockApiHandler.js
 
-/**
- * Mock API Handler - Untuk menangani error server pada endpoint QRIS
- * 
- * Gunakan utility ini untuk mengelola error 500 pada endpoint QRIS
- * dengan cara menyediakan respons dummy jika endpoint asli gagal.
- */
-
 // Mock data untuk QRIS settings
 const MOCK_QRIS_SETTINGS = {
   merchant_name: 'Kinterstore',
@@ -17,34 +10,9 @@ const MOCK_QRIS_SETTINGS = {
 };
 
 // Mock data untuk QRIS payments
-const MOCK_QRIS_PAYMENTS = [
-  {
-    id: 'mock-1',
-    reference: 'QRIS12345678',
-    user_id: 1,
-    plan_id: 1,
-    total_amount: 100000,
-    status: 'UNPAID',
-    payment_proof: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    expired_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    User: {
-      username: 'user1',
-      email: 'user1@example.com'
-    },
-    SubscriptionPlan: {
-      name: '1 Bulan',
-      duration_days: 30
-    }
-  }
-];
+const MOCK_QRIS_PAYMENTS = [];
 
-/**
- * Fungsi untuk mendapatkan pengaturan QRIS dengan fallback ke mock data
- * @param {Function} axiosCall - Fungsi untuk memanggil API asli
- * @returns {Promise} - Hasil API call atau mock data jika gagal
- */
+// Fungsi untuk mendapatkan pengaturan QRIS dengan fallback ke mock data
 export const getQrisSettingsWithFallback = async (axiosCall) => {
   try {
     // Coba panggil API asli
@@ -56,11 +24,7 @@ export const getQrisSettingsWithFallback = async (axiosCall) => {
   }
 };
 
-/**
- * Fungsi untuk mendapatkan pembayaran QRIS dengan fallback ke mock data
- * @param {Function} axiosCall - Fungsi untuk memanggil API asli
- * @returns {Promise} - Hasil API call atau mock data jika gagal
- */
+// Fungsi untuk mendapatkan pembayaran QRIS dengan fallback ke mock data
 export const getQrisPaymentsWithFallback = async (axiosCall) => {
   try {
     // Coba panggil API asli
@@ -72,12 +36,7 @@ export const getQrisPaymentsWithFallback = async (axiosCall) => {
   }
 };
 
-/**
- * Fungsi untuk membuat transaksi QRIS baru dengan fallback ke mock data
- * @param {Function} axiosCall - Fungsi untuk memanggil API asli
- * @param {Object} planData - Data paket yang dibeli
- * @returns {Promise} - Hasil API call atau mock data jika gagal
- */
+// Fungsi untuk membuat transaksi QRIS baru dengan fallback ke mock data
 export const createQrisPaymentWithFallback = async (axiosCall, planData) => {
   try {
     // Coba panggil API asli
@@ -101,13 +60,7 @@ export const createQrisPaymentWithFallback = async (axiosCall, planData) => {
   }
 };
 
-/**
- * Fungsi untuk mengupload bukti pembayaran dengan fallback ke mock response
- * @param {Function} axiosCall - Fungsi untuk memanggil API asli
- * @param {String} reference - Referensi pembayaran
- * @param {File} file - File bukti pembayaran
- * @returns {Promise} - Hasil API call atau mock data jika gagal
- */
+// Fungsi untuk mengupload bukti pembayaran dengan fallback ke mock response
 export const uploadPaymentProofWithFallback = async (axiosCall, reference, file) => {
   try {
     // Coba panggil API asli
