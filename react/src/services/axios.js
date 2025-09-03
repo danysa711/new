@@ -1,5 +1,3 @@
-// src/services/axios.js - Perbaikan konfigurasi Axios
-
 import axios from "axios";
 
 // Fungsi untuk mendapatkan backend URL
@@ -25,101 +23,181 @@ const getBackendUrl = () => {
          "https://db.kinterstore.my.id";
 };
 
-// Buat instance axios dengan baseURL yang dinamis
-const axiosInstance = axios.create({
-  timeout: 60000, // 60 detik timeout - lebih lama untuk upload gambar
+// Buat instance axios khusus untuk QRIS dengan konfigurasi yang sesuai
+export const qrisInstance = axios.create({
+  timeout: 60000,
   headers: {
     "Content-Type": "application/json",
+    "Accept": "*/*",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
   },
+  withCredentials: true // Penting untuk CORS
 });
 
-// Tambahkan timeout yang lebih besar untuk upload files
-export const uploadInstance = axios.create({
-  timeout: 120000, // 2 menit timeout khusus untuk upload
-  headers: {
-    "Content-Type": "multipart/form-data",
-  },
-});
-
-// Fungsi menyimpan token berdasarkan remember
-const saveToken = (token, refreshToken) => {
-  const remember = localStorage.getItem("remember") === "true"; // Ambil remember dari localStorage
-
-  if (remember) {
-    localStorage.setItem("token", token);
-    if (refreshToken && refreshToken !== "") {
-      localStorage.setItem("refreshToken", refreshToken);
-    }
-  } else {
-    sessionStorage.setItem("token", token);
-    if (refreshToken && refreshToken !== "") {
-      sessionStorage.setItem("refreshToken", refreshToken);
-    }
-  }
-};
-
-// Fungsi mendapatkan token dari penyimpanan yang benar
-const getStoredToken = () => {
-  const remember = localStorage.getItem("remember") === "true";
-  return remember ? localStorage.getItem("token") : sessionStorage.getItem("token");
-};
-
-const getStoredRefreshToken = () => {
-  const remember = localStorage.getItem("remember") === "true";
-  return remember ? localStorage.getItem("refreshToken") : sessionStorage.getItem("refreshToken");
-};
-
-// Bersihkan data autentikasi
-const clearAuthData = () => {
-  localStorage.removeItem("token");
-  sessionStorage.removeItem("token");
-  localStorage.removeItem("refreshToken");
-  sessionStorage.removeItem("refreshToken");
-  // Jangan hapus data user dan backendUrl agar masih tersimpan untuk login berikutnya
-};
-
-// Tambahkan token dan baseURL ke setiap request
-axiosInstance.interceptors.request.use(
+// Tambahkan interceptor khusus untuk instance QRIS
+qrisInstance.interceptors.request.use(
   (config) => {
-    // Set baseURL dinamis untuk setiap request
+    // Set baseURL dinamis
     config.baseURL = getBackendUrl();
     
-    const token = getStoredToken();
+    // Tambahkan token otentikasi
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
     
-    // Tambahkan parameter admin=true untuk endpoints admin
-    if (config.url && (
-      config.url.includes('/admin/') || 
-      config.url.includes('?admin=true') ||
-      config.url.includes('/qris-settings')
-    )) {
-      // Tambahkan parameter admin=true jika belum ada
-      if (config.url.indexOf('?') === -1) {
-        config.url += '?admin=true';
-      } else if (config.url.indexOf('admin=true') === -1) {
-        config.url += '&admin=true';
-      }
-    }
+    // Tambahkan timestamp ke URL untuk menghindari cache
+    const separator = config.url.includes('?') ? '&' : '?';
+    config.url = `${config.url}${separator}ts=${Date.now()}`;
     
-    // Pastikan URL lengkap
-    if (config.url && !config.url.startsWith('http')) {
-      // Pastikan baseURL diakhiri dengan / jika url tidak dimulai dengan /
-      if (!config.baseURL.endsWith('/') && !config.url.startsWith('/')) {
-        config.url = '/' + config.url;
-      }
-    }
+    // Log request untuk debugging
+    console.log(`QRIS Request ke ${config.baseURL}${config.url}`, {
+      method: config.method,
+      headers: { ...config.headers }
+    });
     
-    // Log untuk endpoints penting saja (kurangi noise)
-    if (config.url && !config.url.includes('/api/test') && !config.url.startsWith('/api/settings/public')) {
-      console.log(`Request ke ${config.baseURL}${config.url}`, {
-        method: config.method,
-        headers: { 
-          "Content-Type": config.headers["Content-Type"],
-          "Authorization": config.headers["Authorization"] ? "Bearer ****" : "none" // Sembunyikan token sebenarnya
-        }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Fungsi helper untuk menangani error QRIS
+const handleQrisError = async (error) => {
+  console.error("Error QRIS:", error);
+  
+  // Jika error tidak memiliki respons (network error), tunggu dan coba lagi
+  if (!error.response) {
+    console.log("Kesalahan jaringan terdeteksi, mencoba lagi setelah 2 detik...");
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return qrisInstance(error.config);
+  }
+  
+  // Jika error 429 (Too Many Requests), tunggu dan coba lagi
+  if (error.response.status === 429) {
+    const retryAfter = parseInt(error.response.headers['retry-after']) || 5;
+    console.log(`Rate limit terlampaui, mencoba lagi setelah ${retryAfter} detik...`);
+    await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+    return qrisInstance(error.config);
+  }
+  
+  return Promise.reject(error);
+};
+
+// Tambahkan interceptor untuk respons
+qrisInstance.interceptors.response.use(
+  (response) => response,
+  handleQrisError
+);
+
+// Fungsi-fungsi helper untuk operasi QRIS
+
+// Mendapatkan pengaturan QRIS
+export const getQrisSettings = async () => {
+  try {
+    const response = await qrisInstance.get("/api/qris-settings");
+    return response.data;
+  } catch (error) {
+    console.error("Error mendapatkan pengaturan QRIS:", error);
+    throw error;
+  }
+};
+
+// Membuat pembayaran QRIS baru
+export const createQrisPayment = async (planId) => {
+  try {
+    const response = await qrisInstance.post("/api/qris-payment", { plan_id: planId });
+    return response.data;
+  } catch (error) {
+    console.error("Error membuat pembayaran QRIS:", error);
+    throw error;
+  }
+};
+
+// Upload bukti pembayaran QRIS
+export const uploadQrisPaymentProof = async (reference, file) => {
+  try {
+    const formData = new FormData();
+    formData.append("payment_proof", file);
+    
+    const response = await qrisInstance.post(`/api/qris-payment/${reference}/upload`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error("Error upload bukti pembayaran QRIS:", error);
+    
+    // Jika gagal dengan metode biasa, coba dengan base64
+    try {
+      console.log("Mencoba dengan metode base64...");
+      
+      // Baca file sebagai base64
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
+      
+      const base64Data = await base64Promise;
+      const base64Content = base64Data.split(',')[1]; // Ambil bagian base64 saja
+      
+      // Kirim sebagai JSON
+      const response = await qrisInstance.post(`/api/qris-payment/${reference}/upload-base64`, {
+        payment_proof_base64: base64Content,
+        file_type: file.type
+      });
+      
+      return response.data;
+    } catch (base64Error) {
+      console.error("Error upload dengan metode base64:", base64Error);
+      throw base64Error;
+    }
+  }
+};
+
+// Mendapatkan riwayat pembayaran QRIS
+export const getQrisPayments = async () => {
+  try {
+    const response = await qrisInstance.get("/api/qris-payments");
+    return response.data;
+  } catch (error) {
+    console.error("Error mendapatkan riwayat pembayaran QRIS:", error);
+    throw error;
+  }
+};
+
+// Membuat instance axios biasa dengan baseURL dinamis
+const axiosInstance = axios.create({
+  timeout: 60000,
+  headers: {
+    "Content-Type": "application/json"
+  }
+});
+
+// Tambahkan token dan baseURL ke setiap request
+axiosInstance.interceptors.request.use(
+  (config) => {
+    // Set baseURL dinamis
+    config.baseURL = getBackendUrl();
+    
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+    
+    // Untuk endpoint QRIS, gunakan instance QRIS khusus
+    if (config.url && (
+      config.url.includes('/qris-payment') || 
+      config.url.includes('/qris-settings') || 
+      config.url.includes('/qris-payments')
+    )) {
+      console.warn("Gunakan qrisInstance untuk endpoint QRIS!");
+      // Masih dilanjutkan, tapi berikan peringatan
     }
     
     return config;
@@ -127,114 +205,37 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Cegah multiple refresh requests
-let isRefreshing = false;
-let refreshSubscribers = [];
-
-const subscribeTokenRefresh = (callback) => {
-  refreshSubscribers.push(callback);
-};
-
-const onRefreshed = (token) => {
-  refreshSubscribers.forEach((callback) => callback(token));
-  refreshSubscribers = [];
-};
-
-// Counter untuk retry otomatis
-const maxRetries = 2;
-const retryRequestsMap = new Map();
-
-// Fungsi khusus untuk retry request dengan exponential backoff
-const retryRequest = async (originalRequest, retryCount = 0) => {
-  const maxRetries = 2;
-  if (retryCount >= maxRetries) {
-    return Promise.reject(new Error(`Maximum retries (${maxRetries}) exceeded`));
-  }
-  
-  // Tambahkan delay dengan exponential backoff
-  const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s, ...
-  await new Promise(resolve => setTimeout(resolve, delay));
-  
-  // Clone request dan tambahkan flag retry
-  const newRequest = { ...originalRequest, _retryCount: retryCount + 1 };
-  
-  // Log retry untuk debugging
-  console.log(`Retry request ${retryCount + 1}/${maxRetries} untuk: ${originalRequest.url}`);
-  
-  return axiosInstance(newRequest);
-};
-
-// Fungsi khusus untuk handle upload file QRIS
-const handleQrisUpload = async (originalRequest, error) => {
-  // Jika ini bukan error upload QRIS, lanjutkan ke handling normal
-  if (!originalRequest.url?.includes('/qris-payment/') || 
-      !originalRequest.url?.includes('/upload') ||
-      originalRequest._isRetryUpload) {
-    return Promise.reject(error);
-  }
-  
-  console.log("Mencoba upload QRIS dengan format alternatif");
-  
-  // Tandai bahwa request ini sudah dicoba ulang
-  originalRequest._isRetryUpload = true;
-  
-  // Jika ini adalah request FormData, coba format alternatif
-  if (originalRequest.data instanceof FormData) {
-    const formData = originalRequest.data;
-    const file = formData.get('payment_proof');
-    
-    if (file) {
-      try {
-        // Buat reader untuk mengonversi file ke base64
-        const reader = new FileReader();
-        const filePromise = new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        
-        const base64Data = await filePromise;
-        const base64Content = base64Data.split(',')[1]; // Ambil bagian base64 saja
-        
-        // Modifikasi URL untuk endpoint alternatif
-        let alternativeUrl = originalRequest.url;
-        if (!alternativeUrl.includes('-base64')) {
-          alternativeUrl = alternativeUrl.replace('/upload', '/upload-base64');
-        }
-        
-        // Coba kirim sebagai JSON dengan base64
-        const response = await axiosInstance.post(
-          alternativeUrl,
-          { 
-            payment_proof_base64: base64Content,
-            file_name: file.name,
-            file_type: file.type
-          }
-        );
-        
-        return response;
-      } catch (uploadError) {
-        console.error("Error saat mengupload dengan format alternatif:", uploadError);
-        // Jika masih gagal, coba dengan retryRequest biasa
-        return retryRequest(originalRequest);
-      }
-    }
-  }
-  
-  // Jika format alternatif tidak bisa digunakan, coba retry biasa
-  return retryRequest(originalRequest);
-};
-
-// Handling response error (refresh token jika access token expired)
+// Handling response error
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     
-    // Jika tidak ada config (misal network error), langsung reject
+    // Jika ini adalah endpoint QRIS, gunakan handler QRIS
+    if (originalRequest && (
+      originalRequest.url.includes('/qris-payment') || 
+      originalRequest.url.includes('/qris-settings') || 
+      originalRequest.url.includes('/qris-payments')
+    )) {
+      return handleQrisError(error);
+    }
+    
+    // Jika tidak ada config, langsung reject
     if (!originalRequest) {
-      console.error("Network error atau request gagal tanpa config:", error);
       return Promise.reject(error);
+    }
+    
+    // Jika error adalah 429 (Too Many Requests)
+    if (error.response?.status === 429) {
+      console.warn("Terlalu banyak permintaan (429), menerapkan backoff...");
+      return handleRateLimitError(originalRequest, error);
+    }
+    
+    // Jika error adalah ERR_INSUFFICIENT_RESOURCES, tambahkan delay lebih lama dan retry
+    if (error.response?.data?.error === 'ERR_INSUFFICIENT_RESOURCES') {
+      console.warn('Kesalahan sumber daya server terdeteksi, mencoba ulang setelah penundaan...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return axiosInstance(originalRequest);
     }
     
     // Ambil atau inisialisasi retry count
@@ -256,9 +257,28 @@ axiosInstance.interceptors.response.use(
       return handleQrisUpload(originalRequest, error);
     }
     
-    // Jika error adalah timeout atau network error dan masih bisa retry
-    if ((!error.response || error.code === 'ECONNABORTED') && retryCount < maxRetries) {
-      return retryRequest(originalRequest, retryCount);
+    // Jika error adalah timeout atau network error dan masih bisa retry (maksimal 3 kali)
+    if ((!error.response || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') 
+        && retryCount < 3) {
+      originalRequest._retryCount = retryCount + 1;
+      
+      // Tunggu dengan exponential backoff
+      const delay = 1000 * Math.pow(2, retryCount);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      console.log(`Retry request ${retryCount + 1}/3 untuk: ${originalRequest.url}`);
+      
+      // Ubah timeout menjadi lebih lama untuk retry
+      originalRequest.timeout = originalRequest.timeout || 30000;
+      originalRequest.timeout += 15000; // Tambah 15 detik setiap retry
+      
+      // Tambahkan timestamp untuk mencegah cache
+      if (originalRequest.url && !originalRequest.url.includes('ts=')) {
+        const separator = originalRequest.url.includes('?') ? '&' : '?';
+        originalRequest.url += `${separator}ts=${Date.now()}`;
+      }
+      
+      return axiosInstance(originalRequest);
     }
     
     // Cek apakah response adalah HTML (biasanya menandakan error atau langganan kedaluwarsa)
@@ -351,7 +371,10 @@ axiosInstance.interceptors.response.use(
           refreshUrl, 
           { token: refreshToken }, 
           {
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache" 
+            },
             timeout: 15000 // 15 detik untuk refresh token
           }
         );
@@ -394,6 +417,51 @@ axiosInstance.interceptors.response.use(
   }
 );
 
+// Fungsi khusus untuk QRIS payments yang bermasalah
+export const qrisPaymentRequest = async (url, method, data = null, specificBackendUrl = null) => {
+  const baseUrl = specificBackendUrl || getBackendUrl();
+  const fullUrl = `${baseUrl}${url.startsWith('/') ? url : '/' + url}`;
+  
+  // Tambah timestamp untuk menghindari cache
+  const timestampedUrl = fullUrl.includes('?') 
+    ? `${fullUrl}&ts=${Date.now()}` 
+    : `${fullUrl}?ts=${Date.now()}`;
+  
+  const token = getStoredToken();
+  
+  // Konfigurasi request
+  const config = {
+    url: timestampedUrl,
+    method: method,
+    headers: {
+      "Authorization": token ? `Bearer ${token}` : '',
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0"
+    },
+    timeout: 30000,
+    withCredentials: true
+  };
+  
+  if (data) {
+    config.data = data;
+  }
+  
+  // Gunakan sistem antrian untuk mencegah error rate limit
+  return new Promise((resolve, reject) => {
+    qrisRequestQueue.push({
+      resolver: { resolve, reject },
+      config
+    });
+    
+    // Mulai proses antrian jika belum berjalan
+    if (!isProcessingQrisQueue) {
+      processQrisQueue();
+    }
+  });
+};
+
 // Fungsi khusus untuk orders/find yang lebih robust
 export const findOrders = async (orderData, specificBackendUrl = null) => {
   try {
@@ -410,16 +478,21 @@ export const findOrders = async (orderData, specificBackendUrl = null) => {
     
     // Implementasi retry untuk orders/find
     let retries = 0;
-    const maxRetries = 2;
+    const maxRetries = 3; // Naikkan dari 2 ke 3 retry maksimal
     
     while (retries <= maxRetries) {
       try {
-        const response = await axios.post(`${url}/api/orders/find`, orderData, {
+        // Tambahkan timestamp ke URL untuk mencegah cache
+        const timestamp = Date.now();
+        const response = await axios.post(`${url}/api/orders/find?ts=${timestamp}`, orderData, {
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+            "Authorization": `Bearer ${token}`,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache"
           },
-          timeout: 15000 // 15 detik timeout
+          timeout: 20000, // 20 detik timeout, lebih panjang dari default
+          withCredentials: true
         });
         
         return response.data;
@@ -431,8 +504,10 @@ export const findOrders = async (orderData, specificBackendUrl = null) => {
         console.log(`Retry ${retries + 1}/${maxRetries} untuk orders/find...`);
         retries++;
         
-        // Delay sebelum retry berikutnya (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
+        // Delay sebelum retry berikutnya (exponential backoff dengan jitter)
+        const baseDelay = 1000 * Math.pow(2, retries - 1);
+        const jitter = Math.random() * 1000;
+        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
       }
     }
   } catch (error) {
@@ -463,9 +538,15 @@ export const findOrders = async (orderData, specificBackendUrl = null) => {
 export const testBackendConnection = async (url = null) => {
   const testUrl = url || getBackendUrl();
   try {
+    // Tambahkan timestamp untuk mencegah cache
+    const timestamp = Date.now();
     // Gunakan endpoint /api/test yang seharusnya selalu tersedia
-    const response = await axios.get(`${testUrl}/api/test`, {
-      timeout: 10000
+    const response = await axios.get(`${testUrl}/api/test?ts=${timestamp}`, {
+      timeout: 10000,
+      headers: {
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache" 
+      }
     });
     
     if (response.data && response.data.message === "API is working") {

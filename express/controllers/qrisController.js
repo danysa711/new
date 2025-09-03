@@ -15,6 +15,26 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 
+// Fungsi bantuan untuk menambahkan header CORS dan caching
+const addHeaders = (res) => {
+  // Header CORS
+  res.header("Access-Control-Allow-Origin", res.req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  
+  // Header untuk mencegah caching
+  res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.header("Pragma", "no-cache");
+  res.header("Expires", "0");
+  res.header("Surrogate-Control", "no-store");
+  
+  return res;
+};
+
 // Pastikan direktori uploads ada
 const ensureUploadsDir = () => {
   const uploadDir = path.join(__dirname, '../uploads/payment_proof');
@@ -119,6 +139,9 @@ const getQrisSettings = async (req, res) => {
   try {
     console.log("Mendapatkan pengaturan QRIS");
     
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     // Coba temukan pengaturan QRIS
     let settings = await QrisSettings.findOne({
       where: { is_active: true }
@@ -136,7 +159,11 @@ const getQrisSettings = async (req, res) => {
       });
     }
     
-    return res.status(200).json(settings);
+    // Tambahkan timestamp untuk mencegah caching
+    return res.status(200).json({
+      ...settings.toJSON(),
+      timestamp: Date.now()
+    });
   } catch (error) {
     console.error("Error getting QRIS settings:", error);
     return res.status(500).json({ error: "Server error", details: error.message });
@@ -146,6 +173,9 @@ const getQrisSettings = async (req, res) => {
 // Menyimpan pengaturan QRIS (admin)
 const saveQrisSettings = async (req, res) => {
   try {
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     const { merchant_name, qris_image, is_active, expiry_hours, instructions } = req.body;
     
     // Validasi input
@@ -178,7 +208,10 @@ const saveQrisSettings = async (req, res) => {
     
     return res.status(200).json({
       message: "QRIS settings saved successfully",
-      settings
+      settings: {
+        ...settings.toJSON(),
+        timestamp: Date.now()
+      }
     });
   } catch (error) {
     console.error("Error saving QRIS settings:", error);
@@ -189,6 +222,9 @@ const saveQrisSettings = async (req, res) => {
 // Membuat transaksi QRIS baru
 const createQrisPayment = async (req, res) => {
   try {
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     const { plan_id } = req.body;
     const user_id = req.userId;
     
@@ -260,7 +296,8 @@ const createQrisPayment = async (req, res) => {
         ...payment.toJSON(),
         qris_image: qrisSettings.qris_image,
         merchant_name: qrisSettings.merchant_name,
-        instructions: qrisSettings.instructions
+        instructions: qrisSettings.instructions,
+        timestamp: Date.now() // Tambahkan timestamp
       }
     });
   } catch (error) {
@@ -272,6 +309,9 @@ const createQrisPayment = async (req, res) => {
 // Upload bukti pembayaran QRIS
 const uploadPaymentProof = async (req, res) => {
   try {
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     const { reference } = req.params;
     const user_id = req.userId;
     
@@ -288,49 +328,78 @@ const uploadPaymentProof = async (req, res) => {
     });
     
     if (!payment) {
+      // Hapus file jika payment tidak ditemukan
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(404).json({ error: "Payment not found" });
     }
     
     if (payment.status !== "UNPAID") {
+      // Hapus file jika payment sudah diproses
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(400).json({ error: "Payment has already been processed" });
     }
     
     // Pastikan direktori upload ada
     ensureUploadsDir();
     
-    // Simpan bukti pembayaran (base64)
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const base64Image = `data:${req.file.mimetype};base64,${fileBuffer.toString("base64")}`;
-    
-    // Update payment dengan bukti pembayaran
-    await payment.update({
-      payment_proof: base64Image
-    });
-    
-    console.log(`Payment proof uploaded, sending WhatsApp notification`);
-    
-    // Kirim notifikasi WhatsApp
     try {
-      sendWhatsAppNotification(payment).then(sent => {
-        console.log(`WhatsApp notification ${sent ? 'sent' : 'failed'}`);
+      // Simpan bukti pembayaran (base64)
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const base64Image = `data:${req.file.mimetype};base64,${fileBuffer.toString("base64")}`;
+      
+      // Update payment dengan bukti pembayaran
+      await payment.update({
+        payment_proof: base64Image,
+        status: 'PENDING_VERIFICATION' // Ubah status
       });
-    } catch (whatsappError) {
-      console.error("Error sending WhatsApp notification:", whatsappError);
-      // Lanjutkan meski notifikasi WhatsApp gagal
+      
+      console.log(`Payment proof uploaded, sending WhatsApp notification`);
+      
+      // Kirim notifikasi WhatsApp
+      try {
+        sendWhatsAppNotification(payment).then(sent => {
+          console.log(`WhatsApp notification ${sent ? 'sent' : 'failed'}`);
+        });
+      } catch (whatsappError) {
+        console.error("Error sending WhatsApp notification:", whatsappError);
+        // Lanjutkan meski notifikasi WhatsApp gagal
+      }
+      
+      // Hapus file temporary
+      try {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+      } catch (unlinkError) {
+        console.error("Error deleting temporary file:", unlinkError);
+      }
+      
+      return res.status(200).json({
+        success: true,
+        message: "Payment proof uploaded successfully",
+        payment: {
+          ...payment.toJSON(),
+          timestamp: Date.now() // Tambahkan timestamp
+        }
+      });
+    } catch (processError) {
+      console.error("Error processing uploaded file:", processError);
+      
+      // Hapus file temporary jika terjadi error
+      try {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+      } catch (unlinkError) {
+        console.error("Error deleting temporary file:", unlinkError);
+      }
+      
+      throw processError;
     }
-    
-    // Hapus file temporary
-    try {
-      fs.unlinkSync(req.file.path);
-    } catch (unlinkError) {
-      console.error("Error deleting temporary file:", unlinkError);
-    }
-    
-    return res.status(200).json({
-      success: true,
-      message: "Payment proof uploaded successfully",
-      payment: payment.toJSON()
-    });
   } catch (error) {
     console.error("Error uploading payment proof:", error);
     return res.status(500).json({ error: "Server error", details: error.message });
@@ -340,9 +409,15 @@ const uploadPaymentProof = async (req, res) => {
 // Mendapatkan riwayat pembayaran QRIS
 const getUserQrisPayments = async (req, res) => {
   try {
-    const user_id = req.userId;
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
     
-    console.log(`Getting QRIS payments for user: ${user_id}`);
+    const user_id = req.userId;
+    const limit = parseInt(req.query.limit) || 20;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
+    
+    console.log(`Getting QRIS payments for user: ${user_id}, limit: ${limit}, page: ${page}`);
     
     const payments = await QrisPayment.findAll({
       where: { user_id },
@@ -350,12 +425,33 @@ const getUserQrisPayments = async (req, res) => {
         { model: User, attributes: ['username', 'email'] },
         { model: SubscriptionPlan, attributes: ['name', 'duration_days', 'price'] }
       ],
-      order: [['createdAt', 'DESC']]
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+    
+    // Menghapus data payment_proof dari response untuk mengurangi ukuran data
+    const filteredPayments = payments.map(payment => {
+      const paymentData = payment.toJSON();
+      // Jika ada payment proof, ganti dengan flag saja bukan base64 lengkap
+      if (paymentData.payment_proof) {
+        paymentData.has_payment_proof = true;
+        delete paymentData.payment_proof;
+      }
+      return paymentData;
     });
     
     console.log(`Found ${payments.length} QRIS payments`);
     
-    return res.status(200).json(payments);
+    return res.status(200).json({
+      data: filteredPayments,
+      pagination: {
+        page,
+        limit,
+        total: await QrisPayment.count({ where: { user_id } })
+      },
+      timestamp: Date.now() // Tambahkan timestamp
+    });
   } catch (error) {
     console.error("Error getting user QRIS payments:", error);
     return res.status(500).json({ error: "Server error", details: error.message });
@@ -365,19 +461,47 @@ const getUserQrisPayments = async (req, res) => {
 // Mendapatkan semua pembayaran QRIS (admin)
 const getAllQrisPayments = async (req, res) => {
   try {
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     console.log(`Admin retrieving all QRIS payments`);
+    
+    const limit = parseInt(req.query.limit) || 20;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
     
     const payments = await QrisPayment.findAll({
       include: [
         { model: User, attributes: ['username', 'email'] },
         { model: SubscriptionPlan, attributes: ['name', 'duration_days', 'price'] }
       ],
-      order: [['createdAt', 'DESC']]
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+    
+    // Menghapus data payment_proof dari response untuk mengurangi ukuran data
+    const filteredPayments = payments.map(payment => {
+      const paymentData = payment.toJSON();
+      // Jika ada payment proof, ganti dengan flag saja bukan base64 lengkap
+      if (paymentData.payment_proof) {
+        paymentData.has_payment_proof = true;
+        delete paymentData.payment_proof;
+      }
+      return paymentData;
     });
     
     console.log(`Found ${payments.length} QRIS payments total`);
     
-    return res.status(200).json(payments);
+    return res.status(200).json({
+      data: filteredPayments,
+      pagination: {
+        page,
+        limit,
+        total: await QrisPayment.count()
+      },
+      timestamp: Date.now() // Tambahkan timestamp
+    });
   } catch (error) {
     console.error("Error getting all QRIS payments:", error);
     return res.status(500).json({ error: "Server error", details: error.message });
@@ -387,6 +511,9 @@ const getAllQrisPayments = async (req, res) => {
 // Verifikasi pembayaran QRIS (admin)
 const verifyQrisPayment = async (req, res) => {
   try {
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     const { reference } = req.params;
     const { status, verification_note } = req.body;
     
@@ -410,14 +537,15 @@ const verifyQrisPayment = async (req, res) => {
       return res.status(404).json({ error: "Payment not found" });
     }
     
-    if (payment.status !== "UNPAID") {
+    if (payment.status !== "UNPAID" && payment.status !== "PENDING_VERIFICATION") {
       return res.status(400).json({ error: "Payment has already been processed" });
     }
     
     // Update status verifikasi WhatsApp
     await payment.update({
       whatsapp_verification: status === 'VERIFIED' ? 'VERIFIED' : 'REJECTED',
-      status: status === 'VERIFIED' ? 'PAID' : 'REJECTED'
+      status: status === 'VERIFIED' ? 'PAID' : 'REJECTED',
+      verification_note: verification_note || null
     });
     
     console.log(`Payment ${reference} updated to ${status}`);
@@ -468,7 +596,10 @@ const verifyQrisPayment = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `Payment ${status === 'VERIFIED' ? 'verified' : 'rejected'} successfully`,
-      payment: payment.toJSON()
+      payment: {
+        ...payment.toJSON(),
+        timestamp: Date.now() // Tambahkan timestamp
+      }
     });
   } catch (error) {
     console.error("Error verifying QRIS payment:", error);
@@ -479,6 +610,9 @@ const verifyQrisPayment = async (req, res) => {
 // Mendapatkan pengaturan grup WhatsApp
 const getWhatsAppGroupSettings = async (req, res) => {
   try {
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     console.log(`Getting WhatsApp group settings`);
     
     let settings = await WhatsAppGroupSettings.findOne();
@@ -495,7 +629,10 @@ const getWhatsAppGroupSettings = async (req, res) => {
       console.log(`Created default WhatsApp group settings`);
     }
     
-    return res.status(200).json(settings);
+    return res.status(200).json({
+      ...settings.toJSON(),
+      timestamp: Date.now() // Tambahkan timestamp
+    });
   } catch (error) {
     console.error("Error getting WhatsApp group settings:", error);
     return res.status(500).json({ error: "Server error", details: error.message });
@@ -505,6 +642,9 @@ const getWhatsAppGroupSettings = async (req, res) => {
 // Menyimpan pengaturan grup WhatsApp (admin)
 const saveWhatsAppGroupSettings = async (req, res) => {
   try {
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     const { group_name, group_id, is_active, notification_template } = req.body;
     
     console.log(`Saving WhatsApp group settings: ${group_name}`);
@@ -540,7 +680,10 @@ const saveWhatsAppGroupSettings = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "WhatsApp group settings saved successfully",
-      settings
+      settings: {
+        ...settings.toJSON(),
+        timestamp: Date.now() // Tambahkan timestamp
+      }
     });
   } catch (error) {
     console.error("Error saving WhatsApp group settings:", error);
@@ -550,6 +693,9 @@ const saveWhatsAppGroupSettings = async (req, res) => {
 
 const uploadPaymentProofBase64 = async (req, res) => {
   try {
+    // Tambahkan header CORS dan caching
+    addHeaders(res);
+    
     const { reference } = req.params;
     const { payment_proof_base64, file_type } = req.body;
     const user_id = req.userId;
@@ -576,11 +722,14 @@ const uploadPaymentProofBase64 = async (req, res) => {
     
     // Format data base64
     const contentType = file_type || 'image/jpeg';
-    const base64Image = `data:${contentType};base64,${payment_proof_base64}`;
+    const base64Image = payment_proof_base64.startsWith('data:') ? 
+      payment_proof_base64 : 
+      `data:${contentType};base64,${payment_proof_base64}`;
     
     // Update payment dengan bukti pembayaran
     await payment.update({
-      payment_proof: base64Image
+      payment_proof: base64Image,
+      status: 'PENDING_VERIFICATION' // Ubah status
     });
     
     console.log(`Base64 payment proof uploaded, sending WhatsApp notification`);
@@ -598,7 +747,10 @@ const uploadPaymentProofBase64 = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Payment proof uploaded successfully",
-      payment: payment.toJSON()
+      payment: {
+        ...payment.toJSON(),
+        timestamp: Date.now() // Tambahkan timestamp
+      }
     });
   } catch (error) {
     console.error("Error uploading base64 payment proof:", error);

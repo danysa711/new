@@ -184,29 +184,75 @@ const createQrisPayment = async () => {
       throw new Error("File harus berupa gambar (JPG, PNG)");
     }
     
-    // Buat FormData
-    const formData = new FormData();
-    formData.append('payment_proof', file);
+    // Cek ukuran file
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      throw new Error("Ukuran file terlalu besar (maksimal 5MB)");
+    }
     
-    // Coba upload dengan retry
-    const response = await fetchWithRetry(
-      () => axiosInstance.post(
-        `/api/qris-payment/${reference}/upload`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-          timeout: 30000 // 30 detik timeout
+    // METODE 1: Coba upload dengan FormData normal terlebih dahulu
+    try {
+      const formData = new FormData();
+      formData.append('payment_proof', file);
+      
+      const response = await fetchWithRetry(
+        () => axiosInstance.post(
+          `/api/qris-payment/${reference}/upload`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            },
+            timeout: 30000 // 30 detik timeout
+          }
+        ),
+        2, // max retries
+        2000 // initial delay
+      );
+      
+      if (response.data && response.data.payment) {
+        onSuccess && onSuccess(response.data);
+        return response.data;
+      }
+    } catch (uploadError) {
+      console.warn("Metode upload FormData gagal, mencoba dengan base64...", uploadError);
+      
+      // METODE 2: Jika gagal, coba dengan upload base64
+      try {
+        // Convert file ke base64
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        
+        const base64Data = await base64Promise;
+        // Ekstrak base64 content tanpa header (data:image/jpeg;base64,)
+        const base64Content = base64Data.split(',')[1];
+        
+        const response = await fetchWithRetry(
+          () => axiosInstance.post(
+            `/api/qris-payment/${reference}/upload-base64`,
+            { 
+              payment_proof_base64: base64Content,
+              file_type: file.type
+            },
+            { timeout: 30000 }
+          ),
+          2,
+          2000
+        );
+        
+        if (response.data && response.data.payment) {
+          onSuccess && onSuccess(response.data);
+          return response.data;
+        } else {
+          throw new Error("Respons server tidak valid");
         }
-      )
-    );
-    
-    if (response.data && response.data.payment) {
-      onSuccess && onSuccess(response.data);
-      return response.data;
-    } else {
-      throw new Error("Respons server tidak valid");
+      } catch (base64Error) {
+        console.error("Kedua metode upload gagal:", base64Error);
+        throw base64Error;
+      }
     }
   } catch (error) {
     console.error("Error upload bukti pembayaran:", error);

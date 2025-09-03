@@ -1,91 +1,132 @@
 // src/utils/paymentStorage.js
-// Utilitas untuk menyimpan dan mengambil data pembayaran dari localStorage
+// File utility untuk mengelola data pembayaran
 
-// Konstanta untuk key localStorage
-const STORAGE_KEYS = {
-  MANUAL_PAYMENT_METHODS: 'kinterstore_payment_methods',
-  TRIPAY_ENABLED: 'kinterstore_tripay_enabled',
-  TRIPAY_API_KEY: 'kinterstore_tripay_api_key',
-  TRIPAY_PRIVATE_KEY: 'kinterstore_tripay_private_key',
-  TRIPAY_MERCHANT_CODE: 'kinterstore_tripay_merchant_code',
-  TRIPAY_SANDBOX_MODE: 'kinterstore_tripay_sandbox_mode',
-  PAYMENT_EVENT: 'kinterstore_payment_update'
-};
+import axiosInstance from "../services/axios";
 
-// Mendapatkan status Tripay
-export const getTripayStatus = () => {
+// Menyimpan data pembayaran ke localStorage
+export const savePaymentData = (paymentData) => {
   try {
-    return localStorage.getItem(STORAGE_KEYS.TRIPAY_ENABLED) === 'true';
-  } catch (error) {
-    console.error('Error mendapatkan status Tripay:', error);
-    return false;
-  }
-};
-
-// Menyimpan status Tripay
-export const saveTripayStatus = (enabled) => {
-  try {
-    localStorage.setItem(STORAGE_KEYS.TRIPAY_ENABLED, enabled.toString());
-    // Trigger event untuk memberitahu komponen lain
-    triggerPaymentUpdate('tripay_status_updated');
+    localStorage.setItem('currentPayment', JSON.stringify(paymentData));
     return true;
   } catch (error) {
-    console.error('Error menyimpan status Tripay:', error);
+    console.error("Error saving payment data to localStorage:", error);
     return false;
   }
 };
 
-// Custom event untuk payment update (agar komponen bisa subscribe)
-export const triggerPaymentUpdate = (action) => {
+// Mendapatkan data pembayaran dari localStorage
+export const getPaymentData = () => {
   try {
-    // Gunakan storage event sebagai mekanisme komunikasi antar tab/komponen
-    localStorage.setItem(STORAGE_KEYS.PAYMENT_EVENT, JSON.stringify({
-      action,
-      timestamp: new Date().getTime()
-    }));
-    
-    // Trigger custom event untuk component dalam halaman yang sama
-    const event = new CustomEvent('payment_updated', { 
-      detail: { action, timestamp: new Date().getTime() }
-    });
-    window.dispatchEvent(event);
-    
+    const paymentData = localStorage.getItem('currentPayment');
+    return paymentData ? JSON.parse(paymentData) : null;
+  } catch (error) {
+    console.error("Error getting payment data from localStorage:", error);
+    return null;
+  }
+};
+
+// Membersihkan data pembayaran dari localStorage
+export const clearPaymentData = () => {
+  try {
+    localStorage.removeItem('currentPayment');
     return true;
   } catch (error) {
-    console.error('Error memicu pembaruan pembayaran:', error);
+    console.error("Error clearing payment data from localStorage:", error);
     return false;
   }
 };
 
-// Subscribe ke event payment update
+// Memeriksa status pembayaran Tripay
+export const getTripayStatus = async (referenceId) => {
+  try {
+    const response = await axiosInstance.get(`/api/tripay/status/${referenceId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error checking Tripay payment status:", error);
+    return { 
+      success: false, 
+      error: error.response?.data?.message || "Failed to check payment status" 
+    };
+  }
+};
+
+// Memeriksa status pembayaran QRIS
+export const getQrisStatus = async (reference) => {
+  try {
+    // Tambahkan timestamp untuk menghindari cache
+    const timestamp = Date.now();
+    const response = await axiosInstance.get(`/api/qris-payment/${reference}?ts=${timestamp}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error checking QRIS payment status:", error);
+    return { 
+      success: false, 
+      error: error.response?.data?.message || "Failed to check QRIS payment status" 
+    };
+  }
+};
+
+// Menyimpan callback URL untuk redirect setelah pembayaran
+export const savePaymentRedirect = (redirectUrl) => {
+  try {
+    localStorage.setItem('paymentRedirect', redirectUrl);
+    return true;
+  } catch (error) {
+    console.error("Error saving payment redirect:", error);
+    return false;
+  }
+};
+
+// Mendapatkan callback URL untuk redirect setelah pembayaran
+export const getPaymentRedirect = () => {
+  try {
+    return localStorage.getItem('paymentRedirect');
+  } catch (error) {
+    console.error("Error getting payment redirect:", error);
+    return '/dashboard';
+  }
+};
+
+// Membersihkan callback URL untuk redirect setelah pembayaran
+export const clearPaymentRedirect = () => {
+  try {
+    localStorage.removeItem('paymentRedirect');
+    return true;
+  } catch (error) {
+    console.error("Error clearing payment redirect:", error);
+    return false;
+  }
+};
+
+// Mendaftarkan callback untuk update status pembayaran
+const paymentUpdateCallbacks = [];
+
+// Mendaftarkan callback untuk update status pembayaran
 export const subscribeToPaymentUpdates = (callback) => {
-  // Event untuk komponen dalam halaman yang sama
-  window.addEventListener('payment_updated', (event) => {
-    callback(event.detail);
-  });
-  
-  // Storage event untuk komponen di tab/window berbeda
-  window.addEventListener('storage', (event) => {
-    if (event.key === STORAGE_KEYS.PAYMENT_EVENT) {
-      try {
-        const detail = JSON.parse(event.newValue);
-        callback(detail);
-      } catch (error) {
-        console.error('Error parsing payment event:', error);
-      }
+  if (typeof callback === 'function') {
+    paymentUpdateCallbacks.push(callback);
+    return true;
+  }
+  return false;
+};
+
+// Batalkan pendaftaran callback
+export const unsubscribeFromPaymentUpdates = (callback) => {
+  const index = paymentUpdateCallbacks.indexOf(callback);
+  if (index !== -1) {
+    paymentUpdateCallbacks.splice(index, 1);
+    return true;
+  }
+  return false;
+};
+
+// Memicu notifikasi update status pembayaran ke semua callback
+export const notifyPaymentUpdate = (paymentData) => {
+  paymentUpdateCallbacks.forEach(callback => {
+    try {
+      callback(paymentData);
+    } catch (error) {
+      console.error("Error in payment update callback:", error);
     }
   });
-  
-  // Return function untuk unsubscribe
-  return () => {
-    window.removeEventListener('payment_updated', callback);
-    window.removeEventListener('storage', callback);
-  };
-};
-
-export default {
-  getTripayStatus,
-  saveTripayStatus,
-  triggerPaymentUpdate,
-  subscribeToPaymentUpdates
 };
