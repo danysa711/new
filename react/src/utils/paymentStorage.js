@@ -3,6 +3,19 @@
 
 import axiosInstance from "../services/axios";
 
+
+import { 
+  triggerPaymentUpdate, 
+  subscribeToPaymentUpdates,
+  getTripayStatus 
+} from "../services/qris-service";
+
+export { 
+  triggerPaymentUpdate, 
+  subscribeToPaymentUpdates,
+  getTripayStatus 
+};
+
 // Menyimpan data pembayaran ke localStorage
 export const savePaymentData = (paymentData) => {
   try {
@@ -130,3 +143,4 @@ export const notifyPaymentUpdate = (paymentData) => {
     }
   });
 };
+

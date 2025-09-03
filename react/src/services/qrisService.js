@@ -1,5 +1,24 @@
 // src/services/qrisService.js
-import axiosInstance from './axios';
+import axiosInstance, { getQrisSettings, createQrisPayment, uploadQrisPaymentProof, getQrisPayments } from './axios';
+
+// Re-export fungsi-fungsi yang sudah ada di axios.js
+export { getQrisSettings, createQrisPayment, uploadQrisPaymentProof as uploadPaymentProof, getQrisPayments };
+
+// Fungsi tambahan untuk memeriksa status pembayaran
+export const checkPaymentStatus = async (reference) => {
+  try {
+    const response = await axiosInstance.get(`/api/qris-payment/${reference}/check`);
+    return response.data;
+  } catch (error) {
+    console.error('Error checking payment status:', error);
+    // Return respons default jika terjadi error
+    return {
+      success: false,
+      message: 'Gagal memeriksa status pembayaran',
+      newStatus: null
+    };
+  }
+};
 
 // Data fallback jika API gagal
 const FALLBACK_QRIS_SETTINGS = {
@@ -99,5 +118,7 @@ export const uploadPaymentProof = async (reference, file) => {
 export default {
   getQrisSettings,
   createQrisPayment,
-  uploadPaymentProof
+  uploadPaymentProof: uploadQrisPaymentProof,
+  getQrisPayments,
+  checkPaymentStatus
 };

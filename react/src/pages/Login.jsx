@@ -16,29 +16,34 @@ const Login = () => {
   const supportNumber = '6281284712684';
 
   const onFinish = async (values) => {
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
+  
+  try {
+    // Set remember = true untuk memastikan token disimpan di localStorage
+    const response = await login(values.username, values.password, true);
     
-    try {
-      // Login dengan benar
-      const response = await login(values.username, values.password, true);
+    if (response.success) {
+      console.log("Login berhasil, token tersimpan:", 
+        localStorage.getItem('token') ? "Ya (localStorage)" : "Tidak",
+        sessionStorage.getItem('token') ? "Ya (sessionStorage)" : "Tidak"
+      );
       
-      if (response.success) {
-        if (response.user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate(`/user/page/${response.user.url_slug}`);
-        }
+      if (response.user.role === 'admin') {
+        navigate('/admin/dashboard');
       } else {
-        setError(response.error || 'Login gagal');
+        navigate(`/user/page/${response.user.url_slug}`);
       }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'Terjadi kesalahan saat login');
-    } finally {
-      setLoading(false);
+    } else {
+      setError(response.error || 'Login gagal');
     }
-  };
+  } catch (err) {
+    console.error('Login error:', err);
+    setError(err.message || 'Terjadi kesalahan saat login');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Handle WhatsApp support click
   const handleSupportClick = () => {

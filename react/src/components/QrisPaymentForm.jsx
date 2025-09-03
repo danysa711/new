@@ -1,3 +1,5 @@
+// src/components/QrisPaymentForm.jsx
+
 import React, { useState, useEffect } from 'react';
 import { 
   Card, Button, Typography, Alert, Spin, Result,
@@ -7,25 +9,11 @@ import {
   QrcodeOutlined, UploadOutlined, CheckCircleOutlined,
   InfoCircleOutlined, ReloadOutlined
 } from '@ant-design/icons';
-import axiosInstance from '../services/axios';
+import axiosInstance from "../services/axios";
+import qrisService from "../services/qris-service";
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
-
-// Konfigurasi retry
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 1000; // 1 detik
-
-// Fungsi untuk melakukan retry request dengan exponential backoff
-const fetchWithRetry = async (apiCall, retries = 3, delay = 1000) => {
-  try {
-    return await apiCall();
-  } catch (error) {
-    if (retries === 0) throw error;
-    await new Promise(resolve => setTimeout(resolve, delay));
-    return fetchWithRetry(apiCall, retries - 1, delay * 2);
-  }
-};
 
 const QrisPaymentForm = ({ plan, onFinish }) => {
   const [loading, setLoading] = useState(false);
@@ -34,256 +22,108 @@ const QrisPaymentForm = ({ plan, onFinish }) => {
   const [paymentProof, setPaymentProof] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState(null);
-  const [retryingApi, setRetryingApi] = useState(false);
-
+  const [retryCount, setRetryCount] = useState(0);
+  
   // Mendapatkan pengaturan QRIS dengan fallback ke data lokal
-  useEffect(() => {
-    const fetchQrisSettings = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
+  seEffect(() => {
+  const loadQrisSettings = async () => {
     try {
-      // Coba dapatkan dari API utama
-      const settings = await qrisService.getQrisSettings();
-      setQrisSettings(settings);
+      setLoading(true);
+      setError(null);
+      
+      // Gunakan fungsi helper khusus dari api-adapter
+      const { success, data, message } = await fetchQrisSettings();
+      
+      if (success) {
+        setQrisSettings(data);
+      } else {
+        // Gunakan data fallback dari respons
+        setQrisSettings(data);
+        
+        // Tampilkan warning jika ada
+        if (message) {
+          setError(message);
+        }
+      }
     } catch (error) {
       console.error("Error saat memuat pengaturan QRIS:", error);
+      setError("Gagal memuat pengaturan QRIS. Menggunakan data default.");
       
-      // Buat data default jika gagal
-      const defaultSettings = {
+      // Tetap gunakan data default
+      setQrisSettings({
         merchant_name: "Kinterstore",
         qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
         is_active: true,
         expiry_hours: 24,
         instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
-      };
-      
-      setQrisSettings(defaultSettings);
-      setError("Gagal memuat pengaturan QRIS. Menggunakan data default.");
-    }
-  } catch (error) {
-    console.error("Error tak terduga:", error);
-    setError("Terjadi kesalahan tak terduga");
-    
-    // Tetap set default settings
-    setQrisSettings({
-      merchant_name: "Kinterstore",
-      qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
-      is_active: true,
-      expiry_hours: 24,
-      instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
-// Perbaikan fungsi createQrisPayment
-const createQrisPayment = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    // Gunakan try-catch bersarang untuk menangani berbagai kemungkinan error
-    try {
-      // Coba panggil API terlebih dahulu
-      const response = await axiosInstance.post('/api/qris-payment', {
-        plan_id: plan.id
       });
-      
-      if (response.data && response.data.payment) {
-        setPaymentData(response.data.payment);
-        setCurrentStep(1);
-        return;
-      }
-    } catch (apiError) {
-      console.warn("API error, falling back to mock data:", apiError);
-      // Jangan throw error di sini, lanjutkan ke fallback
+    } finally {
+      setLoading(false);
     }
-    
-    // Fallback jika API gagal: Buat data pembayaran dummy
-    const mockPayment = {
-      reference: `QRIS${Date.now().toString().slice(-8)}`,
-      total_amount: plan.price,
-      status: 'UNPAID',
-      createdAt: new Date().toISOString(),
-      expired_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-    };
-    
-    setPaymentData(mockPayment);
-    setCurrentStep(1);
-    message.warning('Menggunakan data simulasi karena server tidak merespons');
-    
-  } catch (error) {
-    console.error("Error creating QRIS payment:", error);
-    setError("Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
-  } finally {
-    setLoading(false);
-  }
-};
-    
-    fetchQrisSettings();
-  }, []);
+  };
+  
+  loadQrisSettings();
+}, [retryCount]);
 
   // Membuat transaksi QRIS
   const createQrisPayment = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    // Gunakan try-catch bersarang untuk menangani berbagai kemungkinan error
     try {
-      // Coba panggil API terlebih dahulu
-      const response = await axiosInstance.post('/api/qris-payment', {
-        plan_id: plan.id
-      });
+      setLoading(true);
+      setError(null);
       
-      if (response.data && response.data.payment) {
-        setPaymentData(response.data.payment);
+      const result = await qrisService.createQrisPayment(plan.id);
+      
+      if (result.success && result.payment) {
+        setPaymentData(result.payment);
         setCurrentStep(1);
-        return;
+      } else {
+        setError(result.message || "Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
       }
-    } catch (apiError) {
-      console.warn("API error, falling back to mock data:", apiError);
-      // Jangan throw error di sini, lanjutkan ke fallback
+    } catch (error) {
+      console.error("Error creating QRIS payment:", error);
+      setError("Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
+    } finally {
+      setLoading(false);
     }
-    
-    // Fallback jika API gagal: Buat data pembayaran dummy
-    const mockPayment = {
-      reference: `QRIS${Date.now().toString().slice(-8)}`,
-      total_amount: plan.price,
-      status: 'UNPAID',
-      createdAt: new Date().toISOString(),
-      expired_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-    };
-    
-    setPaymentData(mockPayment);
-    setCurrentStep(1);
-    message.warning('Menggunakan data simulasi karena server tidak merespons');
-    
-  } catch (error) {
-    console.error("Error creating QRIS payment:", error);
-    setError("Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Upload bukti pembayaran
-  const uploadPaymentProof = async (reference, file, onSuccess, onError) => {
-  try {
-    // Validasi file
+  const handleUpload = async (file) => {
     if (!file) {
-      throw new Error("File bukti pembayaran harus dipilih");
+      message.error("File bukti pembayaran harus dipilih");
+      return false;
     }
     
-    // Validasi tipe file
-    const isImage = file.type.startsWith('image/');
-    if (!isImage) {
-      throw new Error("File harus berupa gambar (JPG, PNG)");
+    if (!file.type.startsWith('image/')) {
+      message.error("File harus berupa gambar (JPG, PNG, GIF, dll)");
+      return false;
     }
     
-    // Cek ukuran file
-    if (file.size > 5 * 1024 * 1024) { // 5MB
-      throw new Error("Ukuran file terlalu besar (maksimal 5MB)");
+    if (file.size > 5 * 1024 * 1024) {
+      message.error("Ukuran file terlalu besar (maksimal 5MB)");
+      return false;
     }
     
-    // METODE 1: Coba upload dengan FormData normal terlebih dahulu
+    setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('payment_proof', file);
+      const result = await qrisService.uploadPaymentProof(paymentData.reference, file);
       
-      const response = await fetchWithRetry(
-        () => axiosInstance.post(
-          `/api/qris-payment/${reference}/upload`,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            },
-            timeout: 30000 // 30 detik timeout
-          }
-        ),
-        2, // max retries
-        2000 // initial delay
-      );
-      
-      if (response.data && response.data.payment) {
-        onSuccess && onSuccess(response.data);
-        return response.data;
-      }
-    } catch (uploadError) {
-      console.warn("Metode upload FormData gagal, mencoba dengan base64...", uploadError);
-      
-      // METODE 2: Jika gagal, coba dengan upload base64
-      try {
-        // Convert file ke base64
-        const reader = new FileReader();
-        const base64Promise = new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        
-        const base64Data = await base64Promise;
-        // Ekstrak base64 content tanpa header (data:image/jpeg;base64,)
-        const base64Content = base64Data.split(',')[1];
-        
-        const response = await fetchWithRetry(
-          () => axiosInstance.post(
-            `/api/qris-payment/${reference}/upload-base64`,
-            { 
-              payment_proof_base64: base64Content,
-              file_type: file.type
-            },
-            { timeout: 30000 }
-          ),
-          2,
-          2000
-        );
-        
-        if (response.data && response.data.payment) {
-          onSuccess && onSuccess(response.data);
-          return response.data;
-        } else {
-          throw new Error("Respons server tidak valid");
-        }
-      } catch (base64Error) {
-        console.error("Kedua metode upload gagal:", base64Error);
-        throw base64Error;
-      }
-    }
-  } catch (error) {
-    console.error("Error upload bukti pembayaran:", error);
-    onError && onError(error);
-    throw error;
-  }
-};
-
-// Gunakan fungsi uploadPaymentProof dalam komponen
-const handleUpload = async (file) => {
-  setLoading(true);
-  try {
-    await uploadPaymentProof(
-      paymentData.reference, 
-      file,
-      (data) => {
+      if (result.success) {
         setPaymentProof(URL.createObjectURL(file));
         message.success("Bukti pembayaran berhasil diunggah");
         setCurrentStep(2);
-      },
-      (error) => {
-        message.error(`Gagal mengunggah: ${error.message || 'Server error'}`);
+      } else {
+        message.error(result.message || "Gagal mengunggah bukti pembayaran");
       }
-    );
-  } catch (e) {
-    console.error("Error in handleUpload:", e);
-  } finally {
-    setLoading(false);
-  }
-  return false; // Mencegah upload default
-};
+    } catch (error) {
+      console.error("Error uploading payment proof:", error);
+      message.error(error.message || "Gagal mengunggah bukti pembayaran");
+    } finally {
+      setLoading(false);
+    }
+    
+    return false; // Mencegah upload default
+  };
 
   // Fungsi untuk menyalin nomor rekening/nominal ke clipboard
   const copyToClipboard = (text) => {
@@ -293,32 +133,10 @@ const handleUpload = async (file) => {
   };
 
   // Fungsi untuk retry saat API error
-  const retryApiCall = async () => {
-    if (currentStep === 0) {
-      message.info("Mencoba memuat pengaturan QRIS kembali...");
-      try {
-        setLoading(true);
-        setError(null);
-        setRetryingApi(true);
-        
-        const response = await axiosInstance.get('/api/qris-settings');
-        
-        setQrisSettings(response.data);
-        setRetryingApi(false);
-        message.success("Berhasil memuat pengaturan QRIS");
-      } catch (error) {
-        console.error("Error fetching QRIS settings:", error);
-        setError("Masih gagal memuat pengaturan QRIS. Mohon coba lagi nanti.");
-        setRetryingApi(false);
-        message.error("Gagal memuat pengaturan QRIS");
-      } finally {
-        setLoading(false);
-      }
-    } else if (currentStep === 1) {
-      createQrisPayment();
-    } else if (currentStep === 2 && paymentData) {
-      message.info("Silakan unggah bukti pembayaran kembali");
-    }
+  const retryApiCall = () => {
+    setRetryCount(prev => prev + 1);
+    setError(null);
+    message.info("Mencoba kembali...");
   };
 
   // Render berdasarkan status pembayaran
@@ -327,7 +145,7 @@ const handleUpload = async (file) => {
       return (
         <div style={{ textAlign: 'center', padding: '20px' }}>
           <Spin size="large" />
-          <div style={{ marginTop: 16 }}>Memuat{retryingApi ? ", mencoba ulang API..." : "..."}</div>
+          <div style={{ marginTop: 16 }}>Memuat...</div>
         </div>
       );
     }
@@ -370,7 +188,7 @@ const handleUpload = async (file) => {
             <Paragraph>
               Anda akan melakukan pembayaran untuk paket:
               <br />
-              <Text strong>{plan.name}</Text> - Rp {parseInt(plan.price).toLocaleString('id-ID')}
+              <Text strong>{plan.name}</Text> - Rp {parseFloat(plan.price).toLocaleString('id-ID')}
             </Paragraph>
             <Button 
               type="primary" 
@@ -415,42 +233,24 @@ const handleUpload = async (file) => {
             />
             
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              {qrisSettings.qris_image ? (
-  <div style={{ textAlign: 'center', marginBottom: 20 }}>
-    <Image 
-      src={qrisSettings.qris_image} 
-      alt="QRIS Code" 
-      style={{ maxWidth: '100%', maxHeight: '300px' }} 
-      fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QAAKqNIzIAAAAJcEhZcwAAAGAAAABgAPBrQs8AAAAHdElNRQfmCQQDNDPWFuVDAAABRklEQVRYw+2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNb2OqqlVg8E+Wh56UxS/xizFCHLdpuN6jfXvdvT0+nUYQBEEQBEHQT5HDl1sP59Ad/qz7+iYIgiAIgqDvItMcusyfh84x9YMfn04jCIKO6fmsvlLSt2mv1EW25aRsktV5qbJoD89pKtKeZgel0ownZVuSY1ovaQ9n9xRpT9O9kteXJsmhaX2mvaQfTusU3QYmk+RYVJ/kcDSvlvYkrk9ykKoysnE0r5b2JK5PclRUZWTj+oQs19fQKGXOzYaKc5LFEefoKoHmDSL9afqMSH+ansR1Wo9JX0xRx6JcqGlPzRxR7UnoKMnRqD7JsWheLe1JXJ/kKKnKyMbRvFrak7g+yTGpysjG9QlZrq+hMSjnZgPFuYoiR1cJNG/Qr5xGEARB/61fgNtCpXX3HcoAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjItMDktMDRUMDM6NTI6NTErMDA6MDDlm9l8AAAAJXRFWHRkYXRlOm1vZGlmeQAyMDIyLTA5LTA0VDAzOjUyOjUxKzAwOjAwlMZhwAAAACh0RVh0ZGF0ZTp0aW1lc3RhbXAAMjAyMi0wOS0wNFQwMzo1Mjo1MSswMDowMMPTQB0AAAAASUVORK5CYII="
-      onError={(e) => {
-        console.error("Error loading QRIS image:", e);
-        message.error("Gambar QRIS tidak dapat dimuat. Menggunakan placeholder.");
-      }}
-      preview={{
-        mask: (
-          <div>
-            <QrcodeOutlined style={{ fontSize: 20 }} />
-            <div>Lihat Gambar</div>
-          </div>
-        )
-      }}
-    />
-    <div style={{ marginTop: 8 }}>
-      <Text type="secondary"></Text>
-    </div>
-  </div>
-) : (
-  <Alert
-    message="Kode QRIS tidak tersedia"
-    description="Kode QRIS tidak dapat dimuat. Silakan hubungi admin untuk bantuan."
-    type="warning"
-    showIcon
-  />
-)}
-<div style={{ marginTop: 8 }}>
-  <Text type="secondary"></Text>
-    </div>
-  </div>
+              <Image 
+                src={qrisSettings.qris_image} 
+                alt="QRIS Code" 
+                style={{ maxWidth: '100%', maxHeight: '300px' }} 
+                fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QAAKqNIzIAAAAJcEhZcwAAAGAAAABgAPBrQs8AAAAHdElNRQfmCQQDNDPWFuVDAAABRklEQVRYw+2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNb2OqqlVg8E+Wh56UxS/xizFCHLdpuN6jfXvdvT0+nUYQBEEQBEHQT5HDl1sP59Ad/qz7+iYIgiAIgqDvItMcusyfh84x9YMfn04jCIKO6fmsvlLSt2mv1EW25aRsktV5qbJoD89pKtKeZgel0ownZVuSY1ovaQ9n9xRpT9O9kteXJsmhaX2mvaQfTusU3QYmk+RYVJ/kcDSvlvYkrk9ykKoysnE0r5b2JK5PclRUZWTj+oQs19fQKGXOzYaKc5LFEefoKoHmDSL9afqMSH+ansR1Wo9JX0xRx6JcqGlPzRxR7UnoKMnRqD7JsWheLe1JXJ/kKKnKyMbRvFrak7g+yTGpysjG9QlZrq+hMSjnZgPFuYoiR1cJNG/Qr5xGEARB/61fgNtCpXX3HcoAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjItMDktMDRUMDM6NTI6NTErMDA6MDDlm9l8AAAAJXRFWHRkYXRlOm1vZGlmeQAyMDIyLTA5LTA0VDAzOjUyOjUxKzAwOjAwlMZhwAAAACh0RVh0ZGF0ZTp0aW1lc3RhbXAAMjAyMi0wOS0wNFQwMzo1Mjo1MSswMDowMMPTQB0AAAAASUVORK5CYII="
+                preview={{
+                  mask: (
+                    <div>
+                      <QrcodeOutlined style={{ fontSize: 20 }} />
+                      <div>Lihat Gambar</div>
+                    </div>
+                  )
+                }}
+              />
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary"></Text>
+              </div>
+            </div>
             
             {qrisSettings.instructions && (
               <Alert
@@ -468,11 +268,9 @@ const handleUpload = async (file) => {
               <div style={{ marginTop: 16 }}>
                 <Upload
                   name="payment_proof"
-                  beforeUpload={(file) => {
-                    uploadPaymentProof(file);
-                    return false;
-                  }}
+                  beforeUpload={handleUpload}
                   showUploadList={false}
+                  accept="image/*"
                 >
                   <Button icon={<UploadOutlined />} loading={loading}>
                     Upload Bukti Pembayaran

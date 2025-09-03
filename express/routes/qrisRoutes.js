@@ -107,11 +107,8 @@ router.get("/qris-payments", authenticateUser, qrisInitLimiter, async (req, res)
     
     console.log(`Getting QRIS payments for user: ${user_id}, limit: ${limit}, page: ${page}`);
     
-    // Set header cache-control khusus untuk endpoint ini
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('Surrogate-Control', 'no-store');
+    // Pastikan model QrisPayment diimpor dengan benar
+    const { QrisPayment, User, SubscriptionPlan } = require("../models");
     
     const payments = await QrisPayment.findAll({
       where: { user_id },
@@ -124,10 +121,8 @@ router.get("/qris-payments", authenticateUser, qrisInitLimiter, async (req, res)
       offset
     });
     
-    // Menghapus data payment_proof dari response untuk mengurangi ukuran data
     const filteredPayments = payments.map(payment => {
       const paymentData = payment.toJSON();
-      // Jika ada payment proof, ganti dengan flag saja bukan base64 lengkap
       if (paymentData.payment_proof) {
         paymentData.has_payment_proof = true;
         delete paymentData.payment_proof;
@@ -135,9 +130,6 @@ router.get("/qris-payments", authenticateUser, qrisInitLimiter, async (req, res)
       return paymentData;
     });
     
-    console.log(`Found ${payments.length} QRIS payments`);
-    
-    // Tambahkan timestamp di response untuk client-side caching control
     return res.status(200).json({
       data: filteredPayments,
       timestamp: Date.now()
@@ -159,6 +151,8 @@ router.post("/qris-payment", qrisInitLimiter, qrisController.createQrisPayment);
 router.post("/qris-payment/:reference/upload", qrisInitLimiter, uploadWithErrorHandling, qrisController.uploadPaymentProof);
 router.post("/qris-payment/:reference/upload-base64", qrisInitLimiter, qrisController.uploadPaymentProofBase64);
 router.get("/qris-payments", qrisInitLimiter, qrisController.getUserQrisPayments);
+router.get("/admin/qris-settings", qrisController.getQrisSettings);
+router.get("/qris-settings/admin-true", qrisController.getQrisSettings);
 
 // Retry handler untuk error 429
 router.use((err, req, res, next) => {

@@ -32,7 +32,6 @@ const QrisPayment = sequelize.define(
         key: "id",
       },
     },
-    // PERUBAHAN PENTING: Ubah amount menjadi field biasa, bukan generated column
     amount: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
@@ -46,7 +45,7 @@ const QrisPayment = sequelize.define(
       allowNull: false
     },
     status: {
-      type: DataTypes.ENUM('UNPAID', 'PAID', 'REJECTED', 'EXPIRED'),
+      type: DataTypes.ENUM('UNPAID', 'PAID', 'REJECTED', 'EXPIRED', 'PENDING_VERIFICATION'),
       defaultValue: 'UNPAID'
     },
     payment_proof: {
@@ -59,6 +58,10 @@ const QrisPayment = sequelize.define(
     },
     whatsapp_verification: {
       type: DataTypes.ENUM('PENDING', 'VERIFIED', 'REJECTED'),
+      allowNull: true
+    },
+    verification_note: {
+      type: DataTypes.TEXT,
       allowNull: true
     },
     expired_at: {

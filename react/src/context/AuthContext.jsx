@@ -1,3 +1,5 @@
+// src/context/AuthContext.jsx
+
 import React, { createContext, useState, useEffect } from "react";
 import { 
   login as apiLogin, 
@@ -7,7 +9,14 @@ import {
   updateBackendUrl as apiUpdateBackendUrl,
   testBackendConnection as apiTestConnection 
 } from "../api/auth-service";
-import { getToken, getUserData } from "../api/utils";
+import { 
+  getToken, 
+  getUserData, 
+  saveToken, 
+  saveUserData, 
+  clearAuthData 
+} from "../api/utils";
+import { STORAGE_KEYS } from "../api/config";
 
 export const AuthContext = createContext();
 
@@ -50,31 +59,36 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       localStorage.setItem(STORAGE_KEYS.REMEMBER, remember.toString());
 
+      // Debug: print untuk memverifikasi remember diatur dengan benar
+      console.log(`Setting remember preference: ${remember}`);
+
       const response = await apiLogin(username, password, remember);
     
-    if (response.success) {
-      // Tambahan: Periksa bahwa refreshToken ada sebelum menyimpan
-      const { token, refreshToken, user } = response;
-      if (!refreshToken) {
-        console.warn("Login berhasil tapi refreshToken tidak diterima dari server");
+      if (response.success) {
+        // Tambahan: Periksa bahwa refreshToken ada sebelum menyimpan
+        if (!response.refreshToken) {
+          console.warn("Login berhasil tapi refreshToken tidak diterima dari server");
+        }
+        
+        // Debug: print token yang diterima untuk memverifikasi
+        console.log(`Received token: ${response.token ? 'yes' : 'no'}, refreshToken: ${response.refreshToken ? 'yes' : 'no'}`);
+        
+        // Simpan token dan user data menggunakan fungsi yang sudah ada
+        saveToken(response.token, response.refreshToken || "");
+        saveUserData(response.user);
+        
+        setToken(response.token);
+        setUser(response.user);
       }
       
-      // Simpan token dan user data
-      saveToken(token, refreshToken || "");  // Gunakan string kosong jika refreshToken tidak ada
-      saveUserData(user);
-      
-      setToken(token);
-      setUser(user);
+      return response;
+    } catch (error) {
+      console.error("Login error:", error);
+      return { success: false, error: error.message || "Login failed" };
+    } finally {
+      setLoading(false);
     }
-    
-    return response;
-  } catch (error) {
-    console.error("Login error:", error);
-    return { success: false, error: "Login failed" };
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Fungsi untuk register
   const register = async (username, email, password) => {
@@ -90,7 +104,7 @@ export const AuthProvider = ({ children }) => {
       return result;
     } catch (error) {
       console.error("Registration failed:", error);
-      return { success: false, error: "Registration failed" };
+      return { success: false, error: error.message || "Registration failed" };
     } finally {
       setLoading(false);
     }
@@ -98,23 +112,21 @@ export const AuthProvider = ({ children }) => {
 
   // Fungsi untuk logout
   const logout = () => {
-  localStorage.removeItem('token');
-  sessionStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  sessionStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  sessionStorage.removeItem('user');
+    // Gunakan clearAuthData dari utils
+    clearAuthData();
     apiLogout();
     setToken(null);
     setUser(null);
     
+    // Tambah delay sebelum redirect ke login
     setTimeout(() => {
-    window.location.href = '/login';
-  }, 100);
-};
+      window.location.href = '/login';
+    }, 100);
+  };
 
   // Fungsi untuk update data user
   const updateUserData = (userData) => {
+    saveUserData(userData);
     setUser(userData);
   };
 
@@ -132,7 +144,7 @@ export const AuthProvider = ({ children }) => {
       return result;
     } catch (error) {
       console.error("Error updating backend URL:", error);
-      return { success: false, error: "Failed to update backend URL" };
+      return { success: false, error: error.message || "Failed to update backend URL" };
     } finally {
       setLoading(false);
     }

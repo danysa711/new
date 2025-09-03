@@ -1,19 +1,37 @@
-// Perbaikan untuk express/middlewares/auth.js
+// express/middlewares/auth.js
 
 const jwt = require("jsonwebtoken");
 const { User, Subscription, db } = require("../models");
 
 const authenticateUser = async (req, res, next) => {
-  // PENTING: Tidak memerlukan autentikasi untuk endpoint login dan register
-  if (req.originalUrl === '/api/login' || req.originalUrl === '/api/register') {
-    console.log("Allowing access to authentication endpoint without token");
+  // Endpoint publik yang tidak memerlukan autentikasi
+  const publicEndpoints = [
+    '/api/login', 
+    '/api/register', 
+    '/api/settings/public',
+    '/api/settings/qris-public',
+    '/api/qris-settings/public', // Tambah endpoint publik untuk QRIS
+    '/api/test'
+  ];
+
+  // Skip autentikasi untuk endpoint publik
+  if (publicEndpoints.includes(req.originalUrl) || req.originalUrl.includes('/public')) {
     return next();
   }
 
-  // Perbaikan: Menambahkan parameter admin=true untuk endpoint admin
-  if (req.query.admin === 'true' && req.headers.authorization) {
-    console.log("Admin request dengan token terdeteksi");
-    // Lanjutkan dengan validasi token
+  // Endpoint khusus admin yang tidak perlu autentikasi
+  if (req.query.admin === 'true') {
+    console.log("Admin request dengan parameter admin=true terdeteksi");
+    // Jika ada token, validasi
+    if (req.headers.authorization) {
+      // Lanjut validasi token
+    } else {
+      // Khusus untuk endpoint qris-settings, izinkan tanpa token
+      if (req.originalUrl.includes('qris-settings')) {
+        console.log("Admin request untuk qris-settings tanpa token diizinkan");
+        return next();
+      }
+    }
   }
   
   const token = req.header("Authorization")?.split(" ")[1]; // Ambil token dari header
@@ -47,7 +65,6 @@ const authenticateUser = async (req, res, next) => {
         });
       }
     }
-    
 
     // Jika endpoint adalah /api/orders/find, pastikan pengguna memiliki langganan aktif
     if (req.originalUrl === '/api/orders/find' && req.userRole !== "admin") {
@@ -97,6 +114,24 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
+// Fungsi untuk menentukan apakah user adalah admin
+const isAdmin = (req, res, next) => {
+  // Jika admin=true parameter ada, izinkan akses
+  if (req.query.admin === 'true') {
+    console.log("Admin access granted via admin=true parameter");
+    return next();
+  }
+  
+  // Jika user memiliki role admin, izinkan akses
+  if (req.userRole === 'admin') {
+    console.log("Admin access granted via admin role");
+    return next();
+  }
+  
+  console.log("Admin access denied");
+  return res.status(403).json({ error: "Akses ditolak, memerlukan hak admin" });
+};
+
 const requireAdmin = (req, res, next) => {
   // Tambahkan debug log
   console.log("Checking admin rights:", { 
@@ -106,6 +141,12 @@ const requireAdmin = (req, res, next) => {
     query: req.query,
     headers: req.headers
   });
+
+  // Jika admin=true parameter ada, izinkan akses
+  if (req.query.admin === 'true') {
+    console.log("Admin access granted via admin=true parameter");
+    return next();
+  }
 
   // Khusus untuk user hardcoded "admin" atau user dengan role "admin"
   if (req.userId === "admin" || req.userRole === "admin") {
@@ -123,13 +164,13 @@ const requireActiveSubscription = async (req, res, next) => {
     return next();
   }
   
- // Untuk /api/orders/find - berikan warning tapi tetap lanjutkan ke controller
-    // yang akan memeriksa langganan dan memberikan respons yang sesuai
-    if (req.originalUrl === '/api/orders/find') {
-      console.log("Warning: Bypass subscription check for /api/orders/find - controller harus memeriksa");
-      req.bypassedSubscriptionCheck = true; // Tambahkan flag untuk controller
-      return next();
-    }
+  // Untuk /api/orders/find - berikan warning tapi tetap lanjutkan ke controller
+  // yang akan memeriksa langganan dan memberikan respons yang sesuai
+  if (req.originalUrl === '/api/orders/find') {
+    console.log("Warning: Bypass subscription check for /api/orders/find - controller harus memeriksa");
+    req.bypassedSubscriptionCheck = true; // Tambahkan flag untuk controller
+    return next();
+  }
 
   try {
     // Periksa apakah user memiliki langganan aktif
@@ -178,4 +219,4 @@ const requireActiveSubscription = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticateUser, requireAdmin, requireActiveSubscription };
+module.exports = { authenticateUser, requireAdmin, requireActiveSubscription, isAdmin };

@@ -418,4 +418,19 @@ QrisPayment.belongsTo(SubscriptionPlan, { foreignKey: 'plan_id' });
 User.hasMany(QrisPayment, { foreignKey: 'user_id' });
 SubscriptionPlan.hasMany(QrisPayment, { foreignKey: 'plan_id' });
 
-module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, WhatsAppTrialSettings, Transaction, QrisPayment, QrisSettings, WhatsAppGroupSettings, db };
+module.exports = { 
+  User, 
+  Software, 
+  SoftwareVersion, 
+  License, 
+  Order, 
+  OrderLicense, 
+  Subscription, 
+  SubscriptionPlan, 
+  WhatsAppTrialSettings, 
+  Transaction, 
+  QrisPayment, 
+  QrisSettings, 
+  WhatsAppGroupSettings, 
+  db 
+};

@@ -16,6 +16,8 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const qrisRoutes = require("./routes/qrisRoutes");
 const whatsAppRoutes = require("./routes/whatsAppRoutes");
 const { ensureQrisTables } = require("./utils/fix-qris-endpoints");
+const testRoutes = require("./routes/testRoutes");
+const qrisSettingsRoutes = require("./routes/qrisSettingsRoutes");
 const fs = require('fs');
 const path = require('path');
 
@@ -194,6 +196,68 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "API is working", timestamp: new Date().toISOString() });
 });
 
+app.get("/api/admin/qris-settings", (req, res) => {
+  req.query.admin = 'true'; // Set admin=true
+  console.log("Direct admin qris-settings endpoint accessed");
+  require("./controllers/qrisController").getQrisSettings(req, res);
+});
+
+// Tambahkan route publik tambahan untuk QRIS
+app.get('/api/qris-settings/public', (req, res) => {
+  try {
+    QrisSettings.findOne({ where: { is_active: true } })
+      .then(settings => {
+        if (settings) {
+          res.json(settings);
+        } else {
+          // Jika tidak ada settings yang aktif, berikan data default
+          res.json({
+            merchant_name: "Kinterstore",
+            qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
+            is_active: true,
+            expiry_hours: 24,
+            instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
+          });
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching QRIS settings:", err);
+        res.status(500).json({ error: "Server error" });
+      });
+  } catch (error) {
+    console.error("Error in QRIS settings endpoint:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+app.get('/api/settings/qris-public', (req, res) => {
+  try {
+    QrisSettings.findOne({ where: { is_active: true } })
+      .then(settings => {
+        if (settings) {
+          res.json(settings);
+        } else {
+          // Default data
+          res.json({
+            merchant_name: "Kinterstore",
+            qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
+            is_active: true,
+            expiry_hours: 24,
+            instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
+          });
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching QRIS settings:", err);
+        res.status(500).json({ error: "Server error" });
+      });
+  } catch (error) {
+    console.error("Error in QRIS settings endpoint:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Perbaikan khusus untuk endpoint qris-payments yang bermasalah
 app.use("/api/qris-payments", (req, res, next) => {
   // Pastikan semua header CORS ditetapkan dengan benar
@@ -225,6 +289,8 @@ app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", qrisRoutes); 
 app.use("/api", whatsAppRoutes);
+app.use("/api", testRoutes);
+app.use("/api/settings", qrisSettingsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

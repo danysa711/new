@@ -1,4 +1,4 @@
-// File: react/src/pages/admin/QrisSettings.jsx
+// react/src/pages/admin/QrisSettings.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Card, Form, Input, Button, Switch, InputNumber, 
@@ -18,70 +18,120 @@ const QrisSettings = () => {
   const [loading, setLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [initialValues, setInitialValues] = useState({
-    merchant_name: 'Kinterstore',
+    merchant_name: '',
     is_active: true,
     expiry_hours: 24,
-    instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda.'
+    instructions: ''
   });
 
   // Memuat data pengaturan QRIS
   useEffect(() => {
     const fetchSettings = async () => {
-      try {
-        setLoading(true);
-        
-        try {
-          // Tambahkan parameter admin=true
-          const response = await axiosInstance.get('/api/admin/qris-settings?admin=true');
-          const settings = response.data;
-          
-          setInitialValues({
-            merchant_name: settings.merchant_name,
-            is_active: settings.is_active,
-            expiry_hours: settings.expiry_hours,
-            instructions: settings.instructions
-          });
-          
-          setImageUrl(settings.qris_image);
-          form.setFieldsValue({
-            merchant_name: settings.merchant_name,
-            is_active: settings.is_active,
-            expiry_hours: settings.expiry_hours,
-            instructions: settings.instructions
-          });
-        } catch (error) {
-          console.error("Error fetching QRIS settings:", error);
-          
-          // Set nilai default
-          const defaultValues = {
-            merchant_name: 'Kinterstore',
-            is_active: true,
-            expiry_hours: 24,
-            instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda.'
-          };
-          
-          setInitialValues(defaultValues);
-          form.setFieldsValue(defaultValues);
-          
-          // Tampilkan pesan error
-          message.error("Gagal memuat pengaturan QRIS. Menggunakan nilai default.");
-        }
-      } catch (error) {
-        console.error("Unexpected error:", error);
-        message.error("Terjadi kesalahan tak terduga");
-      } finally {
-        setLoading(false);
+  try {
+    setLoading(true);
+    
+    try {
+      // Tambahkan parameter admin=true
+      const response = await axiosInstance.get('/api/admin/qris-settings?admin=true');
+      const settings = response.data;
+      
+      setInitialValues({
+        merchant_name: settings.merchant_name,
+        is_active: settings.is_active,
+        expiry_hours: settings.expiry_hours,
+        instructions: settings.instructions
+      });
+      
+      setImageUrl(settings.qris_image);
+      form.setFieldsValue({
+        merchant_name: settings.merchant_name,
+        is_active: settings.is_active,
+        expiry_hours: settings.expiry_hours,
+        instructions: settings.instructions
+      });
+    } catch (error) {
+      console.error("Error fetching QRIS settings:", error);
+      
+      // Pesan error spesifik
+      if (error.response?.status === 500) {
+        message.error("Server error: Tabel QRIS mungkin belum dibuat. Lihat konsol untuk detail.");
+        console.error("Jalankan SQL untuk membuat tabel QrisSettings dan QrisPayments");
+      } else if (error.response?.status === 401) {
+        message.error("Akses ditolak. Pastikan Anda memiliki hak admin.");
+      } else {
+        message.error("Gagal memuat pengaturan QRIS");
       }
-    };
+      
+      // Set nilai default
+      const defaultValues = {
+        merchant_name: 'Kinterstore',
+        is_active: true,
+        expiry_hours: 24,
+        instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda.'
+      };
+      
+      setInitialValues(defaultValues);
+      form.setFieldsValue(defaultValues);
+    }
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    message.error("Terjadi kesalahan tak terduga");
+  } finally {
+    setLoading(false);
+  }
+};
     
     fetchSettings();
   }, [form]);
+
+  // Handle upload gambar QRIS
+  const handleImageUpload = (info) => {
+    if (info.file.status === 'done') {
+      getBase64(info.file.originFileObj, (url) => {
+        setImageUrl(url);
+      });
+      message.success(`${info.file.name} berhasil diunggah`);
+    } else if (info.file.status === 'error') {
+      message.error(`${info.file.name} gagal diunggah`);
+    }
+  };
 
   // Fungsi untuk konversi gambar ke base64
   const getBase64 = (img, callback) => {
     const reader = new FileReader();
     reader.addEventListener('load', () => callback(reader.result));
     reader.readAsDataURL(img);
+  };
+
+  // react/src/pages/admin/QrisSettings.jsx (lanjutan)
+  // Handle submit form
+  const handleSubmit = async (values) => {
+    try {
+      setLoading(true);
+      
+      if (!imageUrl) {
+        message.error("Gambar QRIS harus diunggah");
+        setLoading(false);
+        return;
+      }
+      
+      const payload = {
+        ...values,
+        qris_image: imageUrl
+      };
+      
+      const response = await axiosInstance.post('/api/admin/qris-settings', payload);
+      
+      if (response.data) {
+        message.success("Pengaturan QRIS berhasil disimpan");
+        setInitialValues(values);
+      }
+    } catch (error) {
+      console.error("Error saving QRIS settings:", error);
+      message.error("Gagal menyimpan pengaturan QRIS");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Custom upload request untuk mengonversi gambar ke base64
@@ -101,36 +151,6 @@ const QrisSettings = () => {
     reader.onerror = (error) => {
       onError(error);
     };
-  };
-
-  // Handle submit form
-  const handleSubmit = async (values) => {
-    try {
-      setLoading(true);
-      
-      if (!imageUrl) {
-        message.error("Gambar QRIS harus diunggah");
-        setLoading(false);
-        return;
-      }
-      
-      const payload = {
-        ...values,
-        qris_image: imageUrl
-      };
-      
-      const response = await axiosInstance.post('/api/admin/qris-settings?admin=true', payload);
-      
-      if (response.data) {
-        message.success("Pengaturan QRIS berhasil disimpan");
-        setInitialValues(values);
-      }
-    } catch (error) {
-      console.error("Error saving QRIS settings:", error);
-      message.error("Gagal menyimpan pengaturan QRIS");
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -182,6 +202,7 @@ const QrisSettings = () => {
               <Form.Item
                 label="Gambar QRIS"
                 tooltip="Unggah gambar QRIS yang akan ditampilkan kepada pelanggan"
+                rules={[{ required: true, message: "Gambar QRIS harus diunggah" }]}
               >
                 <Upload
                   name="qris_image"

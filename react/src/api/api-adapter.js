@@ -2,11 +2,6 @@
 
 /**
  * API Adapter - Modul untuk menghubungkan frontend dengan berbagai backend
- * 
- * Adapter ini memungkinkan aplikasi untuk:
- * 1. Bekerja dengan backend utama (https://db.kinterstore.my.id)
- * 2. Bekerja dengan backend spesifik per user
- * 3. Menangani autentikasi secara konsisten di semua backend
  */
 
 // Fungsi untuk mendapatkan URL backend yang aktif
@@ -42,7 +37,9 @@ export const createAuthHeaders = () => {
   const token = getAuthToken();
   const headers = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Accept': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache'
   };
   
   if (token) {
@@ -57,6 +54,13 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
   const backendUrl = getActiveBackendUrl();
   const url = `${backendUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
   
+  // Tambahkan timestamp untuk menghindari caching
+  const timestampedEndpoint = endpoint.includes('?') 
+    ? `${endpoint}&_ts=${Date.now()}` 
+    : `${endpoint}?_ts=${Date.now()}`;
+  
+  const timestampedUrl = `${backendUrl}${timestampedEndpoint.startsWith('/') ? timestampedEndpoint : '/' + timestampedEndpoint}`;
+  
   // Gabungkan headers default dengan headers kustom
   const headers = {
     ...createAuthHeaders(),
@@ -68,11 +72,19 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
   const timeoutId = setTimeout(() => controller.abort(), 30000);
   
   try {
-    const response = await fetch(url, {
+    console.log(`Requesting ${options.method || 'GET'} ${timestampedUrl}`);
+    
+    const response = await fetch(timestampedUrl, {
       ...options,
       headers,
       signal: controller.signal
     });
+    
+    // Log untuk debugging
+    console.log(`Response status for ${timestampedEndpoint}: ${response.status}`);
+    
+    // Cek apakah endpoint adalah publik (misalnya settings/qris-public)
+    const isPublicEndpoint = endpoint.includes('/public') || endpoint.includes('qris-settings');
     
     // Cek apakah langganan kedaluwarsa
     if (response.status === 403) {
@@ -85,20 +97,45 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
     }
     
     // Cek apakah token tidak valid
-    if (response.status === 401) {
+    if (response.status === 401 && !isPublicEndpoint) {
+      console.warn(`Token invalid for ${timestampedEndpoint}, attempting refresh`);
+      
       // Coba refresh token
       const refreshed = await refreshAuthToken();
       if (refreshed) {
+        console.log(`Token refreshed successfully, retrying request to ${timestampedEndpoint}`);
         // Coba lagi dengan token baru
         return fetchWithAuth(endpoint, options);
       } else {
-        // Logout jika refresh gagal
-        localStorage.removeItem('token');
-        sessionStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        sessionStorage.removeItem('refreshToken');
-        window.location.href = '/login';
+        console.warn('Token refresh failed');
+        
+        // Jangan redirect jika sedang di halaman login atau public endpoint
+        if (!window.location.pathname.includes('/login') && !isPublicEndpoint) {
+          // Logout jika refresh gagal
+          localStorage.removeItem('token');
+          sessionStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          sessionStorage.removeItem('refreshToken');
+          
+          console.log('Auth failed, redirecting to login');
+          window.location.href = '/login';
+        }
+        
         return { error: 'auth_failed', message: 'Sesi Anda telah berakhir' };
+      }
+    }
+    
+    // Untuk endpoint public, jangan mencoba refresh token
+    if (response.status === 401 && isPublicEndpoint) {
+      console.log(`Public endpoint ${endpoint} returned 401, continuing without refresh`);
+      
+      // Return empty data for QRIS settings to allow fallback
+      if (endpoint.includes('qris-settings') || endpoint.includes('qris-public')) {
+        return { 
+          error: 'auth_failed',
+          message: 'QRIS settings require authentication',
+          useDefault: true
+        };
       }
     }
     
@@ -107,15 +144,22 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
     try {
       data = await response.json();
     } catch (e) {
+      console.warn(`Error parsing JSON from ${timestampedEndpoint}:`, e);
       data = { success: response.ok };
     }
     
     if (!response.ok) {
-      return { error: data.error || 'unknown_error', message: data.message || 'Terjadi kesalahan', status: response.status };
+      return { 
+        error: data.error || 'unknown_error', 
+        message: data.message || 'Terjadi kesalahan', 
+        status: response.status 
+      };
     }
     
     return data;
   } catch (error) {
+    console.error(`Error fetching ${timestampedUrl}:`, error);
+    
     if (error.name === 'AbortError') {
       return { error: 'timeout', message: 'Permintaan melebihi batas waktu' };
     }
@@ -126,31 +170,43 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
   }
 };
 
-// Fungsi untuk refresh token
+// Fungsi untuk refresh token yang ditingkatkan
 export const refreshAuthToken = async () => {
   const refreshToken = getRefreshToken();
   
   if (!refreshToken) {
+    console.warn('No refresh token available');
     return false;
   }
   
   try {
     const backendUrl = getActiveBackendUrl();
-    const response = await fetch(`${backendUrl}/api/user/refresh`, {
+    console.log(`Attempting to refresh token at ${backendUrl}/api/user/refresh`);
+    
+    // Tambahkan timestamp untuk menghindari cache
+    const timestamp = Date.now();
+    const url = `${backendUrl}/api/user/refresh?_ts=${timestamp}`;
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       },
       body: JSON.stringify({ token: refreshToken })
     });
     
     if (!response.ok) {
+      console.warn(`Token refresh failed with status ${response.status}`);
       return false;
     }
     
     const data = await response.json();
     
     if (data.token) {
+      console.log('New token received, saving token');
+      
       // Simpan token baru
       if (localStorage.getItem('remember') === 'true') {
         localStorage.setItem('token', data.token);
@@ -161,6 +217,7 @@ export const refreshAuthToken = async () => {
       return true;
     }
     
+    console.warn('Token refresh response did not contain token');
     return false;
   } catch (error) {
     console.error('Error refreshing token:', error);
@@ -244,10 +301,16 @@ export const testBackendConnection = async (url) => {
   const testUrl = url || getActiveBackendUrl();
   
   try {
-    const response = await fetch(`${testUrl}/api/test`, {
+    // Tambahkan timestamp untuk menghindari cache
+    const timestamp = Date.now();
+    const testUrlWithTimestamp = `${testUrl}/api/test?_ts=${timestamp}`;
+    
+    const response = await fetch(testUrlWithTimestamp, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       },
       timeout: 10000
     });
@@ -277,6 +340,70 @@ export const testBackendConnection = async (url) => {
       success: false,
       error: 'connection_error',
       message: `Koneksi gagal: ${error.message}`
+    };
+  }
+};
+
+// Helper untuk menangani endpoint QRIS khusus
+export const fetchQrisSettings = async () => {
+  try {
+    console.log('Fetching QRIS settings');
+    
+    // Coba beberapa endpoint berbeda secara berurutan
+    const endpoints = [
+      '/api/settings/qris-public',
+      '/api/qris-settings/public',
+      '/api/qris-settings?admin=true',
+      '/api/admin/qris-settings?admin=true'
+    ];
+    
+    let settings = null;
+    
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying to fetch QRIS settings from: ${endpoint}`);
+        const response = await fetchWithAuth(endpoint);
+        
+        if (response && !response.error) {
+          settings = response;
+          console.log(`Successfully fetched QRIS settings from ${endpoint}`);
+          break;
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch QRIS settings from ${endpoint}:`, err);
+      }
+    }
+    
+    if (settings) {
+      return { success: true, data: settings };
+    } else {
+      console.warn('All QRIS settings endpoints failed, using fallback data');
+      
+      // Gunakan data fallback
+      return { 
+        success: false, 
+        data: {
+          merchant_name: "Kinterstore",
+          qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
+          is_active: true,
+          expiry_hours: 24,
+          instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
+        },
+        message: "Menggunakan data QRIS default karena gagal mengambil dari server"
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching QRIS settings:', error);
+    return { 
+      success: false, 
+      data: {
+        merchant_name: "Kinterstore",
+        qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
+        is_active: true,
+        expiry_hours: 24,
+        instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
+      },
+      message: "Terjadi kesalahan saat mengambil pengaturan QRIS"
     };
   }
 };
