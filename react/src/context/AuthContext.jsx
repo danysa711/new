@@ -48,21 +48,33 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password, remember) => {
     try {
       setLoading(true);
-      const result = await apiLogin(username, password, remember);
-      
-      if (result.success) {
-        setToken(getToken());
-        setUser(result.user);
+      localStorage.setItem(STORAGE_KEYS.REMEMBER, remember.toString());
+
+      const response = await apiLogin(username, password, remember);
+    
+    if (response.success) {
+      // Tambahan: Periksa bahwa refreshToken ada sebelum menyimpan
+      const { token, refreshToken, user } = response;
+      if (!refreshToken) {
+        console.warn("Login berhasil tapi refreshToken tidak diterima dari server");
       }
       
-      return result;
-    } catch (error) {
-      console.error("Login error:", error);
-      return { success: false, error: "Login failed" };
-    } finally {
-      setLoading(false);
+      // Simpan token dan user data
+      saveToken(token, refreshToken || "");  // Gunakan string kosong jika refreshToken tidak ada
+      saveUserData(user);
+      
+      setToken(token);
+      setUser(user);
     }
-  };
+    
+    return response;
+  } catch (error) {
+    console.error("Login error:", error);
+    return { success: false, error: "Login failed" };
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fungsi untuk register
   const register = async (username, email, password) => {

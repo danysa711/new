@@ -10,6 +10,12 @@ const authenticateUser = async (req, res, next) => {
     return next();
   }
 
+  // Perbaikan: Menambahkan parameter admin=true untuk endpoint admin
+  if (req.query.admin === 'true' && req.headers.authorization) {
+    console.log("Admin request dengan token terdeteksi");
+    // Lanjutkan dengan validasi token
+  }
+  
   const token = req.header("Authorization")?.split(" ")[1]; // Ambil token dari header
 
   if (!token) {

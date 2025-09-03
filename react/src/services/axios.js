@@ -114,6 +114,7 @@ const maxRetries = 2;
 const retryRequestsMap = new Map();
 
 // Handling response error (refresh token jika access token expired)
+// Handling response error (refresh token jika access token expired)
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -125,15 +126,15 @@ axiosInstance.interceptors.response.use(
     
     const originalRequest = error.config;
 
-     // Jika endpoint qris-payments error, dan ini bukan permintaan retry
+    // Jika endpoint qris-payments error, dan ini bukan permintaan retry
     if (error.response?.status === 500 && 
         originalRequest.url.includes('/api/qris-payments') && 
         !originalRequest._isRetryQRIS) {
 
-    // Tandai bahwa ini sudah dicoba untuk endpoint qris-payments
+      // Tandai bahwa ini sudah dicoba untuk endpoint qris-payments
       originalRequest._isRetryQRIS = true;
 
-    // Coba endpoint alternatif
+      // Coba endpoint alternatif
       originalRequest.url = originalRequest.url.replace('/api/qris-payments', '/api/user/qris-payments');
       
       console.log(`Mencoba endpoint alternatif: ${originalRequest.url}`);
@@ -188,12 +189,12 @@ axiosInstance.interceptors.response.use(
     }
 
     // Refresh token jika error 401 (Unauthorized)
-    if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null') {
-        console.warn("Refresh token tidak valid, mengarahkan ke login...");
-      const refreshToken = getRefreshToken();
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = getStoredRefreshToken();
 
-      if (!refreshToken) {
-        console.warn("Tidak ada refresh token, mengarahkan ke login...");
+      // PERBAIKAN: Handle case di mana refresh token tidak ada
+      if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null') {
+        console.warn("Refresh token tidak valid, mengarahkan ke login...");
         clearAuthData();
         window.location.href = "/login";
         return Promise.reject(error);

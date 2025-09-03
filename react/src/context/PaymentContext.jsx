@@ -42,9 +42,10 @@ export const PaymentProvider = ({ children }) => {
 
   // Fungsi untuk memuat transaksi aktif
   const loadPendingTransactions = async () => {
+  try {
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      
       const response = await fetchWithRetry(
         () => axiosInstance.get('/api/qris-payments')
       );
@@ -55,16 +56,33 @@ export const PaymentProvider = ({ children }) => {
         setPendingTransactions(pendingQris);
         setApiStatus('available');
       }
-      return response.data;
     } catch (error) {
       console.error('Error memuat transaksi tertunda:', error);
-      setApiStatus('unavailable');
-      message.error('Gagal memuat transaksi - silakan coba lagi nanti', 3);
-      return [];
-    } finally {
-      setLoading(false);
+      
+      // Coba endpoint alternatif
+      try {
+        const alternativeResponse = await fetchWithRetry(
+          () => axiosInstance.get('/api/user/qris-payments')
+        );
+        
+        if (alternativeResponse.status === 200 && Array.isArray(alternativeResponse.data)) {
+          const pendingQris = alternativeResponse.data.filter(payment => payment.status === 'UNPAID');
+          setPendingTransactions(pendingQris);
+          setApiStatus('available');
+        }
+      } catch (altError) {
+        console.error('Error pada endpoint alternatif:', altError);
+        setApiStatus('unavailable');
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error memuat transaksi tertunda:', error);
+    setApiStatus('unavailable');
+    message.error('Gagal memuat transaksi - silakan coba lagi nanti', 3);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fungsi untuk memuat riwayat transaksi
   const loadTransactionHistory = async () => {

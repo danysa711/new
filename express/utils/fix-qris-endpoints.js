@@ -1,7 +1,6 @@
 // express/utils/fix-qris-endpoints.js
-const { QrisSettings, QrisPayment, User, SubscriptionPlan } = require("../models");
+const { QrisSettings, QrisPayment, SubscriptionPlan } = require("../models");
 
-// Fungsi untuk memastikan tabel-tabel QRIS sudah ada
 const ensureQrisTables = async () => {
   try {
     // Coba akses tabel untuk memastikan sudah ada
