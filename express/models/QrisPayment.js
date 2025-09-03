@@ -1,4 +1,5 @@
 // express/models/QrisPayment.js
+
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 
@@ -9,6 +10,11 @@ const QrisPayment = sequelize.define(
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
+    },
+    reference: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
     },
     user_id: {
       type: DataTypes.INTEGER,
@@ -26,43 +32,39 @@ const QrisPayment = sequelize.define(
         key: "id",
       },
     },
-    reference: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-    },
+    // PERUBAHAN PENTING: Ubah amount menjadi field biasa, bukan generated column
     amount: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
+      allowNull: false
     },
     unique_code: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: false
     },
     total_amount: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
+      allowNull: false
     },
     status: {
-      type: DataTypes.ENUM("UNPAID", "PAID", "EXPIRED", "REJECTED"),
-      defaultValue: "UNPAID",
+      type: DataTypes.ENUM('UNPAID', 'PAID', 'REJECTED', 'EXPIRED'),
+      defaultValue: 'UNPAID'
     },
     payment_proof: {
-      type: DataTypes.TEXT,
-      allowNull: true,
+      type: DataTypes.TEXT('long'),
+      allowNull: true
     },
     whatsapp_notification_sent: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
+      defaultValue: false
     },
     whatsapp_verification: {
-      type: DataTypes.ENUM("PENDING", "VERIFIED", "REJECTED"),
-      defaultValue: "PENDING",
+      type: DataTypes.ENUM('PENDING', 'VERIFIED', 'REJECTED'),
+      allowNull: true
     },
     expired_at: {
       type: DataTypes.DATE,
-      allowNull: false,
-    },
+      allowNull: false
+    }
   },
   {
     timestamps: true,

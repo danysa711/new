@@ -47,81 +47,70 @@ export const ConnectionProvider = ({ children }) => {
   // Cek koneksi saat URL berubah atau user login/logout
   useEffect(() => {
     const checkConnection = async () => {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      
-      if (!token) {
-        setIsConnected(false);
-        setConnectionStatus("disconnected");
-        // Update lastChecked
-        setLastChecked(new Date());
-        return;
-      }
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  
+  if (!token) {
+    setIsConnected(false);
+    setConnectionStatus("disconnected");
+    setLastChecked(new Date());
+    return;
+  }
 
+  try {
+    setConnectionStatus("checking");
+    
+    // Gunakan urutan endpoint yang benar untuk pemeriksaan koneksi
+    const endpointsToTry = [
+      '/api/settings/public',       // Endpoint publik tanpa autentikasi
+      '/api/settings/qris-public',  // Endpoint publik QRIS
+      '/api/test',                  // Endpoint fallback
+    ];
+    
+    let connected = false;
+    
+    // Iterasi melalui setiap endpoint sampai ada yang berhasil
+    for (const endpoint of endpointsToTry) {
       try {
-        setConnectionStatus("checking");
+        console.log(`Memeriksa koneksi ke endpoint: ${endpoint}`);
         
-        // Gunakan urutan endpoint yang benar untuk pemeriksaan koneksi
-        const endpointsToTry = [
-          '/api/settings/public',  // Coba endpoint publik dulu (tidak butuh auth)
-          '/api/test',             // Endpoint fallback pertama
-          '/api/status'            // Endpoint fallback kedua
-        ];
-        
-        let connected = false;
-        
-        // Iterasi melalui setiap endpoint sampai ada yang berhasil
-        for (const endpoint of endpointsToTry) {
-          try {
-            console.log(`Memeriksa koneksi ke endpoint: ${endpoint}`);
-            
-            // Buat opsi request khusus tanpa header Authorization untuk endpoint publik
-            const requestOptions = {};
-            if (endpoint === '/api/settings/public') {
-              // Hapus header Authorization untuk endpoint publik
-              requestOptions.headers = { 'Accept': 'application/json' };
-            } else {
-              // Tambahkan header Authorization untuk endpoint lainnya
-              requestOptions.headers = {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-              };
-            }
-            
-            const testUrl = proxyEnabled ? endpoint : `${backendUrl}${endpoint}`;
-            const response = await fetch(testUrl, {
-              ...requestOptions,
-              // Tambahkan timeout untuk fetch
-              signal: AbortSignal.timeout(8000) // 8 detik timeout
-            });
-            
-            if (response.ok) {
-              console.log(`Koneksi berhasil melalui endpoint: ${endpoint}`);
-              connected = true;
-              break;
-            }
-          } catch (err) {
-            console.warn(`Endpoint ${endpoint} gagal:`, err);
-            // Lanjut ke endpoint berikutnya
-          }
+        // Untuk endpoint publik, jangan sertakan Authorization header
+        const headers = {};
+        if (!endpoint.includes('/public')) {
+          headers['Authorization'] = `Bearer ${token}`;
         }
         
-        if (connected) {
-          setIsConnected(true);
-          setConnectionStatus("connected");
-        } else {
-          setIsConnected(false);
-          setConnectionStatus("error");
-          console.log("Semua endpoint gagal");
+        const testUrl = proxyEnabled ? endpoint : `${backendUrl}${endpoint}`;
+        const response = await fetch(testUrl, {
+          headers,
+          signal: AbortSignal.timeout(8000) // 8 detik timeout
+        });
+        
+        if (response.ok) {
+          console.log(`Koneksi berhasil melalui endpoint: ${endpoint}`);
+          connected = true;
+          break;
         }
       } catch (err) {
-        console.error("Error koneksi:", err);
-        setIsConnected(false);
-        setConnectionStatus("error");
-      } finally {
-        // Update lastChecked state setelah pemeriksaan selesai
-        setLastChecked(new Date());
+        console.warn(`Endpoint ${endpoint} gagal:`, err);
       }
-    };
+    }
+    
+    if (connected) {
+      setIsConnected(true);
+      setConnectionStatus("connected");
+    } else {
+      setIsConnected(false);
+      setConnectionStatus("error");
+      console.log("Semua endpoint gagal");
+    }
+  } catch (err) {
+    console.error("Error koneksi:", err);
+    setIsConnected(false);
+    setConnectionStatus("error");
+  } finally {
+    setLastChecked(new Date());
+  }
+};
 
     // Jika user dan token ada, cek status langganan
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");

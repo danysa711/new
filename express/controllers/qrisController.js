@@ -229,21 +229,22 @@ const createQrisPayment = async (req, res) => {
     
     // Hitung total pembayaran
     const amount = parseFloat(plan.price);
-    const total_amount = amount + (unique_code / 100); // Tambahkan kode unik ke belakang
+    const total_amount = parseFloat((amount + (unique_code / 100)).toFixed(2)); // Tambahkan kode unik ke belakang
     
     // Buat referensi unik
-    const reference = `QRIS-${Date.now()}-${uuidv4().substring(0, 8)}`;
+    const reference = `QRIS-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
     
     // Hitung tanggal kedaluwarsa
     const expired_at = new Date();
     expired_at.setHours(expired_at.getHours() + qrisSettings.expiry_hours);
     
+    // PERBAIKAN: Pastikan amount adalah nilai yang valid dan bukan generated column
     // Buat transaksi baru
     const payment = await QrisPayment.create({
       user_id,
       plan_id,
       reference,
-      amount,
+      amount,                // Simpan amount secara langsung
       unique_code,
       total_amount,
       expired_at,

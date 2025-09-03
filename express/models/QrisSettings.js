@@ -1,4 +1,3 @@
-// express/models/QrisSettings.js
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 
@@ -13,10 +12,11 @@ const QrisSettings = sequelize.define(
     merchant_name: {
       type: DataTypes.STRING,
       allowNull: false,
+      defaultValue: "Kinterstore",
     },
     qris_image: {
-      type: DataTypes.TEXT,
-      allowNull: false,
+      type: DataTypes.TEXT('long'), // Ubah menjadi TEXT('long') untuk menampung base64 yang panjang
+      allowNull: true,
     },
     is_active: {
       type: DataTypes.BOOLEAN,

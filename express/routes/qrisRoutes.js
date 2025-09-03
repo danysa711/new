@@ -34,6 +34,51 @@ const upload = multer({
   }
 });
 
+router.get("/qris-payments", authenticateUser, async (req, res) => {
+  try {
+    const user_id = req.userId;
+    const limit = parseInt(req.query.limit) || 20;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
+    
+    console.log(`Getting QRIS payments for user: ${user_id}, limit: ${limit}, page: ${page}`);
+    
+    const payments = await QrisPayment.findAll({
+      where: { user_id },
+      include: [
+        { model: User, attributes: ['username', 'email'] },
+        { model: SubscriptionPlan, attributes: ['name', 'duration_days', 'price'] }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+    
+    // Menghapus data payment_proof dari response untuk mengurangi ukuran data
+    const filteredPayments = payments.map(payment => {
+      const paymentData = payment.toJSON();
+      // Jika ada payment proof, ganti dengan flag saja bukan base64 lengkap
+      if (paymentData.payment_proof) {
+        paymentData.has_payment_proof = true;
+        delete paymentData.payment_proof;
+      }
+      return paymentData;
+    });
+    
+    console.log(`Found ${payments.length} QRIS payments`);
+    
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    
+    return res.status(200).json(filteredPayments);
+  } catch (error) {
+    console.error("Error getting user QRIS payments:", error);
+    return res.status(500).json({ error: "Server error", details: error.message });
+  }
+});
+
 // Endpoint public
 router.get("/qris-settings", qrisController.getQrisSettings);
 

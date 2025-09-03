@@ -370,24 +370,41 @@ const handleUpload = async (file) => {
             
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
               {qrisSettings.qris_image ? (
-                <Image 
-                  src={qrisSettings.qris_image} 
-                  alt="QRIS Code" 
-                  style={{ maxWidth: '100%', maxHeight: '300px' }} 
-                  fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAMAAABrrFhUAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAMAUExURQAAAJtuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuI5tuIxGa8FEAAAEAdFJOU////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wBT9wclAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAGyklEQVR4Xu3de1sURxTAYUBBEBAQRPGGN1CjeItXNBoTE2NiotGo0WiMGk2i0STn+z9CZmdndhcWpqfOVM+es+f3R6Crf9Z3ge7ZS7dAKaWUUkoppZRSSimllFJKKaWUUkoppZRSilkfOh7Ol0qlUokf9xIFgAeJ4kRNHiHV7PFAcSl5RHRlTxR3UkjwQ/ZAcaYkuCFX60Txps0uoZoDxZ32oODNgeJQkV7GpYLiUh+5qP3DgeLSIHm2Zw4Ul/rFdTlQnBpkCxSn+sh1OVCcKpJLO1Bc2sUDxZkBzh8oDnGn7EBxZogP9e5AcWWYh4kDxZVBzu8HxZ1+XsHuFCgOVXmFEQEUd/b4D7wcoLgzQgsUZ8o8BoozfVTjYZICiisV3hABFFeGeV0vB4ojAxwVQHHlIDX5YRIUNw5Rix8mQXGiTGt+mATFiQFq88MkKC5UaZOsKC5UacvbHCgOVGnbPwWKrn7a8UMFiqa+g7RLVhRNQwc5KoiKoqXCUQEULZXDHBVAUVKmVA9zoGio8k+3RFKU9A9RWlYUHRUeIMsEio4+PkDpbweKhv5RPkCWOFLiK/EA/XtF4itX+MdbIkmIq1w9SjvOgBLfQX6wJb4hjgoiGOQBsiGUyI5Ro9YgibfM8+8RJL4qsS0mJQrHv9MkssqDxDKYkKgqx9gWkxJVmR9tiW2UWHaToqjyMxSxlYnN7pFEUhkltrApcQ0T22JS4qrwb/UlslGOCkIrE9uZ5yQRDRLb4abENcwRUmjDxLaYlLhG+EhUYrpP7GAOlIiqVOOoIBGNEdtiUmKqEjvYACWaMcptMSlxjZJ4bJwgcZ0k8fCXxNWOhEeWg9RO45DQ8EiuNGLXwD9VysmFG4vzs6XVmdnFP64uEsYfV2dn5h7PdlfnZ/+8Nn+r17DPL5KQwJnSm/MXrz1YfgTy6NHDh49w8+7Z8xcm+mik9xKwL3V7/nLh6Y6Yybd6vzJ/Zb5PBm5gX/Ld69fL29ZzMNur9+bmSxLINnbPxcXdKlbUMtW7yzcX1Mu4gD2pn+8/XeEsyGa25ue2SSg72OV//o8EsmC/f3cDGvkc9vyuPUkga3rx18xhCWUZ94Hud2MQWd90B/bcLpxYlmA/xL+SRHK9tz93+V4k2OP6+fFqEsmCvZK/lUCyYY/prXIiWbCnszctgbB7vLNPE0gu7dHcGE8kCfZgbp5OKAd2+R/GkkiurcczFxNLttnZqZkrl5ZmZ2dvbSBfNh7O3Lq9+/hpMrHUm5lJZm2eKZb5+Wh+jP3qR/Jl47Pbt/cSWTMzE1Wta9G+3/O9Dz3ZeHD3flLnS7Jh1+zqB7XxHnb5p2cmsWY+Vz9fE7vyd1Ja21df2nMJZXn2tKc12aNrX/nrrxPJ8gx+vrXbSr9p/+3p8sM3iXzZeLV6d+9DIgVv/WBX/snrxLL8+2rz08nEsvC23Np5m9R5n9T5JaGCt3aw7/dlcglm+f8klOUB/HxLyy8TKnj7FXZXLr9KLMuLHtbmb4ll4W25t5LQudePXf7F0sOEsvxXBxvv+qmPYL+C+C2hLH9YnbeJZfmA0Fr5NYnzNpnzawIFa0GwX5+4l1gW3pbfJXLed2L3S19I6jwbw+75XyeW5dHHRLIcgJzvzZTY5c+s3U8sy/OPsLW28j2JciA536ucw975Mwll+Svna/SsG/t+n15LKEtw48Deb/p9Yll2lmHn09T1JE65EAA7xWzxPcHWRjBrY1/k/JlYlgd1rfUAa3N/KLksgW0BPw/K2+PcD/ow/9/EsuzjZePXw86nUNg/YGLZeYCdX2cTy/KgiLVRCTufGp9PKstO/dLfC/H5lbqVXBZc+cPYnf9DYlmw81eJsC+w8KWEsnwL9flCyc5fJv7YkFwW7PwQeEj+/iKxLLAthz5AEb70g33/xYXEskB6qXPYd34poSz4pR92foUfn0wuyz+wLwU2vtXJxLLgtjyQ/hpw2H0CfL8F+35bvyd0XlcD2+IXwf0VvgI9n1KnE8vyDe5LtTl/B7bFr0Bb/gG25V/eJnOeQufN1IWEsvwAdv4Kv5WtJZdl5wJe+cNf4CgJdl/6OqlzIRx22k</Polygon>"
-                />
-              ) : (
-                <Alert
-                  message="Kode QRIS tidak tersedia"
-                  description="Kode QRIS tidak dapat dimuat. Silakan hubungi admin untuk bantuan."
-                  type="warning"
-                  showIcon
-                />
-              )}
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary">Pindai kode QR di atas menggunakan aplikasi e-wallet atau m-banking Anda</Text>
-              </div>
-            </div>
+  <div style={{ textAlign: 'center', marginBottom: 20 }}>
+    <Image 
+      src={qrisSettings.qris_image} 
+      alt="QRIS Code" 
+      style={{ maxWidth: '100%', maxHeight: '300px' }} 
+      fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QAAKqNIzIAAAAJcEhZcwAAAGAAAABgAPBrQs8AAAAHdElNRQfmCQQDNDPWFuVDAAABRklEQVRYw+2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNb2OqqlVg8E+Wh56UxS/xizFCHLdpuN6jfXvdvT0+nUYQBEEQBEHQT5HDl1sP59Ad/qz7+iYIgiAIgqDvItMcusyfh84x9YMfn04jCIKO6fmsvlLSt2mv1EW25aRsktV5qbJoD89pKtKeZgel0ownZVuSY1ovaQ9n9xRpT9O9kteXJsmhaX2mvaQfTusU3QYmk+RYVJ/kcDSvlvYkrk9ykKoysnE0r5b2JK5PclRUZWTj+oQs19fQKGXOzYaKc5LFEefoKoHmDSL9afqMSH+ansR1Wo9JX0xRx6JcqGlPzRxR7UnoKMnRqD7JsWheLe1JXJ/kKKnKyMbRvFrak7g+yTGpysjG9QlZrq+hMSjnZgPFuYoiR1cJNG/Qr5xGEARB/61fgNtCpXX3HcoAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjItMDktMDRUMDM6NTI6NTErMDA6MDDlm9l8AAAAJXRFWHRkYXRlOm1vZGlmeQAyMDIyLTA5LTA0VDAzOjUyOjUxKzAwOjAwlMZhwAAAACh0RVh0ZGF0ZTp0aW1lc3RhbXAAMjAyMi0wOS0wNFQwMzo1Mjo1MSswMDowMMPTQB0AAAAASUVORK5CYII="
+      onError={(e) => {
+        console.error("Error loading QRIS image:", e);
+        message.error("Gambar QRIS tidak dapat dimuat. Menggunakan placeholder.");
+      }}
+      preview={{
+        mask: (
+          <div>
+            <QrcodeOutlined style={{ fontSize: 20 }} />
+            <div>Lihat Gambar</div>
+          </div>
+        )
+      }}
+    />
+    <div style={{ marginTop: 8 }}>
+      <Text type="secondary"></Text>
+    </div>
+  </div>
+) : (
+  <Alert
+    message="Kode QRIS tidak tersedia"
+    description="Kode QRIS tidak dapat dimuat. Silakan hubungi admin untuk bantuan."
+    type="warning"
+    showIcon
+  />
+)}
+<div style={{ marginTop: 8 }}>
+  <Text type="secondary"></Text>
+    </div>
+  </div>
             
             {qrisSettings.instructions && (
               <Alert

@@ -44,39 +44,56 @@ export const PaymentProvider = ({ children }) => {
   const loadPendingTransactions = async () => {
   try {
     setLoading(true);
+    setApiStatus('checking');
     
-    try {
-      const response = await fetchWithRetry(
-        () => axiosInstance.get('/api/qris-payments')
-      );
-      
-      if (response.status === 200 && Array.isArray(response.data)) {
-        // Filter hanya transaksi yang masih menunggu
-        const pendingQris = response.data.filter(payment => payment.status === 'UNPAID');
-        setPendingTransactions(pendingQris);
-        setApiStatus('available');
-      }
-    } catch (error) {
-      console.error('Error memuat transaksi tertunda:', error);
-      
-      // Coba endpoint alternatif
+    // Batasi jumlah transaksi yang diminta untuk mengurangi beban server
+    const params = { limit: 10 };
+    
+    // Tambahkan cache control untuk mencegah cache
+    const headers = { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' };
+    
+    let success = false;
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (!success && retries < maxRetries) {
       try {
-        const alternativeResponse = await fetchWithRetry(
-          () => axiosInstance.get('/api/user/qris-payments')
-        );
+        // Tambahkan delay progresif antara percobaan
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
+        }
         
-        if (alternativeResponse.status === 200 && Array.isArray(alternativeResponse.data)) {
-          const pendingQris = alternativeResponse.data.filter(payment => payment.status === 'UNPAID');
+        const response = await axiosInstance.get('/api/qris-payments', {
+          params,
+          headers,
+          timeout: 15000 + (retries * 5000) // Tambahkan timeout yang lebih lama untuk setiap percobaan
+        });
+        
+        if (response.data) {
+          // Filter hanya transaksi yang masih menunggu
+          const pendingQris = Array.isArray(response.data) ? 
+            response.data.filter(payment => payment.status === 'UNPAID') : 
+            [];
+          
           setPendingTransactions(pendingQris);
           setApiStatus('available');
+          success = true;
         }
-      } catch (altError) {
-        console.error('Error pada endpoint alternatif:', altError);
-        setApiStatus('unavailable');
+      } catch (error) {
+        retries++;
+        console.warn(`Percobaan ${retries}/${maxRetries} gagal:`, error);
+        
+        if (retries >= maxRetries) {
+          console.error('Semua percobaan gagal untuk memuat transaksi tertunda');
+          // Tetap gunakan data kosong agar UI tidak rusak
+          setPendingTransactions([]);
+          setApiStatus('unavailable');
+        }
       }
     }
   } catch (error) {
     console.error('Error memuat transaksi tertunda:', error);
+    setPendingTransactions([]);
     setApiStatus('unavailable');
     message.error('Gagal memuat transaksi - silakan coba lagi nanti', 3);
   } finally {
