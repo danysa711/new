@@ -547,6 +547,64 @@ const saveWhatsAppGroupSettings = async (req, res) => {
   }
 };
 
+const uploadPaymentProofBase64 = async (req, res) => {
+  try {
+    const { reference } = req.params;
+    const { payment_proof_base64, file_type } = req.body;
+    const user_id = req.userId;
+    
+    console.log(`Uploading base64 payment proof for reference: ${reference}`);
+    
+    // Cek apakah ada data base64
+    if (!payment_proof_base64) {
+      return res.status(400).json({ error: "Payment proof data is required" });
+    }
+    
+    // Cari transaksi
+    const payment = await QrisPayment.findOne({
+      where: { reference, user_id }
+    });
+    
+    if (!payment) {
+      return res.status(404).json({ error: "Payment not found" });
+    }
+    
+    if (payment.status !== "UNPAID") {
+      return res.status(400).json({ error: "Payment has already been processed" });
+    }
+    
+    // Format data base64
+    const contentType = file_type || 'image/jpeg';
+    const base64Image = `data:${contentType};base64,${payment_proof_base64}`;
+    
+    // Update payment dengan bukti pembayaran
+    await payment.update({
+      payment_proof: base64Image
+    });
+    
+    console.log(`Base64 payment proof uploaded, sending WhatsApp notification`);
+    
+    // Kirim notifikasi WhatsApp
+    try {
+      sendWhatsAppNotification(payment).then(sent => {
+        console.log(`WhatsApp notification ${sent ? 'sent' : 'failed'}`);
+      });
+    } catch (whatsappError) {
+      console.error("Error sending WhatsApp notification:", whatsappError);
+      // Lanjutkan meski notifikasi WhatsApp gagal
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: "Payment proof uploaded successfully",
+      payment: payment.toJSON()
+    });
+  } catch (error) {
+    console.error("Error uploading base64 payment proof:", error);
+    return res.status(500).json({ error: "Server error", details: error.message });
+  }
+};
+
 module.exports = {
   getQrisSettings,
   saveQrisSettings,
@@ -556,5 +614,6 @@ module.exports = {
   getAllQrisPayments,
   verifyQrisPayment,
   getWhatsAppGroupSettings,
-  saveWhatsAppGroupSettings
+  saveWhatsAppGroupSettings,
+  uploadPaymentProofBase64
 };

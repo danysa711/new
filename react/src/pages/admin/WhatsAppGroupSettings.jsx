@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Card, Form, Input, Button, Switch, Typography,
-  Alert, Space, Divider 
+  Alert, Space, Divider, message
 } from 'antd';
 import { 
   SaveOutlined, WhatsAppOutlined, InfoCircleOutlined 
@@ -16,7 +16,7 @@ const WhatsAppGroupSettings = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [initialValues, setInitialValues] = useState({
-    group_name: '',
+    group_name: 'Verifikasi Pembayaran',
     group_id: '',
     is_active: true,
     notification_template: 'Cek status pembayaran username: {username} untuk paket {plan_name} dengan nominal Rp {amount}'
@@ -27,31 +27,27 @@ const WhatsAppGroupSettings = () => {
     const fetchSettings = async () => {
       try {
         setLoading(true);
-        const response = await axiosInstance.get('/api/admin/whatsapp-group-settings');
+        const response = await axiosInstance.get('/api/admin/whatsapp-group-settings?admin=true');
         const settings = response.data;
         
-        setInitialValues({
-          group_name: settings.group_name,
-          group_id: settings.group_id,
-          is_active: settings.is_active,
-          notification_template: settings.notification_template
-        });
-        
-        form.setFieldsValue({
-          group_name: settings.group_name,
-          group_id: settings.group_id,
-          is_active: settings.is_active,
-          notification_template: settings.notification_template
-        });
-        
+        if (settings) {
+          setInitialValues({
+            group_name: settings.group_name || 'Verifikasi Pembayaran',
+            group_id: settings.group_id || '',
+            is_active: settings.is_active !== false,
+            notification_template: settings.notification_template || 'Cek status pembayaran username: {username} untuk paket {plan_name} dengan nominal Rp {amount}'
+          });
+          
+          form.setFieldsValue({
+            group_name: settings.group_name || 'Verifikasi Pembayaran',
+            group_id: settings.group_id || '',
+            is_active: settings.is_active !== false,
+            notification_template: settings.notification_template || 'Cek status pembayaran username: {username} untuk paket {plan_name} dengan nominal Rp {amount}'
+          });
+        }
       } catch (error) {
         console.error("Error fetching WhatsApp group settings:", error);
-        // Jika belum ada pengaturan, gunakan default
-        if (error.response && error.response.status === 404) {
-          form.setFieldsValue(initialValues);
-        } else {
-          message.error("Gagal memuat pengaturan grup WhatsApp");
-        }
+        message.error("Gagal memuat pengaturan grup WhatsApp. Menggunakan nilai default.");
       } finally {
         setLoading(false);
       }
@@ -65,7 +61,7 @@ const WhatsAppGroupSettings = () => {
     try {
       setLoading(true);
       
-      const response = await axiosInstance.post('/api/admin/whatsapp-group-settings', values);
+      const response = await axiosInstance.post('/api/admin/whatsapp-group-settings?admin=true', values);
       
       if (response.data) {
         message.success("Pengaturan grup WhatsApp berhasil disimpan");

@@ -9,7 +9,10 @@ const qrisController = require("../controllers/qrisController");
 // Konfigurasi multer untuk upload bukti pembayaran
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/payment_proof");
+    // Pastikan direktori ada
+    const uploadDir = path.join(__dirname, '../uploads/payment_proof');
+    require('fs').mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -40,6 +43,7 @@ router.use(authenticateUser);
 // User endpoints
 router.post("/qris-payment", qrisController.createQrisPayment);
 router.post("/qris-payment/:reference/upload", upload.single("payment_proof"), qrisController.uploadPaymentProof);
+router.post("/qris-payment/:reference/upload-base64", qrisController.uploadPaymentProofBase64);
 router.get("/qris-payments", qrisController.getUserQrisPayments);
 
 // Admin endpoints

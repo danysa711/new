@@ -27,9 +27,17 @@ const getBackendUrl = () => {
 
 // Buat instance axios dengan baseURL yang dinamis
 const axiosInstance = axios.create({
-  timeout: 30000, // Timeout 30 detik
+  timeout: 60000, // 60 detik timeout - lebih lama untuk upload gambar
   headers: {
     "Content-Type": "application/json",
+  },
+});
+
+// Tambahkan timeout yang lebih besar untuk upload files
+export const uploadInstance = axios.create({
+  timeout: 120000, // 2 menit timeout khusus untuk upload
+  headers: {
+    "Content-Type": "multipart/form-data",
   },
 });
 
