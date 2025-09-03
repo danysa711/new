@@ -309,12 +309,21 @@ const uploadPaymentProof = async (req, res) => {
     console.log(`Payment proof uploaded, sending WhatsApp notification`);
     
     // Kirim notifikasi WhatsApp
-    sendWhatsAppNotification(payment).then(sent => {
-      console.log(`WhatsApp notification ${sent ? 'sent' : 'failed'}`);
-    });
+    try {
+      sendWhatsAppNotification(payment).then(sent => {
+        console.log(`WhatsApp notification ${sent ? 'sent' : 'failed'}`);
+      });
+    } catch (whatsappError) {
+      console.error("Error sending WhatsApp notification:", whatsappError);
+      // Lanjutkan meski notifikasi WhatsApp gagal
+    }
     
     // Hapus file temporary
-    fs.unlinkSync(req.file.path);
+    try {
+      fs.unlinkSync(req.file.path);
+    } catch (unlinkError) {
+      console.error("Error deleting temporary file:", unlinkError);
+    }
     
     return res.status(200).json({
       success: true,

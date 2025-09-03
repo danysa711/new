@@ -16,6 +16,8 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const qrisRoutes = require("./routes/qrisRoutes");
 const whatsAppRoutes = require("./routes/whatsAppRoutes");
 const { ensureQrisTables } = require("./utils/fix-qris-endpoints");
+const fs = require('fs');
+const path = require('path');
 
 
 const app = express();
@@ -51,11 +53,34 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
+// Pastikan direktori uploads dan data ada
+const ensureDirectoriesExist = () => {
+  const directories = [
+    path.join(__dirname, 'uploads'),
+    path.join(__dirname, 'uploads/payment_proof'),
+    path.join(__dirname, 'data')
+  ];
+  
+  directories.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      try {
+        console.log(`Creating directory: ${dir}`);
+        fs.mkdirSync(dir, { recursive: true });
+      } catch (err) {
+        console.error(`Error creating directory ${dir}:`, err);
+      }
+    }
+  });
+};
+
 // Tambahkan middleware untuk debugging CORS
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log('Request origin:', req.headers.origin);
-  console.log('Request headers:', req.headers);
+  
+  // Kurangi logging untuk mengurangi noise di console
+  if (req.url !== '/api/test' && req.url !== '/favicon.ico') {
+    console.log('Request origin:', req.headers.origin);
+  }
   
   // Pastikan headers CORS selalu ditambahkan
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
@@ -68,15 +93,17 @@ app.use((req, res, next) => {
     return res.status(200).end();
   }
 
-  const requestInfo = {
-    method: req.method,
-    url: req.url,
-    userId: req.userId || 'not authenticated',
-    userRole: req.userRole || 'not authenticated',
-    timestamp: new Date().toISOString()
-  };
-
-  console.log("REQUEST:", JSON.stringify(requestInfo));
+  // Log informasi request yang lebih ringkas untuk request yang bukan test
+  if (req.url !== '/api/test' && req.url !== '/favicon.ico') {
+    const requestInfo = {
+      method: req.method,
+      url: req.url,
+      userId: req.userId || 'not authenticated',
+      userRole: req.userRole || 'not authenticated',
+      timestamp: new Date().toISOString()
+    };
+    console.log("REQUEST:", JSON.stringify(requestInfo));
+  }
   
   next();
 });
@@ -121,9 +148,10 @@ app.get("/", (req, res) => {
           <strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}
         </div>
 
-            <strong>Database Status:</strong> 
-            <span id="dbStatus">Checking...</span>
-          </p>
+        <div>
+          <strong>Database Status:</strong> 
+          <span id="dbStatus">Checking...</span>
+        </div>
           <script>
             // Simple script to check database connection
             fetch('/api/test')
@@ -137,7 +165,6 @@ app.get("/", (req, res) => {
                 document.getElementById('dbStatus').style.color = '#dc3545';
               });
           </script>
-        </div>
         
         <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
           <p>Kinterstore API Server - &copy; ${new Date().getFullYear()}</p>
@@ -146,6 +173,11 @@ app.get("/", (req, res) => {
       </body>
     </html>
   `);
+});
+
+// Endpoint API test sederhana
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API is working", timestamp: new Date().toISOString() });
 });
 
 // Routes
@@ -160,7 +192,6 @@ app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", qrisRoutes); 
 app.use("/api", whatsAppRoutes);
-
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -179,9 +210,14 @@ app.use((req, res) => {
 // Start server
 app.listen(PORT, async () => {
   try {
+    // Pastikan direktori ada terlebih dahulu
+    ensureDirectoriesExist();
+    
+    // Hubungkan ke database
     await db.sequelize.authenticate();
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
-// Pastikan tabel QRIS sudah ada dan berisi data default
+    
+    // Pastikan tabel QRIS sudah ada dan berisi data default
     await ensureQrisTables();
   } catch (error) {
     console.error("❌ Gagal menyambungkan database:", error);

@@ -5,9 +5,8 @@ import {
 } from 'antd';
 import { 
   QrcodeOutlined, UploadOutlined, CheckCircleOutlined,
-  InfoCircleOutlined, CopyOutlined, ReloadOutlined
+  InfoCircleOutlined, ReloadOutlined
 } from '@ant-design/icons';
-import qrisService from '../services/qrisService';
 import axiosInstance from '../services/axios';
 
 const { Title, Text, Paragraph } = Typography;
@@ -18,20 +17,12 @@ const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000; // 1 detik
 
 // Fungsi untuk melakukan retry request dengan exponential backoff
-const fetchWithRetry = async (apiCall, retries = MAX_RETRIES, delay = INITIAL_RETRY_DELAY) => {
+const fetchWithRetry = async (apiCall, retries = 3, delay = 1000) => {
   try {
     return await apiCall();
   } catch (error) {
-    if (retries === 0) {
-      throw error;
-    }
-    
-    console.log(`Sisa percobaan: ${retries}. Mencoba ulang dalam ${delay}ms...`);
-    
-    // Tunggu sebelum retry
+    if (retries === 0) throw error;
     await new Promise(resolve => setTimeout(resolve, delay));
-    
-    // Retry dengan delay yang lebih lama
     return fetchWithRetry(apiCall, retries - 1, delay * 2);
   }
 };
@@ -180,58 +171,73 @@ const createQrisPayment = async () => {
 };
 
   // Upload bukti pembayaran
-  const uploadPaymentProof = async (file) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Validasi file
-      if (!file) {
-        message.error("Silakan pilih file gambar");
-        setLoading(false);
-        return;
-      }
-      
-      const isImage = file.type.startsWith('image/');
-      if (!isImage) {
-        message.error("File harus berupa gambar (JPG, PNG)");
-        setLoading(false);
-        return;
-      }
-      
-      setRetryingApi(true);
-      
-      // Buat FormData untuk upload
-      const formData = new FormData();
-      formData.append('payment_proof', file);
-      
-      const response = await fetchWithRetry(
-        () => axiosInstance.post(
-          `/api/qris-payment/${paymentData.reference}/upload`,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          }
-        )
-      );
-      
-      if (response.data && response.data.payment) {
+  const uploadPaymentProof = async (reference, file, onSuccess, onError) => {
+  try {
+    // Validasi file
+    if (!file) {
+      throw new Error("File bukti pembayaran harus dipilih");
+    }
+    
+    // Validasi tipe file
+    const isImage = file.type.startsWith('image/');
+    if (!isImage) {
+      throw new Error("File harus berupa gambar (JPG, PNG)");
+    }
+    
+    // Buat FormData
+    const formData = new FormData();
+    formData.append('payment_proof', file);
+    
+    // Coba upload dengan retry
+    const response = await fetchWithRetry(
+      () => axiosInstance.post(
+        `/api/qris-payment/${reference}/upload`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          },
+          timeout: 30000 // 30 detik timeout
+        }
+      )
+    );
+    
+    if (response.data && response.data.payment) {
+      onSuccess && onSuccess(response.data);
+      return response.data;
+    } else {
+      throw new Error("Respons server tidak valid");
+    }
+  } catch (error) {
+    console.error("Error upload bukti pembayaran:", error);
+    onError && onError(error);
+    throw error;
+  }
+};
+
+// Gunakan fungsi uploadPaymentProof dalam komponen
+const handleUpload = async (file) => {
+  setLoading(true);
+  try {
+    await uploadPaymentProof(
+      paymentData.reference, 
+      file,
+      (data) => {
         setPaymentProof(URL.createObjectURL(file));
         message.success("Bukti pembayaran berhasil diunggah");
         setCurrentStep(2);
+      },
+      (error) => {
+        message.error(`Gagal mengunggah: ${error.message || 'Server error'}`);
       }
-      
-      setRetryingApi(false);
-    } catch (error) {
-      console.error("Error uploading payment proof:", error);
-      setError("Gagal mengunggah bukti pembayaran. Silakan coba lagi nanti.");
-      setRetryingApi(false);
-    } finally {
-      setLoading(false);
-    }
-  };
+    );
+  } catch (e) {
+    console.error("Error in handleUpload:", e);
+  } finally {
+    setLoading(false);
+  }
+  return false; // Mencegah upload default
+};
 
   // Fungsi untuk menyalin nomor rekening/nominal ke clipboard
   const copyToClipboard = (text) => {
