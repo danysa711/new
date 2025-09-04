@@ -236,23 +236,16 @@ const createQrisPayment = async (req, res) => {
     const user_id = req.userId || req.body.user_id || req.query.user_id;
 
     if (!user_id) {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  return res.status(400).json({ error: "User ID is required" });
-}
+      return res.status(400).json({ error: "User ID is required" });
+    }
 
-    console.log(`Uploading payment proof for reference: ${reference}, user: ${user_id}`);
-    console.log(`Creating QRIS payment for user ${user_id}, plan ${plan_id}`);
-    
-    // Validasi input
     if (!plan_id) {
-      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Plan ID is required" });
     }
     
     // Dapatkan paket langganan
     const plan = await SubscriptionPlan.findByPk(plan_id);
     if (!plan) {
-      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(404).json({ error: "Subscription plan not found" });
     }
     
@@ -270,9 +263,6 @@ const createQrisPayment = async (req, res) => {
         expiry_hours: 24,
         instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
       });
-      
-      // Gunakan pengaturan yang baru dibuat
-      return createQrisPayment(req, res);
     }
     
     // Buat kode unik untuk nominal pembayaran (3 digit terakhir)
@@ -287,11 +277,9 @@ const createQrisPayment = async (req, res) => {
     
     // Hitung tanggal kedaluwarsa
     const expired_at = new Date();
-    expired_at.setHours(expired_at.getHours() + qrisSettings.expiry_hours);
+    expired_at.setHours(expired_at.getHours() + (qrisSettings?.expiry_hours || 24));
     
     // PERBAIKAN: Pastikan amount adalah nilai yang valid dan bukan generated column
-    // Buat transaksi baru
-    
     const payment = await QrisPayment.create({
       user_id,
       plan_id,
@@ -303,21 +291,18 @@ const createQrisPayment = async (req, res) => {
       status: 'UNPAID'
     });
     
-    console.log(`QRIS payment created with reference: ${reference}`);
-    
     return res.status(201).json({
       success: true,
       message: "QRIS payment created successfully",
       payment: {
         ...payment.toJSON(),
-        qris_image: qrisSettings.qris_image,
-        merchant_name: qrisSettings.merchant_name,
-        instructions: qrisSettings.instructions
+        qris_image: qrisSettings?.qris_image,
+        merchant_name: qrisSettings?.merchant_name,
+        instructions: qrisSettings?.instructions
       }
     });
   } catch (error) {
     console.error("Error creating QRIS payment:", error);
-    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };

@@ -18,6 +18,7 @@ const whatsAppRoutes = require("./routes/whatsAppRoutes");
 const { ensureQrisTables } = require("./utils/fix-qris-endpoints");
 const testRoutes = require("./routes/testRoutes");
 const qrisSettingsRoutes = require("./routes/qrisSettingsRoutes");
+const { QrisSettings, db } = require("./models");
 const fs = require('fs');
 const path = require('path');
 

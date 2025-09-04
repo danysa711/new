@@ -75,25 +75,32 @@ const QrisPaymentForm = ({ plan, onFinish }) => {
 
   // Membuat transaksi QRIS
   const createQrisPayment = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      const result = await qrisService.createQrisPayment(plan.id);
+    const result = await qrisService.createQrisPayment(plan.id);
 
-      if (result.success && result.payment) {
-        setPaymentData(result.payment);
-        setCurrentStep(1);
-      } else {
-        setError(result.message || "Gagal membuat pembayaran QRIS.");
-      }
-    } catch (error) {
-      console.error("Error creating QRIS payment:", error);
-      setError("Gagal membuat pembayaran QRIS. Silakan coba lagi.");
-    } finally {
-      setLoading(false);
+    if (result.success && result.payment) {
+      setPaymentData(result.payment);
+      setCurrentStep(1);
+    } else {
+      setError(result.message || "Gagal membuat pembayaran QRIS.");
     }
-  };
+  } catch (error) {
+    console.error("Error creating QRIS payment:", error);
+    
+    // Tambahkan pesan error yang lebih detail
+    const errorMsg = error.response?.data?.error || 
+                     error.response?.data?.details || 
+                     error.message || 
+                     "Gagal membuat pembayaran QRIS. Silakan coba lagi.";
+                     
+    setError(errorMsg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Upload bukti pembayaran
   const handleUpload = async (file) => {
