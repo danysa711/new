@@ -1,4 +1,5 @@
-// Model QrisPayment.js
+// express/models/QrisPayment.js
+
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 
@@ -17,11 +18,19 @@ const QrisPayment = sequelize.define(
     },
     user_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
+      references: {
+        model: "Users",
+        key: "id",
+      },
     },
     plan_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
+      references: {
+        model: "SubscriptionPlans",
+        key: "id",
+      },
     },
     amount: {
       type: DataTypes.DECIMAL(10, 2),

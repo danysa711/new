@@ -18,7 +18,6 @@ const whatsAppRoutes = require("./routes/whatsAppRoutes");
 const { ensureQrisTables } = require("./utils/fix-qris-endpoints");
 const testRoutes = require("./routes/testRoutes");
 const qrisSettingsRoutes = require("./routes/qrisSettingsRoutes");
-const { QrisSettings, db } = require("./models");
 const fs = require('fs');
 const path = require('path');
 
@@ -97,42 +96,39 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// PERBAIKAN: Middleware khusus untuk QRIS
+app.use('/api/qris-payments', (req, res, next) => {
+  // Tambahan header khusus untuk rute QRIS
+  res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.header('Pragma', 'no-cache');
+  res.header('Expires', '0');
+  res.header('Surrogate-Control', 'no-store');
+  next();
+});
+
 // Gunakan CORS dengan opsi khusus untuk preflight
 const corsOptions = {
-  origin: ["https://kinterstore.my.id", "https://db.kinterstore.my.id"], 
+  origin: function(origin, callback) {
+    // Izinkan semua origin untuk debugging
+    callback(null, true);
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     "Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization",
-    "X-Auth-Token", "Cache-Control", "Pragma", "Expires", 
-    "X-Custom-Header", "X-API-Key", "X-Device-Id"
+    "Cache-Control", "Pragma", "Expires", "X-Custom-Header", "X-Auth-Token", 
+    "X-API-Key", "X-Device-Id"
   ],
+  exposedHeaders: ["Content-Disposition", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
   credentials: true,
   optionsSuccessStatus: 200,
   maxAge: 86400
 };
 
-// Global CORS
+// Tambahkan CORS global
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
 
-// Routes langsung ke controller QRIS
-app.get("/api/direct/qris-payments", (req, res) => {
-  req.query.admin = 'true';
-  console.log("Direct QRIS payments endpoint accessed");
-  require("./controllers/qrisController").getAllQrisPayments(req, res);
-});
-
-app.get("/api/direct/qris-settings", (req, res) => {
-  req.query.admin = 'true';
-  console.log("Direct QRIS settings endpoint accessed");
-  require("./controllers/qrisController").getQrisSettings(req, res);
-});
-
-app.put("/api/direct/qris-payment/:reference/verify", (req, res) => {
-  req.query.admin = 'true';
-  console.log("Direct QRIS verification endpoint accessed");
-  require("./controllers/qrisController").verifyQrisPayment(req, res);
-});
+// Handle preflight requests eksplisit
+app.options('*', cors(corsOptions));
 
 // Nonaktifkan rate limiter sementara untuk debugging
 // Pasang rate limiter hanya pada endpoint yang sangat sering dipanggil
@@ -262,73 +258,23 @@ app.get('/api/settings/qris-public', (req, res) => {
   }
 });
 
-// Middleware khusus untuk endpoint login
-app.use('/api/login', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
-  // Handle OPTIONS preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
-
 // Perbaikan khusus untuk endpoint qris-payments yang bermasalah
 app.use("/api/qris-payments", (req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.header("Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, " +
-    "Cache-Control, Pragma, Expires, X-Custom-Header, X-API-Key, X-Device-Id"
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  // Cache control
-  res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.header("Pragma", "no-cache");
-  res.header("Expires", "0");
-  res.header("Surrogate-Control", "no-store");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
+  // Pastikan semua header CORS ditetapkan dengan benar
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, ' +
+    'Cache-Control, Pragma, Expires, X-Custom-Header, X-API-Key, X-Device-Id');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Tambahkan header cache control
+  res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.header('Pragma', 'no-cache');
+  res.header('Expires', '0');
+  res.header('Surrogate-Control', 'no-store');
+  
   next();
-});
-
-app.post("/api/direct/login", (req, res) => {
-  console.log("Direct login endpoint accessed");
-  require("./controllers/authController").login(req, res);
-});
-
-app.post("/api/direct/refresh-token", (req, res) => {
-  console.log("Direct refresh token endpoint accessed");
-  require("./controllers/authController").refreshToken(req, res);
-});
-
-app.get("/api/direct/status", (req, res) => {
-  console.log("Direct status endpoint accessed");
-  res.json({ status: "OK", timestamp: new Date().toISOString() });
-});
-
-app.get("/api/bypass/qris-payments", (req, res) => {
-  console.log("QRIS payments bypass endpoint accessed");
-  // Set flag admin dan bypass
-  req.query.admin = 'true';
-  req.headers['x-admin-bypass'] = 'true';
-  // Panggil controller
-  require("./controllers/qrisController").getAllQrisPayments(req, res);
-});
-
-app.put("/api/bypass/qris-payment/:reference/verify", (req, res) => {
-  console.log("QRIS verification bypass endpoint accessed");
-  // Set flag admin dan bypass
-  req.query.admin = 'true';
-  req.headers['x-admin-bypass'] = 'true';
-  // Panggil controller
-  require("./controllers/qrisController").verifyQrisPayment(req, res);
 });
 
 // Routes

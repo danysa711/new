@@ -11,27 +11,12 @@ const authenticateUser = async (req, res, next) => {
     '/api/settings/public',
     '/api/settings/qris-public',
     '/api/qris-settings/public', // Tambah endpoint publik untuk QRIS
-    '/api/qris-payments',
     '/api/test'
   ];
 
   // Skip autentikasi untuk endpoint publik
   if (publicEndpoints.includes(req.originalUrl) || req.originalUrl.includes('/public')) {
     return next();
-  }
-
-  // Tambahkan kondisi khusus untuk endpoint QRIS di sini
-  if (req.originalUrl.includes('/qris-payments') || req.originalUrl.includes('/qris-payment/') || 
-      req.originalUrl.includes('/qris-settings')) {
-    console.log("QRIS endpoint accessed, adding admin=true parameter");
-    req.query.admin = 'true';
-    // Opsional: Tambahkan hak admin langsung
-    req.userRole = 'admin';
-    
-    // Jika tidak ada token, tetap lanjutkan untuk endpoint QRIS
-    if (!req.header("Authorization")) {
-      return next();
-    }
   }
 
   // Endpoint khusus admin yang tidak perlu autentikasi
@@ -56,17 +41,11 @@ const authenticateUser = async (req, res, next) => {
   }
 
   try {
-    // Tambahkan try-catch tambahan khusus untuk verifikasi token
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "mysecretkey");
-      req.userId = decoded.id;
-      req.userRole = decoded.role || "user";
-      req.userSlug = decoded.url_slug;
-      req.hasActiveSubscription = decoded.hasActiveSubscription;
-    } catch (jwtError) {
-      console.error("JWT verification error:", jwtError);
-      return res.status(401).json({ error: "Token tidak valid", code: "INVALID_TOKEN" });
-    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "mysecretkey");
+    req.userId = decoded.id;
+    req.userRole = decoded.role || "user";
+    req.userSlug = decoded.url_slug;
+    req.hasActiveSubscription = decoded.hasActiveSubscription;
 
     // Tambahkan debug log
     console.log("Token decoded successfully:", { 
@@ -76,9 +55,9 @@ const authenticateUser = async (req, res, next) => {
       path: req.originalUrl
     });
 
-      // Skip untuk user admin yang hardcoded
-    if (req.userId !== "admin") {
-      const user = await User.findByPk(req.userId);
+    // Skip untuk user admin yang hardcoded
+    if (decoded.id !== "admin") {
+      const user = await User.findByPk(decoded.id);
       if (!user) {
         return res.status(401).json({ 
           error: "User tidak ditemukan", 

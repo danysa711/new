@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Card, Table, Button, Tag, Image, Typography, Modal,
-  Alert, Space, Divider, message, Badge, Popconfirm, Spin 
+  Alert, Space, Divider, message, Badge, Popconfirm 
 } from 'antd';
 import { 
   CheckCircleOutlined, CloseCircleOutlined, 
@@ -16,160 +16,94 @@ const { Title, Text } = Typography;
 const QrisPaymentVerification = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [retrying, setRetrying] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
 
-  // Fungsi untuk memuat data pembayaran QRIS dengan retry dan fallback
-  const fetchPayments = async () => {
+  // Memuat data pembayaran QRIS
+const fetchPayments = async () => {
+  try {
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      setRetrying(false);
+      // Tambahkan parameter admin=true untuk autentikasi yang benar
+      const response = await axiosInstance.get('/api/admin/qris-payments?admin=true');
+      setPayments(response.data);
+    } catch (apiError) {
+      console.error("Error pada API utama:", apiError);
       
-      // Coba berbagai endpoint dengan berbagai parameter
-      const endpoints = [
-        // Opsi 1: Dengan parameter admin
-        { url: '/api/admin/qris-payments', params: { admin: true } },
-        // Opsi 2: Endpoint alternatif
-        { url: '/api/qris-payments', params: { admin: true } },
-        // Opsi 3: Endpoint dengan token admin di query
-        { url: '/api/qris-payments', params: { admin: true, token: localStorage.getItem('token') } },
-        // Opsi 4: Endpoint langsung
-        { url: '/api/direct/qris-payments' }
-      ];
-      
-      let success = false;
-      let lastError = null;
-      
-      // Coba setiap endpoint secara berurutan
-      for (const endpoint of endpoints) {
-        if (success) break;
+      // Coba endpoint fallback
+      try {
+        const fallbackResponse = await axiosInstance.get('/api/admin/qris-payments-list?admin=true');
+        setPayments(fallbackResponse.data);
+      } catch (fallbackError) {
+        console.error("Error pada API fallback:", fallbackError);
         
-        try {
-          console.log(`Mencoba endpoint: ${endpoint.url} dengan params:`, endpoint.params);
-          
-          const response = await axiosInstance.get(endpoint.url, { 
-            params: endpoint.params,
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            timeout: 10000
-          });
-          
-          if (response.data) {
-            console.log(`Sukses dengan endpoint: ${endpoint.url}`);
-            setPayments(Array.isArray(response.data) ? response.data : []);
-            success = true;
-            break;
-          }
-        } catch (err) {
-          console.warn(`Error pada endpoint ${endpoint.url}:`, err);
-          lastError = err;
-        }
+        // Jika semua gagal, gunakan data kosong
+        setPayments([]);
+        message.warning("Data QRIS tidak tersedia. Server mungkin sedang maintenance.");
       }
-      
-      if (!success) {
-        console.error("Semua endpoint gagal:", lastError);
-        message.error("Tidak dapat memuat data pembayaran QRIS");
-        
-        // Jika sudah ada data sebelumnya, gunakan data itu
-        if (payments.length === 0) {
-          setPayments([]);
-        }
-      }
-    } catch (error) {
-      console.error("Error utama saat memuat pembayaran QRIS:", error);
-      message.error("Gagal memuat data pembayaran QRIS");
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching QRIS payments:", error);
+    message.error("Gagal memuat data pembayaran QRIS");
+    setPayments([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // Memuat data awal
-  useEffect(() => {
-    fetchPayments();
-  }, []);
-
-  // Verifikasi pembayaran dengan penanganan error yang lebih baik
-  const handleVerifyPayment = async (reference, status) => {
-    try {
-      setLoading(true);
-      
-      // Coba berbagai opsi endpoint
-      const endpoints = [
-        { url: `/api/admin/qris-payment/${reference}/verify`, params: { admin: true } },
-        { url: `/api/qris-payment/${reference}/verify`, params: { admin: true } }
-      ];
-      
-      let success = false;
-      let responseData = null;
-      
-      // Coba setiap endpoint
-      for (const endpoint of endpoints) {
-        if (success) break;
-        
-        try {
-          console.log(`Mencoba verifikasi dengan: ${endpoint.url}`);
-          const response = await axiosInstance.put(
-            endpoint.url, 
-            { status },
-            { params: endpoint.params }
-          );
-          
-          if (response.data) {
-            console.log(`Sukses dengan endpoint: ${endpoint.url}`);
-            success = true;
-            responseData = response.data;
-            break;
-          }
-        } catch (err) {
-          console.warn(`Error pada endpoint ${endpoint.url}:`, err);
-        }
-      }
-      
-      if (success) {
-        message.success(`Pembayaran berhasil ${status === 'VERIFIED' ? 'diverifikasi' : 'ditolak'}`);
-        fetchPayments();
-        setViewModalVisible(false);
-      } else {
-        message.error(`Gagal ${status === 'VERIFIED' ? 'memverifikasi' : 'menolak'} pembayaran`);
-        
-        // Update state secara lokal untuk feedback yang lebih baik
-        setPayments(prevPayments => 
-          prevPayments.map(payment => 
-            payment.reference === reference 
-              ? {...payment, status: status === 'VERIFIED' ? 'PAID' : 'REJECTED'} 
-              : payment
-          )
-        );
-        setViewModalVisible(false);
-      }
-    } catch (error) {
-      console.error("Error utama saat verifikasi:", error);
+// Perbarui fungsi handleVerifyPayment
+const handleVerifyPayment = async (reference, status) => {
+  try {
+    setLoading(true);
+    
+    // Tambahkan parameter admin=true dan error handling
+    const response = await axiosInstance.put(
+      `/api/admin/qris-payment/${reference}/verify?admin=true`, 
+      { status }
+    );
+    
+    if (response.data) {
+      message.success(`Pembayaran berhasil ${status === 'VERIFIED' ? 'diverifikasi' : 'ditolak'}`);
+      fetchPayments();
+      setViewModalVisible(false);
+    }
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    
+    // Berikan pesan spesifik berdasarkan error
+    if (error.response?.status === 404) {
+      message.error("Referensi pembayaran tidak ditemukan");
+    } else if (error.response?.status === 401) {
+      message.error("Anda tidak memiliki akses untuk melakukan verifikasi");
+    } else {
       message.error(`Gagal ${status === 'VERIFIED' ? 'memverifikasi' : 'menolak'} pembayaran`);
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    // Jika server error tapi tetap ingin update UI (opsional)
+    if (error.response?.status === 500) {
+      message.warning("Server error, tapi data akan diperbarui secara local");
+      
+      // Update state secara lokal
+      setPayments(prevPayments => 
+        prevPayments.map(payment => 
+          payment.reference === reference 
+            ? {...payment, status: status === 'VERIFIED' ? 'PAID' : 'REJECTED'} 
+            : payment
+        )
+      );
+      
+      setViewModalVisible(false);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Tampilkan detail pembayaran
   const viewPaymentDetail = (payment) => {
     setSelectedPayment(payment);
     setViewModalVisible(true);
-  };
-  
-  // Retry logic with progress indicator
-  const retryFetchPayments = () => {
-    setRetrying(true);
-    message.loading('Mencoba ulang memuat data pembayaran...', 1);
-    
-    setTimeout(() => {
-      fetchPayments().finally(() => {
-        setRetrying(false);
-      });
-    }, 1000);
   };
 
   // Kolom tabel
@@ -238,6 +172,25 @@ const QrisPaymentVerification = () => {
       onFilter: (value, record) => record.status === value
     },
     {
+      title: 'Notifikasi WA',
+      dataIndex: 'whatsapp_notification_sent',
+      key: 'notification',
+      render: (sent, record) => {
+        if (sent) {
+          const verification = record.whatsapp_verification;
+          if (verification === 'VERIFIED') {
+            return <Badge status="success" text="Terverifikasi" />;
+          } else if (verification === 'REJECTED') {
+            return <Badge status="error" text="Ditolak" />;
+          } else {
+            return <Badge status="processing" text="Terkirim" />;
+          }
+        } else {
+          return <Badge status="default" text="Belum Terkirim" />;
+        }
+      }
+    },
+    {
       title: 'Bukti',
       key: 'proof',
       render: (_, record) => record.payment_proof ? (
@@ -302,28 +255,16 @@ const QrisPaymentVerification = () => {
     <div>
       <Title level={2}>Verifikasi Pembayaran QRIS</Title>
       
-      {loading && (
-        <Alert
-          message="Memuat Data Pembayaran"
-          description="Mohon tunggu, sedang memuat data pembayaran QRIS..."
-          type="info"
-          showIcon
-          icon={<Spin spinning={true} />}
-          style={{ marginBottom: 16 }}
-        />
-      )}
-      
       <Card
         title="Daftar Pembayaran QRIS"
         extra={
           <Button 
             type="primary" 
-            icon={<ReloadOutlined spin={retrying} />} 
-            onClick={retryFetchPayments}
+            icon={<ReloadOutlined />} 
+            onClick={fetchPayments}
             loading={loading}
-            disabled={retrying}
           >
-            {retrying ? 'Sedang Mencoba' : 'Refresh'}
+            Refresh
           </Button>
         }
       >
@@ -333,7 +274,6 @@ const QrisPaymentVerification = () => {
           rowKey="reference" 
           loading={loading}
           pagination={{ pageSize: 10 }}
-          locale={{ emptyText: 'Tidak ada data pembayaran QRIS' }}
         />
       </Card>
       
