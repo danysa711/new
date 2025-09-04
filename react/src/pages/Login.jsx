@@ -3,6 +3,7 @@ import { Form, Input, Button, Card, Typography, Alert, Spin, Tooltip } from 'ant
 import { UserOutlined, LockOutlined, CommentOutlined, SendOutlined } from '@ant-design/icons';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios'; // Tambahkan import axios
 
 const { Title, Text } = Typography;
 
@@ -16,34 +17,94 @@ const Login = () => {
   const supportNumber = '6281284712684';
 
   const onFinish = async (values) => {
-  setLoading(true);
-  setError(null);
-  
-  try {
-    // Set remember = true untuk memastikan token disimpan di localStorage
-    const response = await login(values.username, values.password, true);
+    setLoading(true);
+    setError(null);
     
-    if (response.success) {
-      console.log("Login berhasil, token tersimpan:", 
-        localStorage.getItem('token') ? "Ya (localStorage)" : "Tidak",
-        sessionStorage.getItem('token') ? "Ya (sessionStorage)" : "Tidak"
-      );
+    try {
+      // Log untuk debugging
+      console.log("Attempting login with:", values.username);
       
-      if (response.user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate(`/user/page/${response.user.url_slug}`);
+      // Get backend URL
+      const backendUrl = localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id';
+      console.log("Using backend URL:", backendUrl);
+      
+      try {
+        // Regular login attempt
+        console.log("Attempting regular login through AuthContext");
+        const response = await login(values.username, values.password, true);
+        
+        if (response.success) {
+          console.log("Login successful through AuthContext");
+          if (response.user.role === 'admin') {
+            navigate('/admin/dashboard');
+          } else {
+            navigate(`/user/page/${response.user.url_slug}`);
+          }
+          return;
+        } else {
+          console.log("Regular login failed, error:", response.error);
+          setError(response.error || 'Login gagal');
+        }
+      } catch (loginError) {
+        console.error("Error during AuthContext login:", loginError);
+        
+        // Try direct API login
+        console.log("Regular login failed, trying direct endpoint...");
+        
+        try {
+          const directResponse = await axios.post(
+            `${backendUrl}/api/login`, 
+            { username: values.username, password: values.password },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              }
+            }
+          );
+          
+          if (directResponse.data && directResponse.data.token) {
+            console.log("Direct login successful");
+            
+            // Save auth data
+            if (directResponse.data.token) {
+              localStorage.setItem('token', directResponse.data.token);
+              console.log("Token saved to localStorage");
+            }
+            
+            if (directResponse.data.refreshToken) {
+              localStorage.setItem('refreshToken', directResponse.data.refreshToken);
+              console.log("RefreshToken saved to localStorage");
+            }
+            
+            if (directResponse.data.user) {
+              localStorage.setItem('user', JSON.stringify(directResponse.data.user));
+              console.log("User data saved to localStorage");
+              
+              // Navigate based on role
+              if (directResponse.data.user.role === 'admin') {
+                navigate('/admin/dashboard');
+              } else {
+                navigate(`/user/page/${directResponse.data.user.url_slug}`);
+              }
+            } else {
+              setError("Login berhasil tapi data user tidak ada");
+            }
+          } else {
+            setError("Login gagal: token tidak diterima dari server");
+          }
+        } catch (directError) {
+          console.error("Direct login failed:", directError);
+          setError(directError.response?.data?.error || "Gagal melakukan login langsung");
+        }
       }
-    } else {
-      setError(response.error || 'Login gagal');
+    } catch (err) {
+      console.error('Login error (global):', err);
+      setError(err.message || 'Terjadi kesalahan saat login');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Login error:', err);
-    setError(err.message || 'Terjadi kesalahan saat login');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Handle WhatsApp support click
   const handleSupportClick = () => {

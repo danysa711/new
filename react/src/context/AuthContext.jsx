@@ -55,40 +55,78 @@ export const AuthProvider = ({ children }) => {
 
   // Fungsi untuk login
   const login = async (username, password, remember) => {
-    try {
-      setLoading(true);
-      localStorage.setItem(STORAGE_KEYS.REMEMBER, remember.toString());
-
-      // Debug: print untuk memverifikasi remember diatur dengan benar
-      console.log(`Setting remember preference: ${remember}`);
-
-      const response = await apiLogin(username, password, remember);
+  try {
+    setLoading(true);
     
-      if (response.success) {
-        // Tambahan: Periksa bahwa refreshToken ada sebelum menyimpan
-        if (!response.refreshToken) {
-          console.warn("Login berhasil tapi refreshToken tidak diterima dari server");
-        }
-        
-        // Debug: print token yang diterima untuk memverifikasi
-        console.log(`Received token: ${response.token ? 'yes' : 'no'}, refreshToken: ${response.refreshToken ? 'yes' : 'no'}`);
-        
-        // Simpan token dan user data menggunakan fungsi yang sudah ada
-        saveToken(response.token, response.refreshToken || "");
-        saveUserData(response.user);
-        
-        setToken(response.token);
-        setUser(response.user);
-      }
-      
-      return response;
-    } catch (error) {
-      console.error("Login error:", error);
-      return { success: false, error: error.message || "Login failed" };
-    } finally {
-      setLoading(false);
+    // Set remember preference
+    localStorage.setItem('remember', remember ? 'true' : 'false');
+    console.log(`Setting remember preference: ${remember ? 'true' : 'false'}`);
+    
+    // Get backend URL
+    const backendUrl = localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id';
+    console.log(`Login using backend URL: ${backendUrl}`);
+    
+    // Perform login request
+    const response = await fetch(`${backendUrl}/api/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
+    });
+    
+    // Parse response
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('Login failed with status:', response.status, data);
+      return { 
+        success: false, 
+        error: data.error || `Login failed with status ${response.status}`
+      };
     }
-  };
+    
+    if (!data.token) {
+      console.error('Login response missing token:', data);
+      return {
+        success: false,
+        error: 'Server response missing authentication token'
+      };
+    }
+    
+    // Save tokens and user data
+    console.log('Login successful, saving tokens and user data');
+    
+    if (remember) {
+      localStorage.setItem('token', data.token);
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
+      localStorage.setItem('user', JSON.stringify(data.user));
+    } else {
+      sessionStorage.setItem('token', data.token);
+      if (data.refreshToken) {
+        sessionStorage.setItem('refreshToken', data.refreshToken);
+      }
+      sessionStorage.setItem('user', JSON.stringify(data.user));
+    }
+    
+    // Update context
+    setToken(data.token);
+    setUser(data.user);
+    
+    return { success: true, user: data.user };
+  } catch (error) {
+    console.error('Login error:', error);
+    return { 
+      success: false, 
+      error: error.message || 'Error during login request'
+    };
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fungsi untuk register
   const register = async (username, email, password) => {
