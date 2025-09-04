@@ -167,17 +167,19 @@ router.get('/qris-settings-alt', (req, res) => {
 
 // Endpoint public dengan rate limit yang lebih rendah
 router.get("/qris-settings", qrisInitLimiter, qrisController.getQrisSettings);
+router.post("/qris-payment/:reference/upload", qrisInitLimiter, uploadWithErrorHandling, qrisController.uploadPaymentProof);
+router.delete("/qris-payment/:reference/cancel", qrisInitLimiter, qrisController.cancelQrisPayment);
 
 // Endpoint yang memerlukan autentikasi
 router.use(authenticateUser);
 
 // User endpoints dengan rate limiting
 router.post("/qris-payment", qrisInitLimiter, qrisController.createQrisPayment);
-router.post("/qris-payment/:reference/upload", qrisInitLimiter, uploadWithErrorHandling, qrisController.uploadPaymentProof);
 router.post("/qris-payment/:reference/upload-base64", qrisInitLimiter, qrisController.uploadPaymentProofBase64);
 router.get("/qris-payments", qrisInitLimiter, qrisController.getUserQrisPayments);
 router.get("/admin/qris-settings", qrisController.getQrisSettings);
 router.get("/qris-settings/admin-true", qrisController.getQrisSettings);
+
 
 // Retry handler untuk error 429
 router.use((err, req, res, next) => {

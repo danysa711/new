@@ -96,45 +96,23 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// PERBAIKAN: Middleware khusus untuk QRIS
-app.use('/api/qris-payments', (req, res, next) => {
-  // Tambahan header khusus untuk rute QRIS
-  res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.header('Pragma', 'no-cache');
-  res.header('Expires', '0');
-  res.header('Surrogate-Control', 'no-store');
-   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
-  // Tambahkan admin=true secara otomatis
-  req.query.admin = 'true';
-  
-  // Handle OPTIONS preflight
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-
-  next();
-});
-
 // Gunakan CORS dengan opsi khusus untuk preflight
 const corsOptions = {
-  origin: function(origin, callback) {
-    // Izinkan semua origin untuk debugging
-    callback(null, true);
-  },
+  origin: ["https://kinterstore.my.id", "https://db.kinterstore.my.id"], 
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     "Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization",
-    "Cache-Control", "Pragma", "Expires", "X-Custom-Header", "X-Auth-Token", 
-    "X-API-Key", "X-Device-Id"
+    "X-Auth-Token", "Cache-Control", "Pragma", "Expires", 
+    "X-Custom-Header", "X-API-Key", "X-Device-Id"
   ],
-  exposedHeaders: ["Content-Disposition", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
   credentials: true,
   optionsSuccessStatus: 200,
   maxAge: 86400
 };
+
+// Global CORS
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 // Routes langsung ke controller QRIS
 app.get("/api/direct/qris-payments", (req, res) => {
@@ -154,12 +132,6 @@ app.put("/api/direct/qris-payment/:reference/verify", (req, res) => {
   console.log("Direct QRIS verification endpoint accessed");
   require("./controllers/qrisController").verifyQrisPayment(req, res);
 });
-
-// Tambahkan CORS global
-app.use(cors(corsOptions));
-
-// Handle preflight requests eksplisit
-app.options('*', cors(corsOptions));
 
 // Nonaktifkan rate limiter sementara untuk debugging
 // Pasang rate limiter hanya pada endpoint yang sangat sering dipanggil
@@ -305,20 +277,23 @@ app.use('/api/login', (req, res, next) => {
 
 // Perbaikan khusus untuk endpoint qris-payments yang bermasalah
 app.use("/api/qris-payments", (req, res, next) => {
-  // Pastikan semua header CORS ditetapkan dengan benar
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, ' +
-    'Cache-Control, Pragma, Expires, X-Custom-Header, X-API-Key, X-Device-Id');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Tambahkan header cache control
-  res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.header('Pragma', 'no-cache');
-  res.header('Expires', '0');
-  res.header('Surrogate-Control', 'no-store');
-  
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.header("Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, " +
+    "Cache-Control, Pragma, Expires, X-Custom-Header, X-API-Key, X-Device-Id"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  // Cache control
+  res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.header("Pragma", "no-cache");
+  res.header("Expires", "0");
+  res.header("Surrogate-Control", "no-store");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
   next();
 });
 

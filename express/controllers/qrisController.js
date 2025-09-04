@@ -191,6 +191,7 @@ const saveQrisSettings = async (req, res) => {
     
     // Validasi input
     if (!merchant_name || !qris_image) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Merchant name and QRIS image are required" });
     }
     
@@ -223,6 +224,7 @@ const saveQrisSettings = async (req, res) => {
     });
   } catch (error) {
     console.error("Error saving QRIS settings:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -231,18 +233,26 @@ const saveQrisSettings = async (req, res) => {
 const createQrisPayment = async (req, res) => {
   try {
     const { plan_id } = req.body;
-    const user_id = req.userId;
-    
+    const user_id = req.userId || req.body.user_id || req.query.user_id;
+
+    if (!user_id) {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  return res.status(400).json({ error: "User ID is required" });
+}
+
+    console.log(`Uploading payment proof for reference: ${reference}, user: ${user_id}`);
     console.log(`Creating QRIS payment for user ${user_id}, plan ${plan_id}`);
     
     // Validasi input
     if (!plan_id) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Plan ID is required" });
     }
     
     // Dapatkan paket langganan
     const plan = await SubscriptionPlan.findByPk(plan_id);
     if (!plan) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(404).json({ error: "Subscription plan not found" });
     }
     
@@ -281,6 +291,7 @@ const createQrisPayment = async (req, res) => {
     
     // PERBAIKAN: Pastikan amount adalah nilai yang valid dan bukan generated column
     // Buat transaksi baru
+    
     const payment = await QrisPayment.create({
       user_id,
       plan_id,
@@ -306,6 +317,7 @@ const createQrisPayment = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating QRIS payment:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -314,12 +326,13 @@ const createQrisPayment = async (req, res) => {
 const uploadPaymentProof = async (req, res) => {
   try {
     const { reference } = req.params;
-    const user_id = req.userId;
+    const user_id = req.userId || req.body.user_id || req.query.user_id;
     
     console.log(`Uploading payment proof for reference: ${reference}`);
     
     // Cek apakah ada file yang diupload
     if (!req.file) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Payment proof image is required" });
     }
     
@@ -329,10 +342,12 @@ const uploadPaymentProof = async (req, res) => {
     });
     
     if (!payment) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(404).json({ error: "Payment not found" });
     }
     
     if (payment.status !== "UNPAID") {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Payment has already been processed" });
     }
     
@@ -374,6 +389,7 @@ const uploadPaymentProof = async (req, res) => {
     });
   } catch (error) {
     console.error("Error uploading payment proof:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -381,10 +397,13 @@ const uploadPaymentProof = async (req, res) => {
 // Mendapatkan riwayat pembayaran QRIS
 const getUserQrisPayments = async (req, res) => {
   try {
-    const user_id = req.userId;
-    
-    console.log(`Getting QRIS payments for user: ${user_id}`);
-    
+    const user_id = req.userId || req.query.user_id; // ✅ ambil dari token atau query
+
+    if (!user_id) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+      return res.status(400).json({ error: "Missing user_id parameter" }); // ✅ validasi
+    }
+
     const payments = await QrisPayment.findAll({
       where: { user_id },
       include: [
@@ -393,12 +412,11 @@ const getUserQrisPayments = async (req, res) => {
       ],
       order: [['createdAt', 'DESC']]
     });
-    
-    console.log(`Found ${payments.length} QRIS payments`);
-    
+
     return res.status(200).json(payments);
   } catch (error) {
     console.error("Error getting user QRIS payments:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -421,6 +439,7 @@ const getAllQrisPayments = async (req, res) => {
     return res.status(200).json(payments);
   } catch (error) {
     console.error("Error getting all QRIS payments:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -435,6 +454,7 @@ const verifyQrisPayment = async (req, res) => {
     
     // Validasi input
     if (!status || !['VERIFIED', 'REJECTED'].includes(status)) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Invalid status" });
     }
     
@@ -448,10 +468,12 @@ const verifyQrisPayment = async (req, res) => {
     });
     
     if (!payment) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(404).json({ error: "Payment not found" });
     }
     
     if (payment.status !== "UNPAID") {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Payment has already been processed" });
     }
     
@@ -513,6 +535,7 @@ const verifyQrisPayment = async (req, res) => {
     });
   } catch (error) {
     console.error("Error verifying QRIS payment:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -539,6 +562,7 @@ const getWhatsAppGroupSettings = async (req, res) => {
     return res.status(200).json(settings);
   } catch (error) {
     console.error("Error getting WhatsApp group settings:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -552,6 +576,7 @@ const saveWhatsAppGroupSettings = async (req, res) => {
     
     // Validasi input
     if (!group_name) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Group name is required" });
     }
     
@@ -585,6 +610,7 @@ const saveWhatsAppGroupSettings = async (req, res) => {
     });
   } catch (error) {
     console.error("Error saving WhatsApp group settings:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -593,12 +619,13 @@ const uploadPaymentProofBase64 = async (req, res) => {
   try {
     const { reference } = req.params;
     const { payment_proof_base64, file_type } = req.body;
-    const user_id = req.userId;
+    const user_id = req.userId || req.body.user_id || req.query.user_id;
     
     console.log(`Uploading base64 payment proof for reference: ${reference}`);
     
     // Cek apakah ada data base64
     if (!payment_proof_base64) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Payment proof data is required" });
     }
     
@@ -608,10 +635,12 @@ const uploadPaymentProofBase64 = async (req, res) => {
     });
     
     if (!payment) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(404).json({ error: "Payment not found" });
     }
     
     if (payment.status !== "UNPAID") {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
       return res.status(400).json({ error: "Payment has already been processed" });
     }
     
@@ -643,6 +672,38 @@ const uploadPaymentProofBase64 = async (req, res) => {
     });
   } catch (error) {
     console.error("Error uploading base64 payment proof:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    return res.status(500).json({ error: "Server error", details: error.message });
+  }
+};
+
+const cancelQrisPayment = async (req, res) => {
+  try {
+    const { reference } = req.params;
+    const user_id = req.userId || req.body.user_id || req.query.user_id;
+
+    if (!reference || !user_id) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+      return res.status(400).json({ error: "Missing reference or user_id" });
+    }
+
+    const payment = await QrisPayment.findOne({ where: { reference, user_id } });
+    if (!payment) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+      return res.status(404).json({ error: "Payment not found" });
+    }
+
+    if (!['UNPAID','PENDING_VERIFICATION'].includes(payment.status)) {
+      res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  return res.status(400).json({ error: "Only UNPAID or PENDING_VERIFICATION payments can be canceled" });
+}
+
+await payment.update({ status: "CANCELED" });
+
+    return res.json({ success: true, message: "Payment canceled successfully" });
+  } catch (error) {
+    console.error("Error canceling payment:", error);
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     return res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -657,5 +718,6 @@ module.exports = {
   verifyQrisPayment,
   getWhatsAppGroupSettings,
   saveWhatsAppGroupSettings,
-  uploadPaymentProofBase64
+  uploadPaymentProofBase64,
+  cancelQrisPayment
 };

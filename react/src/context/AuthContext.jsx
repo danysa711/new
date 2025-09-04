@@ -25,20 +25,17 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(getUserData());
   const [loading, setLoading] = useState(false);
 
-  // Update token dan user saat berubah
   useEffect(() => {
     setToken(getToken());
     setUser(getUserData());
   }, []);
 
-  // Cek profil user jika token ada tapi user tidak ada
   useEffect(() => {
     if (token && !user) {
       fetchUserProfile();
     }
   }, [token]);
 
-  // Fungsi untuk mendapatkan profil user
   const fetchUserProfile = async () => {
     try {
       setLoading(true);
@@ -53,92 +50,59 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Fungsi untuk login
   const login = async (username, password, remember) => {
-  try {
-    setLoading(true);
-    
-    // Set remember preference
-    localStorage.setItem('remember', remember ? 'true' : 'false');
-    console.log(`Setting remember preference: ${remember ? 'true' : 'false'}`);
-    
-    // Get backend URL
-    const backendUrl = localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id';
-    console.log(`Login using backend URL: ${backendUrl}`);
-    
-    // Perform login request
-    const response = await fetch(`${backendUrl}/api/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ username, password })
-    });
-    
-    // Parse response
-    const data = await response.json();
-    
-    if (!response.ok) {
-      console.error('Login failed with status:', response.status, data);
-      return { 
-        success: false, 
-        error: data.error || `Login failed with status ${response.status}`
-      };
-    }
-    
-    if (!data.token) {
-      console.error('Login response missing token:', data);
-      return {
-        success: false,
-        error: 'Server response missing authentication token'
-      };
-    }
-    
-    // Save tokens and user data
-    console.log('Login successful, saving tokens and user data');
-    
-    if (remember) {
-      localStorage.setItem('token', data.token);
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
-      localStorage.setItem('user', JSON.stringify(data.user));
-    } else {
-      sessionStorage.setItem('token', data.token);
-      if (data.refreshToken) {
-        sessionStorage.setItem('refreshToken', data.refreshToken);
-      }
-      sessionStorage.setItem('user', JSON.stringify(data.user));
-    }
-    
-    // Update context
-    setToken(data.token);
-    setUser(data.user);
-    
-    return { success: true, user: data.user };
-  } catch (error) {
-    console.error('Login error:', error);
-    return { 
-      success: false, 
-      error: error.message || 'Error during login request'
-    };
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+      localStorage.setItem('remember', remember ? 'true' : 'false');
+      const backendUrl = localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id';
 
-  // Fungsi untuk register
+      const response = await fetch(`${backendUrl}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.token) {
+        return { success: false, error: data.error || 'Login gagal' };
+      }
+
+      // ✅ simpan token dan user
+      if (remember) {
+        localStorage.setItem('token', data.token);
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      } else {
+        sessionStorage.setItem('token', data.token);
+        if (data.refreshToken) sessionStorage.setItem('refreshToken', data.refreshToken);
+        sessionStorage.setItem('user', JSON.stringify(data.user));
+      }
+
+      // ✅ update context
+      setToken(data.token);
+      setUser(data.user);
+      saveUserData(data.user);
+
+      console.log("Login berhasil, user:", data.user);
+      return { success: true, user: data.user };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: error.message || 'Error login' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const register = async (username, email, password) => {
     try {
       setLoading(true);
       const result = await apiRegister(username, email, password);
-      
       if (result.success) {
         setToken(getToken());
         setUser(result.user);
+        saveUserData(result.user); // ✅ pastikan user tersimpan
       }
-      
       return result;
     } catch (error) {
       console.error("Registration failed:", error);
@@ -148,37 +112,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Fungsi untuk logout
   const logout = () => {
-    // Gunakan clearAuthData dari utils
     clearAuthData();
     apiLogout();
     setToken(null);
     setUser(null);
-    
-    // Tambah delay sebelum redirect ke login
     setTimeout(() => {
       window.location.href = '/login';
     }, 100);
   };
 
-  // Fungsi untuk update data user
   const updateUserData = (userData) => {
     saveUserData(userData);
     setUser(userData);
   };
 
-  // Fungsi untuk update backend URL
   const updateBackendUrl = async (url) => {
     try {
       setLoading(true);
       const result = await apiUpdateBackendUrl(url);
-      
       if (result.success) {
-        // Ambil data user terbaru
         await fetchUserProfile();
       }
-      
       return result;
     } catch (error) {
       console.error("Error updating backend URL:", error);
@@ -188,7 +143,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Fungsi untuk test koneksi ke backend
   const testBackendConnection = async (url) => {
     return apiTestConnection(url);
   };

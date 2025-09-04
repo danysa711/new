@@ -13,35 +13,37 @@ export const getQrisSettings = async () => {
 };
 
 // Membuat pembayaran QRIS baru
-export const createQrisPayment = async (planId) => {
+// Buat pembayaran QRIS
+export const createQrisPayment = async (planId, userId) => {
   try {
-    const response = await axiosInstance.post('/api/qris-payment', { plan_id: planId });
+    const response = await axiosInstance.post("/api/qris-payment", {
+      plan_id: planId,
+      user_id: userId
+    });
     return response.data;
   } catch (error) {
-    console.error('Error creating QRIS payment:', error);
+    console.error("Error createQrisPayment:", error);
     throw error;
   }
 };
 
 // Upload bukti pembayaran
-export const uploadPaymentProof = async (reference, file) => {
+export const uploadPaymentProof = async (reference, file, userId) => {
   try {
     const formData = new FormData();
-    formData.append('payment_proof', file);
-    
+    formData.append("payment_proof", file);
+    formData.append("user_id", userId);
+
     const response = await axiosInstance.post(
       `/api/qris-payment/${reference}/upload`,
       formData,
       {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { "Content-Type": "multipart/form-data" }
       }
     );
-    
     return response.data;
   } catch (error) {
-    console.error('Error uploading payment proof:', error);
+    console.error("Error uploadPaymentProof:", error);
     throw error;
   }
 };
@@ -56,6 +58,8 @@ export const getUserQrisPayments = async () => {
     throw error;
   }
 };
+
+
 
 export default {
   getQrisSettings,
