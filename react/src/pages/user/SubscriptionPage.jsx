@@ -1,14 +1,14 @@
 // react/src/pages/user/SubscriptionPage.jsx
-import React, { useState, useEffect, useContext } from 'react';
 import { 
   Card, Row, Col, Typography, Button, Table, Tag, 
   Divider, Spin, Empty, Alert, Modal, Statistic, 
-  Descriptions, Result, Space
+  Descriptions, Result, Space, Upload, message
 } from 'antd';
 import { 
   ShoppingCartOutlined, CheckCircleOutlined, 
-  CalendarOutlined, ClockCircleOutlined
+  CalendarOutlined, ClockCircleOutlined, UploadOutlined
 } from '@ant-design/icons';
+import { uploadPaymentProof } from '../../services/axios'; // Import fungsi uploadPaymentProof
 import { AuthContext } from '../../context/AuthContext';
 import QrisPaymentForm from '../../components/QrisPaymentForm';
 import moment from 'moment';
@@ -29,9 +29,31 @@ const SubscriptionPage = () => {
   const [error, setError] = useState(null);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [selectedPaymentReference, setSelectedPaymentReference] = useState(null);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   // Efek untuk memuat data saat komponen dimuat
-  useEffect(() => {
+  // pages/user/SubscriptionPage.jsx - perbaikan bagian useEffect untuk memuat data
+
+const fetchData = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    // Kode yang sama seperti di useEffect untuk memuat data
+    // (copy semua isi useEffect di sini)
+    
+    setLoading(false);
+  } catch (err) {
+    console.error('Error fetching subscription data:', err);
+    setError('Gagal memuat data langganan. Silakan coba lagi nanti.');
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -107,11 +129,53 @@ const SubscriptionPage = () => {
       // Tambahkan: Fetch QRIS payments untuk menampilkan di tabel
       try {
         const qrisResponse = await axiosInstance.get('/api/qris-payments');
-        // Cari pembayaran QRIS yang menunggu verifikasi (UNPAID)
-        const pendingPayments = qrisResponse.data.filter(payment => payment.status === 'UNPAID');
         
-        // Tambahkan info pembayaran yang menunggu ke state
+        // Pastikan qrisResponse.data adalah array
+        let qrisData = [];
+        if (Array.isArray(qrisResponse.data)) {
+          qrisData = qrisResponse.data;
+        } else if (qrisResponse.data && qrisResponse.data.data && Array.isArray(qrisResponse.data.data)) {
+          qrisData = qrisResponse.data.data;
+        } else {
+          console.warn("Respons QRIS payments bukan array:", qrisResponse.data);
+          qrisData = [];
+        }
+        
+        // Filter pembayaran yang belum kedaluwarsa (kurang dari 1 jam)
+        const now = new Date();
+        const pendingPayments = qrisData
+          .filter(payment => payment.status === 'UNPAID') // Hanya yang menunggu pembayaran
+          .filter(payment => {
+            const createdAt = new Date(payment.createdAt);
+            const timeDiff = now - createdAt; // dalam milidetik
+            return timeDiff < 60 * 60 * 1000; // kurang dari 1 jam
+          })
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Urutkan terbaru dulu
+          .slice(0, 3); // Ambil maksimal 3 item
+        
+        // Set ke state
         setPendingPayments(pendingPayments);
+        
+        // Auto reject payments that are older than 1 hour
+        const expiredPayments = qrisData
+          .filter(payment => payment.status === 'UNPAID')
+          .filter(payment => {
+            const createdAt = new Date(payment.createdAt);
+            const timeDiff = now - createdAt; // dalam milidetik
+            return timeDiff >= 60 * 60 * 1000; // lebih dari atau sama dengan 1 jam
+          });
+          
+        // Reject expired payments
+        for (const payment of expiredPayments) {
+          try {
+            await axiosInstance.put(`/api/admin/qris-payment/${payment.reference}/verify?admin=true`, 
+              { status: 'REJECTED' }
+            );
+            console.log(`Auto rejected expired payment: ${payment.reference}`);
+          } catch (err) {
+            console.error(`Failed to auto reject payment ${payment.reference}:`, err);
+          }
+        }
       } catch (err) {
         console.error('Error fetching QRIS payments:', err);
         setPendingPayments([]);
@@ -126,24 +190,115 @@ const SubscriptionPage = () => {
   };
   
   fetchData();
+  
+  // Set interval untuk auto-refresh setiap 30 detik
+  const intervalId = setInterval(fetchData, 30000);
+  return () => clearInterval(intervalId);
 }, [user, updateUserData]);
-  
-  // Fungsi untuk membeli paket langganan
-  const handlePurchase = (plan) => {
-    setSelectedPlan(plan);
-    setPaymentModalVisible(true);
-  };
-  
-  // Fungsi untuk menutup modal pembayaran
-  const handleClosePaymentModal = () => {
-    setPaymentModalVisible(false);
-    setSelectedPlan(null);
+
+// Fungsi untuk membatalkan pembayaran
+const handleCancelPayment = async (reference) => {
+  try {
+    const result = await axiosInstance.put(`/api/admin/qris-payment/${reference}/verify?admin=true`, 
+      { status: 'REJECTED' }
+    );
     
-    // Refresh data langganan
-    if (fetchUserProfile) {
-      fetchUserProfile();
+    if (result.data && result.data.success) {
+      message.success('Pembayaran berhasil dibatalkan');
+      // Refresh data
+      fetchData();
+    } else {
+      message.error('Gagal membatalkan pembayaran');
     }
-  };
+  } catch (error) {
+    console.error("Error cancelling payment:", error);
+    message.error('Gagal membatalkan pembayaran: ' + (error.message || 'Unknown error'));
+  }
+};
+
+// Fungsi untuk mengunggah bukti pembayaran
+const handleUploadProof = async (reference) => {
+  // Tampilkan dialog upload
+  setUploadModalVisible(true);
+  setSelectedPaymentReference(reference);
+};
+
+// Dialog upload bukti pembayaran
+const renderUploadModal = () => (
+  <Modal
+    title="Upload Bukti Pembayaran"
+    visible={uploadModalVisible}
+    onCancel={() => {
+      setUploadModalVisible(false);
+      setUploadFile(null);
+    }}
+    footer={[
+      <Button 
+        key="cancel" 
+        onClick={() => {
+          setUploadModalVisible(false);
+          setUploadFile(null);
+        }}
+      >
+        Batal
+      </Button>,
+      <Button 
+        key="upload" 
+        type="primary"
+        loading={uploadLoading}
+        disabled={!uploadFile}
+        onClick={handleSubmitUpload}
+      >
+        Upload
+      </Button>
+    ]}
+  >
+    <Upload
+      beforeUpload={(file) => {
+        setUploadFile(file);
+        return false;
+      }}
+      fileList={uploadFile ? [uploadFile] : []}
+      onRemove={() => setUploadFile(null)}
+      accept="image/*"
+    >
+      <Button icon={<UploadOutlined />}>Pilih File Bukti Pembayaran</Button>
+    </Upload>
+    <div style={{ marginTop: 16 }}>
+      <Text type="secondary">
+        Upload bukti pembayaran berupa screenshot atau foto. Pastikan informasi pembayaran terlihat jelas.
+      </Text>
+    </div>
+  </Modal>
+);
+
+// Handler submit upload
+const handleSubmitUpload = async () => {
+  if (!uploadFile || !selectedPaymentReference) {
+    message.error('File bukti pembayaran harus dipilih');
+    return;
+  }
+  
+  setUploadLoading(true);
+  try {
+    const result = await uploadPaymentProof(selectedPaymentReference, uploadFile);
+    
+    if (result && result.success) {
+      message.success('Bukti pembayaran berhasil diunggah');
+      setUploadModalVisible(false);
+      setUploadFile(null);
+      // Refresh data
+      fetchData();
+    } else {
+      message.error(result?.message || 'Gagal mengunggah bukti pembayaran');
+    }
+  } catch (error) {
+    console.error("Error uploading proof:", error);
+    message.error('Gagal mengunggah bukti pembayaran: ' + (error.message || 'Unknown error'));
+  } finally {
+    setUploadLoading(false);
+  }
+};
   
   if (loading) {
     return (
@@ -270,6 +425,8 @@ const SubscriptionPage = () => {
           )}
         </Row>
       </div>
+      
+      
       
       {/* Payment Modal */}
       <Modal

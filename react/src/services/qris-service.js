@@ -1,6 +1,6 @@
-// src/services/qris-service.js
+// services/qris-service.js
 
-import { qrisInstance } from './axios';
+import axiosInstance from './axios';
 
 // Mendapatkan pengaturan QRIS
 export const getQrisSettings = async () => {
@@ -15,7 +15,7 @@ export const getQrisSettings = async () => {
     for (const endpoint of endpoints) {
       try {
         console.log(`Mencoba endpoint QRIS settings: ${endpoint}`);
-        const response = await qrisInstance.get(endpoint);
+        const response = await axiosInstance.get(endpoint);
         if (response.data) {
           console.log(`Berhasil mendapatkan data dari ${endpoint}`);
           return response.data;
@@ -50,7 +50,7 @@ export const getQrisSettings = async () => {
 // Membuat pembayaran QRIS baru
 export const createQrisPayment = async (planId) => {
   try {
-    const response = await qrisInstance.post('/api/qris-payment', { plan_id: planId });
+    const response = await axiosInstance.post('/api/qris-payment', { plan_id: planId });
     return response.data;
   } catch (error) {
     console.error('Error membuat pembayaran QRIS:', error);
@@ -64,7 +64,7 @@ export const uploadPaymentProof = async (reference, file) => {
     const formData = new FormData();
     formData.append('payment_proof', file);
     
-    const response = await qrisInstance.post(
+    const response = await axiosInstance.post(
       `/api/qris-payment/${reference}/upload`,
       formData,
       {
@@ -93,7 +93,7 @@ export const uploadPaymentProof = async (reference, file) => {
       const base64Data = await base64Promise;
       const base64Content = base64Data.split(',')[1]; // Ambil bagian base64 saja
       
-      const response = await qrisInstance.post(
+      const response = await axiosInstance.post(
         `/api/qris-payment/${reference}/upload-base64`,
         {
           payment_proof_base64: base64Content,
@@ -114,8 +114,17 @@ export const getQrisPayments = async () => {
   try {
     // Tambahkan timestamp untuk menghindari cache
     const timestamp = Date.now();
-    const response = await qrisInstance.get(`/api/qris-payments?ts=${timestamp}`);
-    return response.data;
+    const response = await axiosInstance.get(`/api/qris-payments?ts=${timestamp}`);
+    
+    // Pastikan response.data adalah array
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      return response.data.data; // Untuk kasus response berisi { data: [...] }
+    } else {
+      console.warn("Respons QRIS payments bukan array, mengembalikan array kosong");
+      return [];
+    }
   } catch (error) {
     console.error('Error mendapatkan riwayat pembayaran QRIS:', error);
     return []; // Return array kosong jika error
@@ -125,7 +134,7 @@ export const getQrisPayments = async () => {
 // Memeriksa status pembayaran
 export const checkPaymentStatus = async (reference) => {
   try {
-    const response = await qrisInstance.get(`/api/qris-payment/${reference}/check`);
+    const response = await axiosInstance.get(`/api/qris-payment/${reference}/check`);
     return response.data;
   } catch (error) {
     console.error('Error memeriksa status pembayaran:', error);
@@ -136,11 +145,11 @@ export const checkPaymentStatus = async (reference) => {
   }
 };
 
-// Trigger pembaruan pembayaran (sesuai dengan yang diminta)
+// Trigger pembaruan pembayaran
 export const triggerPaymentUpdate = async (reference) => {
   try {
     console.log(`Triggering payment update for reference: ${reference}`);
-    const response = await qrisInstance.post(`/api/qris-payment/${reference}/check`);
+    const response = await axiosInstance.post(`/api/qris-payment/${reference}/check`);
     return response.data;
   } catch (error) {
     console.error('Error triggering payment update:', error);
@@ -152,14 +161,14 @@ export const triggerPaymentUpdate = async (reference) => {
   }
 };
 
-// Simulasi subscribe to payment updates (untuk kompatibilitas)
+// Simulasi subscribe to payment updates
 export const subscribeToPaymentUpdates = (callback) => {
   console.log("Subscribed to payment updates");
   // Dummy function, returns unsubscribe function
   return () => console.log("Unsubscribed from payment updates");
 };
 
-// Mendapatkan status Tripay (untuk kompatibilitas)
+// Mendapatkan status Tripay
 export const getTripayStatus = async (reference) => {
   console.log(`Getting Tripay status for reference: ${reference}`);
   // Dummy response
@@ -168,16 +177,4 @@ export const getTripayStatus = async (reference) => {
     message: "Status diproses",
     status: "PENDING"
   };
-};
-
-// Export default semua fungsi
-export default {
-  getQrisSettings,
-  createQrisPayment,
-  uploadPaymentProof,
-  getQrisPayments,
-  checkPaymentStatus,
-  triggerPaymentUpdate,
-  subscribeToPaymentUpdates,
-  getTripayStatus
 };

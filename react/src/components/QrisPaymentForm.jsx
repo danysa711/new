@@ -1,4 +1,4 @@
-// src/components/QrisPaymentForm.jsx
+// src/components/QrisPaymentForm.jsx - Perbaiki typo seEffect -> useEffect
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -10,7 +10,7 @@ import {
   InfoCircleOutlined, ReloadOutlined
 } from '@ant-design/icons';
 import axiosInstance from "../services/axios";
-import qrisService from "../services/qris-service";
+import { getQrisSettings, createQrisPayment, uploadPaymentProof } from "../services/axios"; // Ubah ini
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -25,59 +25,62 @@ const QrisPaymentForm = ({ plan, onFinish }) => {
   const [retryCount, setRetryCount] = useState(0);
   
   // Mendapatkan pengaturan QRIS dengan fallback ke data lokal
-  seEffect(() => {
-  const loadQrisSettings = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Gunakan fungsi helper khusus dari api-adapter
-      const { success, data, message } = await fetchQrisSettings();
-      
-      if (success) {
-        setQrisSettings(data);
-      } else {
-        // Gunakan data fallback dari respons
-        setQrisSettings(data);
+  useEffect(() => {
+    const loadQrisSettings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
         
-        // Tampilkan warning jika ada
-        if (message) {
-          setError(message);
+        // Gunakan fungsi getQrisSettings dari services/qris-service
+        const settings = await getQrisSettings();
+        
+        if (settings) {
+          setQrisSettings(settings);
+        } else {
+          setError("Gagal memuat pengaturan QRIS. Menggunakan data default.");
+          
+          // Tetap gunakan data default
+          setQrisSettings({
+            merchant_name: "Kinterstore",
+            qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
+            is_active: true,
+            expiry_hours: 24,
+            instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
+          });
         }
+      } catch (error) {
+        console.error("Error saat memuat pengaturan QRIS:", error);
+        setError("Gagal memuat pengaturan QRIS. Menggunakan data default.");
+        
+        // Tetap gunakan data default
+        setQrisSettings({
+          merchant_name: "Kinterstore",
+          qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
+          is_active: true,
+          expiry_hours: 24,
+          instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
+        });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error saat memuat pengaturan QRIS:", error);
-      setError("Gagal memuat pengaturan QRIS. Menggunakan data default.");
-      
-      // Tetap gunakan data default
-      setQrisSettings({
-        merchant_name: "Kinterstore",
-        qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
-        is_active: true,
-        expiry_hours: 24,
-        instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  loadQrisSettings();
-}, [retryCount]);
+    };
+    
+    loadQrisSettings();
+  }, [retryCount]);
 
   // Membuat transaksi QRIS
-  const createQrisPayment = async () => {
+  const createQrisPaymentHandler = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const result = await qrisService.createQrisPayment(plan.id);
+      const result = await createQrisPayment(plan.id);
       
-      if (result.success && result.payment) {
+      if (result && result.payment) {
         setPaymentData(result.payment);
         setCurrentStep(1);
       } else {
-        setError(result.message || "Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
+        setError("Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
       }
     } catch (error) {
       console.error("Error creating QRIS payment:", error);
@@ -106,7 +109,7 @@ const QrisPaymentForm = ({ plan, onFinish }) => {
     
     setLoading(true);
     try {
-      const result = await qrisService.uploadPaymentProof(paymentData.reference, file);
+      const result = await uploadPaymentProof(paymentData.reference, file);
       
       if (result.success) {
         setPaymentProof(URL.createObjectURL(file));
@@ -192,7 +195,7 @@ const QrisPaymentForm = ({ plan, onFinish }) => {
             </Paragraph>
             <Button 
               type="primary" 
-              onClick={createQrisPayment} 
+              onClick={createQrisPaymentHandler} 
               loading={loading}
               icon={<QrcodeOutlined />}
               size="large"

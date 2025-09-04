@@ -32,39 +32,50 @@ const UserPaymentPage = () => {
 
   // Memuat data transaksi
   const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      // Fetch pembayaran QRIS
-      const qrisResponse = await axiosInstance.get('/api/qris-payments');
-      
-      // Format data untuk tampilan
-      const formattedQris = qrisResponse.data.map(payment => ({
-        ...payment,
-        payment_type: 'QRIS',
-        payment_name: 'QRIS',
-        created_date: payment.createdAt
-      }));
-      
-      // Pisahkan transaksi pending dan semua transaksi
-      const pending = formattedQris.filter(tx => tx.status === 'UNPAID');
-      const all = formattedQris;
-      
-      setTransactions(all);
-      setPendingTransactions(pending);
-      
-      // Hitung statistik
-      setStats({
-        total: all.length,
-        pending: all.filter(tx => tx.status === 'UNPAID').length,
-        paid: all.filter(tx => tx.status === 'PAID').length,
-        failed: all.filter(tx => ['EXPIRED', 'REJECTED'].includes(tx.status)).length
-      });
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    // Fetch pembayaran QRIS
+    const qrisResponse = await axiosInstance.get('/api/qris-payments');
+    
+    // Pastikan qrisResponse.data adalah array
+    let qrisData = [];
+    if (Array.isArray(qrisResponse.data)) {
+      qrisData = qrisResponse.data;
+    } else if (qrisResponse.data && qrisResponse.data.data && Array.isArray(qrisResponse.data.data)) {
+      qrisData = qrisResponse.data.data;
+    } else {
+      console.warn("Respons QRIS payments bukan array:", qrisResponse.data);
+      qrisData = [];
     }
-  };
+    
+    // Format data untuk tampilan
+    const formattedQris = qrisData.map(payment => ({
+      ...payment,
+      payment_type: 'QRIS',
+      payment_name: 'QRIS',
+      created_date: payment.createdAt
+    }));
+    
+    // Pisahkan transaksi pending dan semua transaksi
+    const pending = formattedQris.filter(tx => tx.status === 'UNPAID');
+    const all = formattedQris;
+    
+    setTransactions(all);
+    setPendingTransactions(pending);
+    
+    // Hitung statistik
+    setStats({
+      total: all.length,
+      pending: all.filter(tx => tx.status === 'UNPAID').length,
+      paid: all.filter(tx => tx.status === 'PAID').length,
+      failed: all.filter(tx => ['EXPIRED', 'REJECTED'].includes(tx.status)).length
+    });
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   
   useEffect(() => {
     fetchTransactions();

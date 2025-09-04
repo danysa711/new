@@ -106,29 +106,22 @@ app.use('/api/qris-payments', (req, res, next) => {
   next();
 });
 
-// Gunakan CORS dengan opsi khusus untuk preflight
-const corsOptions = {
+const cors = require('cors');
+
+// Konfigurasi CORS yang lebih permisif
+app.use(cors({
   origin: function(origin, callback) {
-    // Izinkan semua origin untuk debugging
+    // Izinkan semua origin - dalam produksi sebaiknya dibatasi
     callback(null, true);
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    "Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization",
-    "Cache-Control", "Pragma", "Expires", "X-Custom-Header", "X-Auth-Token", 
-    "X-API-Key", "X-Device-Id"
-  ],
-  exposedHeaders: ["Content-Disposition", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
   credentials: true,
-  optionsSuccessStatus: 200,
-  maxAge: 86400
-};
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", 
+                  "Cache-Control", "Pragma", "X-Auth-Token"]
+}));
 
-// Tambahkan CORS global
-app.use(cors(corsOptions));
-
-// Handle preflight requests eksplisit
-app.options('*', cors(corsOptions));
+// Handle OPTIONS preflight requests secara eksplisit
+app.options('*', cors());
 
 // Nonaktifkan rate limiter sementara untuk debugging
 // Pasang rate limiter hanya pada endpoint yang sangat sering dipanggil
@@ -233,12 +226,13 @@ app.get('/api/qris-settings/public', (req, res) => {
 
 app.get('/api/settings/qris-public', (req, res) => {
   try {
+    const { QrisSettings } = require("./models");
     QrisSettings.findOne({ where: { is_active: true } })
       .then(settings => {
         if (settings) {
           res.json(settings);
         } else {
-          // Default data
+          // Jika tidak ada settings yang aktif, berikan data default
           res.json({
             merchant_name: "Kinterstore",
             qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
