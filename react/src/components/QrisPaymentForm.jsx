@@ -1,4 +1,4 @@
-// src/components/QrisPaymentForm.jsx
+// src/components/QrisPaymentForm.jsx - Perbaiki typo seEffect -> useEffect
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -7,49 +7,59 @@ import {
 } from 'antd';
 import { 
   QrcodeOutlined, UploadOutlined, CheckCircleOutlined,
-  InfoCircleOutlined, ReloadOutlined, CheckOutlined
+  InfoCircleOutlined, ReloadOutlined
 } from '@ant-design/icons';
-
-// Import layanan QRIS yang telah ditingkatkan
-import { 
-  getQrisSettings, 
-  createQrisPayment, 
-  uploadPaymentProof,
-  confirmQrisPayment 
-} from "../services/qris-service-improved";
+import axiosInstance from "../services/axios";
+import { getQrisSettings, createQrisPayment, uploadPaymentProof } from "../services/qris-service";
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
 
-const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, initialStep = 0 }) => {
+const QrisPaymentForm = ({ plan, onFinish }) => {
   const [loading, setLoading] = useState(false);
   const [qrisSettings, setQrisSettings] = useState(null);
-  const [paymentData, setPaymentData] = useState(initialPaymentData || null);
+  const [paymentData, setPaymentData] = useState(null);
   const [paymentProof, setPaymentProof] = useState(null);
-  const [currentStep, setCurrentStep] = useState(initialStep);
+  const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   
-  // Mendapatkan pengaturan QRIS dengan penanganan error yang lebih baik
+  // Mendapatkan pengaturan QRIS dengan fallback ke data lokal
   useEffect(() => {
     const loadQrisSettings = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // Gunakan fungsi getQrisSettings dari layanan yang ditingkatkan
+        // Gunakan fungsi getQrisSettings dari services/qris-service
         const settings = await getQrisSettings();
         
         if (settings) {
-          console.log("Pengaturan QRIS berhasil dimuat:", settings);
           setQrisSettings(settings);
         } else {
-          console.error("Pengaturan QRIS tidak valid");
           setError("Gagal memuat pengaturan QRIS. Menggunakan data default.");
+          
+          // Tetap gunakan data default
+          setQrisSettings({
+            merchant_name: "Kinterstore",
+            qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
+            is_active: true,
+            expiry_hours: 24,
+            instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
+          });
         }
       } catch (error) {
         console.error("Error saat memuat pengaturan QRIS:", error);
         setError("Gagal memuat pengaturan QRIS. Menggunakan data default.");
+        
+        // Tetap gunakan data default
+        setQrisSettings({
+          merchant_name: "Kinterstore",
+          qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
+          is_active: true,
+          expiry_hours: 24,
+          instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
+        });
       } finally {
         setLoading(false);
       }
@@ -58,27 +68,18 @@ const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, init
     loadQrisSettings();
   }, [retryCount]);
 
-  // Membuat transaksi QRIS dengan penanganan error yang ditingkatkan
+  // Membuat transaksi QRIS
   const createQrisPaymentHandler = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Tambahkan timeout dan logging untuk debugging
-      console.log("Memulai pembuatan pembayaran QRIS untuk paket:", plan.id);
       const result = await createQrisPayment(plan.id);
       
-      if (result && result.success && result.payment) {
-        console.log("Pembayaran QRIS berhasil dibuat:", result.payment);
-        setPaymentData(result.payment);
-        setCurrentStep(1);
-      } else if (result && !result.success && result.payment) {
-        // Gunakan data fallback jika request gagal tapi ada data fallback
-        console.warn("Menggunakan data fallback untuk pembayaran QRIS");
+      if (result && result.payment) {
         setPaymentData(result.payment);
         setCurrentStep(1);
       } else {
-        console.error("Gagal membuat pembayaran QRIS:", result);
         setError("Gagal membuat pembayaran QRIS. Silakan coba lagi nanti.");
       }
     } catch (error) {
@@ -89,36 +90,7 @@ const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, init
     }
   };
 
-  // Konfirmasi pembayaran tanpa upload bukti
-  const handleConfirmPayment = async () => {
-    setLoading(true);
-    try {
-      console.log("Konfirmasi pembayaran untuk referensi:", paymentData.reference);
-      
-      // Gunakan layanan confirmQrisPayment yang baru
-      const result = await confirmQrisPayment(paymentData.reference);
-      
-      if (result.success) {
-        console.log("Pembayaran berhasil dikonfirmasi");
-        message.success("Terima kasih! Pembayaran Anda telah dikonfirmasi dan sedang dalam proses verifikasi.");
-        setCurrentStep(2);
-      } else {
-        console.error("Gagal konfirmasi pembayaran:", result);
-        message.warning(result.message || "Konfirmasi pembayaran gagal, tapi kami telah mencatat pembayaran Anda");
-        // Tetap lanjutkan ke step berikutnya untuk UX yang lebih baik
-        setCurrentStep(2);
-      }
-    } catch (error) {
-      console.error("Error confirming payment:", error);
-      message.warning("Gagal mengonfirmasi pembayaran secara online, tapi kami telah mencatat pembayaran Anda");
-      // Tetap lanjutkan ke step berikutnya untuk UX yang lebih baik
-      setCurrentStep(2);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Upload bukti pembayaran (untuk backward compatibility)
+  // Upload bukti pembayaran
   const handleUpload = async (file) => {
     if (!file) {
       message.error("File bukti pembayaran harus dipilih");
@@ -137,27 +109,18 @@ const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, init
     
     setLoading(true);
     try {
-      console.log("Upload bukti pembayaran untuk referensi:", paymentData.reference);
       const result = await uploadPaymentProof(paymentData.reference, file);
       
-      if (result && result.success) {
-        console.log("Bukti pembayaran berhasil diupload");
+      if (result.success) {
         setPaymentProof(URL.createObjectURL(file));
         message.success("Bukti pembayaran berhasil diunggah");
         setCurrentStep(2);
       } else {
-        console.error("Gagal upload bukti pembayaran:", result);
-        message.warning("Bukti pembayaran gagal diunggah secara online, tapi kami telah mencatat pembayaran Anda");
-        // Tetap lanjutkan ke step berikutnya untuk UX yang lebih baik
-        setPaymentProof(URL.createObjectURL(file));
-        setCurrentStep(2);
+        message.error(result.message || "Gagal mengunggah bukti pembayaran");
       }
     } catch (error) {
       console.error("Error uploading payment proof:", error);
-      message.warning("Bukti pembayaran gagal diunggah secara online, tapi kami telah mencatat pembayaran Anda");
-      // Tetap lanjutkan ke step berikutnya untuk UX yang lebih baik
-      setPaymentProof(URL.createObjectURL(file));
-      setCurrentStep(2);
+      message.error(error.message || "Gagal mengunggah bukti pembayaran");
     } finally {
       setLoading(false);
     }
@@ -181,7 +144,7 @@ const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, init
 
   // Render berdasarkan status pembayaran
   const renderPaymentSteps = () => {
-    if (loading && !paymentData && !qrisSettings && currentStep === 0) {
+    if (loading && !paymentData && !qrisSettings) {
       return (
         <div style={{ textAlign: 'center', padding: '20px' }}>
           <Spin size="large" />
@@ -218,7 +181,7 @@ const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, init
         <Steps current={currentStep} style={{ marginBottom: 24 }}>
           <Step title="Mulai Pembayaran" />
           <Step title="Bayar QRIS" />
-          <Step title="Konfirmasi" />
+          <Step title="Upload Bukti" />
           <Step title="Menunggu Verifikasi" />
         </Steps>
         
@@ -263,7 +226,7 @@ const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, init
                     </div>
                   </div>
                   <div style={{ marginBottom: 10 }}>
-                    <Text strong>Batas Waktu:</Text> {new Date(new Date(paymentData.createdAt).getTime() + 60*60*1000).toLocaleString()} (1 jam)
+                    <Text strong>Batas Waktu:</Text> {new Date(paymentData.expired_at).toLocaleString()}
                   </div>
                 </div>
               }
@@ -304,32 +267,28 @@ const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, init
             <Divider />
             
             <div style={{ textAlign: 'center' }}>
-              <Text strong>Setelah melakukan pembayaran, klik tombol berikut:</Text>
+              <Text strong>Setelah melakukan pembayaran, unggah bukti pembayaran:</Text>
               <div style={{ marginTop: 16 }}>
-                <Button
-                  type="primary"
-                  icon={<CheckOutlined />}
-                  onClick={handleConfirmPayment}
-                  loading={loading}
-                  size="large"
+                <Upload
+                  name="payment_proof"
+                  beforeUpload={handleUpload}
+                  showUploadList={false}
+                  accept="image/*"
                 >
-                  Saya Sudah Transfer
-                </Button>
-              </div>
-              <div style={{ marginTop: 8, color: '#888' }}>
-                <Text type="secondary">
-                  Pembayaran Anda akan diverifikasi oleh admin kami
-                </Text>
+                  <Button icon={<UploadOutlined />} loading={loading}>
+                    Saya sudah transfer
+                  </Button>
+                </Upload>
               </div>
             </div>
           </div>
         )}
         
-        {currentStep === 2 && (
+        {currentStep === 2 && paymentProof && (
           <div>
             <Result
               status="success"
-              title="Pembayaran Dikonfirmasi"
+              title="Bukti Pembayaran Terkirim"
               subTitle="Pembayaran Anda sedang diverifikasi oleh admin. Harap tunggu konfirmasi."
               extra={[
                 <Button 
@@ -341,13 +300,24 @@ const QrisPaymentForm = ({ plan, onFinish, paymentData: initialPaymentData, init
               ]}
             />
             
-            <Alert
-              message="Perhatian"
-              description="Pembayaran Anda akan diverifikasi oleh admin. Proses ini mungkin membutuhkan waktu beberapa saat."
-              type="warning"
-              showIcon
-              style={{ marginTop: 20, textAlign: 'left' }}
-            />
+            <div style={{ textAlign: 'center', marginTop: 20 }}>
+              <Text strong>Bukti Pembayaran:</Text>
+              <div style={{ marginTop: 10 }}>
+                <Image 
+                  src={paymentProof} 
+                  alt="Bukti Pembayaran" 
+                  style={{ maxHeight: '200px' }} 
+                />
+              </div>
+              
+              <Alert
+                message="Perhatian"
+                description="Bukti pembayaran Anda akan diverifikasi oleh admin. Proses ini mungkin membutuhkan waktu beberapa saat."
+                type="warning"
+                showIcon
+                style={{ marginTop: 20, textAlign: 'left' }}
+              />
+            </div>
           </div>
         )}
       </div>

@@ -97,50 +97,6 @@ const uploadWithErrorHandling = (req, res, next) => {
   });
 };
 
-// Handler untuk endpoint GET /qris-payments dengan penanganan cache yang ditingkatkan
-router.get("/qris-payments", authenticateUser, qrisInitLimiter, async (req, res) => {
-  try {
-    const user_id = req.userId;
-    const limit = parseInt(req.query.limit) || 20;
-    const page = parseInt(req.query.page) || 1;
-    const offset = (page - 1) * limit;
-    
-    console.log(`Getting QRIS payments for user: ${user_id}, limit: ${limit}, page: ${page}`);
-    
-    // Pastikan model QrisPayment diimpor dengan benar
-    const { QrisPayment, User, SubscriptionPlan } = require("../models");
-    
-    const payments = await QrisPayment.findAll({
-      where: { user_id },
-      include: [
-        { model: User, attributes: ['username', 'email'] },
-        { model: SubscriptionPlan, attributes: ['name', 'duration_days', 'price'] }
-      ],
-      order: [['createdAt', 'DESC']],
-      limit,
-      offset
-    });
-    
-    const filteredPayments = payments.map(payment => {
-      const paymentData = payment.toJSON();
-      if (paymentData.payment_proof) {
-        paymentData.has_payment_proof = true;
-        delete paymentData.payment_proof;
-      }
-      return paymentData;
-    });
-    
-    return res.status(200).json({
-      data: filteredPayments,
-      timestamp: Date.now()
-    });
-  } catch (error) {
-    console.error("Error getting user QRIS payments:", error);
-    return res.status(500).json({ error: "Server error", details: error.message });
-  }
-});
-
-// Endpoint public dengan rate limit yang lebih rendah
 router.get("/qris-settings", qrisInitLimiter, qrisController.getQrisSettings);
 
 // Endpoint yang memerlukan autentikasi

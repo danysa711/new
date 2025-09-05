@@ -1,54 +1,46 @@
 // src/context/PaymentContext.jsx
 
-import React, { createContext, useState, useEffect, useContext } from "react";
-import { AuthContext } from "./AuthContext";
+import React, { createContext, useState, useEffect } from "react";
+import axiosInstance from "../services/axios";
 import { message } from 'antd';
 
-// Import layanan QRIS yang telah ditingkatkan
-import { 
-  getQrisPayments,
-  checkPaymentStatus,
-  confirmQrisPayment,
-  cancelQrisPayment
-} from "../services/qris-service-improved";
-
-// Import utilitas API yang telah ditingkatkan
-import { makeRequest } from "../api/api-service-enhanced";
+// Konstanta untuk strategi retry
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 detik
 
 export const PaymentContext = createContext();
 
 export const PaymentProvider = ({ children }) => {
-  // Context
-  const { user, token } = useContext(AuthContext);
-  
-  // State
   const [loading, setLoading] = useState(true);
   const [pendingTransactions, setPendingTransactions] = useState([]);
   const [transactionHistory, setTransactionHistory] = useState([]);
   const [apiStatus, setApiStatus] = useState('checking'); // 'checking', 'available', 'unavailable'
-  const [lastRefresh, setLastRefresh] = useState(null);
-  const [error, setError] = useState(null);
 
-  // Fungsi untuk memicu pembaruan pembayaran - menggunakan makeRequest yang ditingkatkan
+  // Fungsi untuk melakukan retry request dengan exponential backoff
+  const fetchWithRetry = async (apiCall, retries = MAX_RETRIES, delay = INITIAL_RETRY_DELAY) => {
+    try {
+      return await apiCall();
+    } catch (error) {
+      if (retries === 0) {
+        throw error;
+      }
+      
+      console.log(`Sisa percobaan: ${retries}. Mencoba ulang dalam ${delay}ms...`);
+      
+      // Tunggu sebelum retry
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      // Retry dengan delay yang lebih lama
+      return fetchWithRetry(apiCall, retries - 1, delay * 2);
+    }
+  };
+
+  // Fungsi untuk memicu pembaruan pembayaran - definisikan sebagai variabel di dalam komponen
   const triggerPaymentUpdate = async (reference) => {
     try {
       console.log(`Memicu pembaruan pembayaran untuk referensi: ${reference}`);
-      
-      const result = await makeRequest({
-        method: 'POST',
-        endpoint: `/api/qris-payment/${reference}/check`,
-        showError: false
-      });
-      
-      if (result.success) {
-        return result.data;
-      } else {
-        return {
-          success: false,
-          message: result.message || 'Gagal memeriksa status pembayaran',
-          newStatus: null
-        };
-      }
+      const response = await axiosInstance.post(`/api/qris-payment/${reference}/check`);
+      return response.data;
     } catch (error) {
       console.error('Error memicu pembaruan pembayaran:', error);
       return {
@@ -58,46 +50,82 @@ export const PaymentProvider = ({ children }) => {
       };
     }
   };
+  
+  // Fungsi untuk memeriksa status pembayaran - definisikan sebagai variabel di dalam komponen
+  const checkPaymentStatus = async (reference) => {
+    try {
+      console.log(`Memeriksa status pembayaran untuk referensi: ${reference}`);
+      const response = await axiosInstance.get(`/api/qris-payment/${reference}/check`);
+      return response.data;
+    } catch (error) {
+      console.error('Error memeriksa status pembayaran:', error);
+      return {
+        success: false,
+        message: 'Gagal memeriksa status pembayaran'
+      };
+    }
+  };
 
-  // Fungsi untuk memuat transaksi aktif dengan error handling yang lebih baik
+  // Fungsi untuk memuat transaksi aktif
   const loadPendingTransactions = async () => {
     try {
       setLoading(true);
       setApiStatus('checking');
       
-      // Gunakan layanan yang telah ditingkatkan
-      const payments = await getQrisPayments();
+      // Batasi jumlah transaksi yang diminta untuk mengurangi beban server
+      const params = { limit: 10 };
       
-      // Filter hanya pembayaran yang berstatus UNPAID
-      let pendingPayments = payments.filter(payment => payment.status === 'UNPAID');
+      // Tambahkan cache control untuk mencegah cache
+      const headers = { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' };
       
-      // Filter hanya pembayaran yang belum kedaluwarsa (kurang dari 1 jam)
-      pendingPayments = pendingPayments.filter(payment => {
-        const createdAt = new Date(payment.createdAt);
-        const now = new Date();
-        const diffMs = now - createdAt;
-        const diffHours = diffMs / (1000 * 60 * 60);
-        return diffHours <= 1;
-      });
+      let success = false;
+      let retries = 0;
+      const maxRetries = 3;
       
-      // Urutkan berdasarkan tanggal terbaru
-      pendingPayments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      while (!success && retries < maxRetries) {
+        try {
+          // Tambahkan delay progresif antara percobaan
+          if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
+          }
+          
+          const response = await axiosInstance.get('/api/qris-payments', {
+            params,
+            headers,
+            timeout: 15000 + (retries * 5000) // Tambahkan timeout yang lebih lama untuk setiap percobaan
+          });
+          
+          if (response.data) {
+            // Filter hanya transaksi yang masih menunggu
+            const pendingQris = Array.isArray(response.data) ? 
+              response.data.filter(payment => payment.status === 'UNPAID') : 
+              [];
+            
+            setPendingTransactions(pendingQris);
+            setApiStatus('available');
+            success = true;
+            return pendingQris;
+          }
+        } catch (error) {
+          retries++;
+          console.warn(`Percobaan ${retries}/${maxRetries} gagal:`, error);
+          
+          if (retries >= maxRetries) {
+            console.error('Semua percobaan gagal untuk memuat transaksi tertunda');
+            // Tetap gunakan data kosong agar UI tidak rusak
+            setPendingTransactions([]);
+            setApiStatus('unavailable');
+            return [];
+          }
+        }
+      }
       
-      // Batasi hanya 3 pembayaran terbaru
-      pendingPayments = pendingPayments.slice(0, 3);
-      
-      setPendingTransactions(pendingPayments);
-      setApiStatus('available');
-      setLastRefresh(new Date());
-      
-      return pendingPayments;
+      return []; // Return default jika loop berakhir tanpa success
     } catch (error) {
       console.error('Error memuat transaksi tertunda:', error);
       setPendingTransactions([]);
       setApiStatus('unavailable');
-      setLastRefresh(new Date());
-      setError(error.message || 'Gagal memuat transaksi');
-      
+      message.error('Gagal memuat transaksi - silakan coba lagi nanti', 3);
       return [];
     } finally {
       setLoading(false);
@@ -109,20 +137,21 @@ export const PaymentProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Gunakan layanan yang telah ditingkatkan
-      const payments = await getQrisPayments();
+      const response = await fetchWithRetry(
+        () => axiosInstance.get('/api/qris-payments')
+      );
       
-      setTransactionHistory(payments);
-      setApiStatus('available');
-      setLastRefresh(new Date());
+      if (response.status === 200 && Array.isArray(response.data)) {
+        setTransactionHistory(response.data);
+        setApiStatus('available');
+        return response.data;
+      }
       
-      return payments;
+      return []; // Return array kosong jika response tidak sesuai
     } catch (error) {
       console.error('Error memuat riwayat transaksi:', error);
       setApiStatus('unavailable');
-      setLastRefresh(new Date());
-      setError(error.message || 'Gagal memuat riwayat transaksi');
-      
+      message.error('Gagal memuat riwayat transaksi - silakan coba lagi nanti', 3);
       return [];
     } finally {
       setLoading(false);
@@ -137,8 +166,8 @@ export const PaymentProvider = ({ children }) => {
   // Fungsi untuk memeriksa status transaksi
   const checkTransactionStatus = async (reference) => {
     try {
-      // Gunakan layanan yang telah ditingkatkan
-      const result = await checkPaymentStatus(reference);
+      // Gunakan fungsi checkPaymentStatus yang telah didefinisikan
+      const result = await fetchWithRetry(() => checkPaymentStatus(reference));
       
       if (result && result.success) {
         // Refresh data jika status berubah
@@ -157,6 +186,7 @@ export const PaymentProvider = ({ children }) => {
       };
     } catch (error) {
       console.error('Error memeriksa status transaksi:', error);
+      message.error('Gagal memeriksa status transaksi - silakan coba lagi nanti', 3);
       return {
         success: false,
         message: 'Gagal memeriksa status transaksi'
@@ -167,26 +197,19 @@ export const PaymentProvider = ({ children }) => {
   // Efek untuk memuat data awal
   useEffect(() => {
     const fetchInitialData = async () => {
-      // Jangan memuat jika tidak ada token atau user
-      if (!token || !user) {
-        setLoading(false);
-        setApiStatus('unavailable');
-        return;
-      }
-      
       setLoading(true);
       setApiStatus('checking');
       
       try {
         // Jalankan kedua fungsi secara bersamaan
         await Promise.all([
-          loadPendingTransactions(),
-          loadTransactionHistory()
+          loadTransactionHistory(),
+          loadPendingTransactions()
         ]);
       } catch (error) {
         console.error('Error memuat data pembayaran awal:', error);
         setApiStatus('unavailable');
-        setError('Gagal memuat data pembayaran');
+        message.error('Gagal memuat data pembayaran - silakan coba lagi nanti', 3);
       } finally {
         setLoading(false);
       }
@@ -195,14 +218,12 @@ export const PaymentProvider = ({ children }) => {
     fetchInitialData();
     
     // Interval untuk mengecek transaksi aktif setiap 30 detik
-    // Tapi hanya jika API tersedia dan user terautentikasi
+    // Tapi hanya jika API tersedia
     let intervalId = null;
     
-    if (token && user && apiStatus === 'available') {
+    if (apiStatus === 'available') {
       intervalId = setInterval(() => {
-        loadPendingTransactions().catch(err => 
-          console.error('Error pada refresh otomatis:', err)
-        );
+        loadPendingTransactions();
       }, 30000);
     }
     
@@ -212,16 +233,10 @@ export const PaymentProvider = ({ children }) => {
         clearInterval(intervalId);
       }
     };
-  }, [token, user, apiStatus]);
+  }, [apiStatus]);
 
   // Metode manual refresh untuk pengguna
   const manualRefresh = async () => {
-    // Jangan lakukan refresh jika tidak ada token atau user
-    if (!token || !user) {
-      message.error('Anda perlu login untuk mengakses data pembayaran');
-      return;
-    }
-    
     message.info('Memperbarui data transaksi...', 1);
     setLoading(true);
     
@@ -237,46 +252,18 @@ export const PaymentProvider = ({ children }) => {
     }
   };
 
-  // Fungsi untuk membatalkan pembayaran
-  const cancelPayment = async (reference) => {
-    try {
-      setLoading(true);
-      
-      // Gunakan layanan yang telah ditingkatkan
-      const result = await cancelQrisPayment(reference);
-      
-      if (result.success) {
-        message.success('Pembayaran berhasil dibatalkan');
-        // Refresh data
-        await loadPendingTransactions();
-        return { success: true };
-      } else {
-        throw new Error(result.message || 'Gagal membatalkan pembayaran');
-      }
-    } catch (error) {
-      console.error('Error membatalkan pembayaran:', error);
-      message.error(error.message || 'Gagal membatalkan pembayaran');
-      return { success: false, message: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Nilai yang akan disediakan oleh context
   const contextValue = {
     loading,
     pendingTransactions,
     transactionHistory,
     apiStatus,
-    lastRefresh,
-    error,
     refreshTransactions: loadPendingTransactions,
     refreshHistory: loadTransactionHistory,
     loadTransactionsHistory,
     checkTransactionStatus,
-    triggerPaymentUpdate,
-    manualRefresh,
-    cancelPayment
+    triggerPaymentUpdate, // Ekspos fungsi yang didefinisikan di dalam komponen
+    manualRefresh
   };
 
   return (
@@ -285,5 +272,3 @@ export const PaymentProvider = ({ children }) => {
     </PaymentContext.Provider>
   );
 };
-
-export default PaymentProvider;
