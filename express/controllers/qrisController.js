@@ -384,23 +384,8 @@ const getUserQrisPayments = async (req, res) => {
     const user_id = req.userId;
     
     console.log(`Getting QRIS payments for user: ${user_id}`);
-
-    // Batasi maksimal 3 pembayaran UNPAID terbaru per user (hapus yang lebih lama)
-    try {
-      const unpaidRecords = await QrisPayment.findAll({
-        where: { user_id, status: 'UNPAID' },
-        order: [['createdAt', 'DESC']],
-        attributes: ['id']
-      });
-      if (unpaidRecords.length > 3) {
-        const toDeleteIds = unpaidRecords.slice(3).map(r => r.id);
-        await QrisPayment.destroy({ where: { id: toDeleteIds } });
-      }
-    } catch (cleanupErr) {
-      console.warn('Gagal membersihkan UNPAID lama:', cleanupErr.message);
-    }
-
-const payments = await QrisPayment.findAll({
+    
+    const payments = await QrisPayment.findAll({
       where: { user_id },
       include: [
         { model: User, attributes: ['username', 'email'] },

@@ -108,7 +108,7 @@ const SubscriptionPage = () => {
       try {
         const qrisResponse = await axiosInstance.get('/api/qris-payments');
         // Cari pembayaran QRIS yang menunggu verifikasi (UNPAID)
-        const pendingPayments = qrisResponse.data.filter(p => p.status === 'UNPAID').slice(0, 3);
+        const pendingPayments = qrisResponse.data.filter(payment => payment.status === 'UNPAID');
         
         // Tambahkan info pembayaran yang menunggu ke state
         setPendingPayments(pendingPayments);
@@ -179,48 +179,7 @@ const SubscriptionPage = () => {
       <Title level={2}>Langganan</Title>
       
       {/* Active Subscription Section */}
-      
-      
-      {/* Available Plans Section */}
-      <div id="subscription-plans">
-        <Title level={4}>Paket Langganan Tersedia</Title>
-        <Row gutter={[16, 16]}>
-          {plans.length > 0 ? plans.map((plan) => (
-            <Col xs={24} sm={12} md={8} lg={6} key={plan.id}>
-              <Card
-                hoverable
-                title={
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>{plan.name}</span>
-                    <Tag color="green">Rp {parseInt(plan.price).toLocaleString('id-ID')}</Tag>
-                  </div>
-                }
-                actions={[
-                  <Button 
-                    type="primary" 
-                    icon={<ShoppingCartOutlined />}
-                    onClick={() => handlePurchase(plan)}
-                    block
-                  >
-                    Beli Sekarang
-                  </Button>
-                ]}
-              >
-                <div style={{ marginBottom: 12 }}>
-                  <Text strong>{plan.duration_days} hari</Text>
-                </div>
-                <div>{plan.description || `Langganan standar selama ${plan.name}`}</div>
-              </Card>
-            </Col>
-          )) : (
-            <Col span={24}>
-              <Empty description="Belum ada paket langganan tersedia" />
-            </Col>
-          )}
-        </Row>
-      </div>
-
-{pendingPayments.length > 0 && (
+      {pendingPayments.length > 0 && (
   <Card 
     title={<Title level={4}>Pembayaran Menunggu Verifikasi</Title>} 
     style={{ marginBottom: 24 }}
@@ -272,7 +231,45 @@ const SubscriptionPage = () => {
     />
   </Card>
 )}
-
+      
+      {/* Available Plans Section */}
+      <div id="subscription-plans">
+        <Title level={4}>Paket Langganan Tersedia</Title>
+        <Row gutter={[16, 16]}>
+          {plans.length > 0 ? plans.map((plan) => (
+            <Col xs={24} sm={12} md={8} lg={6} key={plan.id}>
+              <Card
+                hoverable
+                title={
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{plan.name}</span>
+                    <Tag color="green">Rp {parseInt(plan.price).toLocaleString('id-ID')}</Tag>
+                  </div>
+                }
+                actions={[
+                  <Button 
+                    type="primary" 
+                    icon={<ShoppingCartOutlined />}
+                    onClick={() => handlePurchase(plan)}
+                    block
+                  >
+                    Beli Sekarang
+                  </Button>
+                ]}
+              >
+                <div style={{ marginBottom: 12 }}>
+                  <Text strong>{plan.duration_days} hari</Text>
+                </div>
+                <div>{plan.description || `Langganan standar selama ${plan.name}`}</div>
+              </Card>
+            </Col>
+          )) : (
+            <Col span={24}>
+              <Empty description="Belum ada paket langganan tersedia" />
+            </Col>
+          )}
+        </Row>
+      </div>
       
       {/* Payment Modal */}
       <Modal

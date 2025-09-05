@@ -276,7 +276,7 @@ const QrisPaymentForm = ({ plan, onFinish }) => {
                   accept="image/*"
                 >
                   <Button icon={<UploadOutlined />} loading={loading}>
-                    Saya sudah transfer
+                    Upload Bukti Pembayaran
                   </Button>
                 </Upload>
               </div>
