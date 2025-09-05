@@ -647,47 +647,6 @@ const uploadPaymentProofBase64 = async (req, res) => {
   }
 };
 
-const autoRejectExpiredPayments = async () => {
-  try {
-    console.log("Running auto-reject for expired QRIS payments...");
-    
-    // Dapatkan semua pembayaran UNPAID
-    const pendingPayments = await QrisPayment.findAll({
-      where: { 
-        status: 'UNPAID',
-        // Menggunakan Sequelize untuk membandingkan tanggal
-        createdAt: {
-          [db.Sequelize.Op.lt]: new Date(Date.now() - 60 * 60 * 1000) // lebih dari 1 jam yang lalu
-        }
-      }
-    });
-    
-    console.log(`Found ${pendingPayments.length} expired QRIS payments to reject`);
-    
-    // Reject semua pembayaran yang kedaluwarsa
-    for (const payment of pendingPayments) {
-      try {
-        await payment.update({
-          status: 'EXPIRED',
-          verification_note: 'Otomatis kedaluwarsa setelah 1 jam'
-        });
-        
-        console.log(`Auto-rejected expired payment: ${payment.reference}`);
-      } catch (updateError) {
-        console.error(`Error rejecting payment ${payment.reference}:`, updateError);
-      }
-    }
-    
-    return pendingPayments.length;
-  } catch (error) {
-    console.error("Error in auto-reject expired payments:", error);
-    return 0;
-  }
-};
-
-// Jalankan auto-reject setiap 15 menit
-setInterval(autoRejectExpiredPayments, 15 * 60 * 1000);
-
 module.exports = {
   getQrisSettings,
   saveQrisSettings,

@@ -1,14 +1,15 @@
 // react/src/pages/user/SubscriptionPage.jsx
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   Card, Row, Col, Typography, Button, Table, Tag, 
   Divider, Spin, Empty, Alert, Modal, Statistic, 
-  Descriptions, Result, Space, Upload, message
+  Descriptions, Result, Space, Popconfirm, message
 } from 'antd';
 import { 
   ShoppingCartOutlined, CheckCircleOutlined, 
-  CalendarOutlined, ClockCircleOutlined, UploadOutlined
+  CalendarOutlined, ClockCircleOutlined, UploadOutlined, 
+  DeleteOutlined
 } from '@ant-design/icons';
-import { uploadPaymentProof } from '../../services/axios'; // Import fungsi uploadPaymentProof
 import { AuthContext } from '../../context/AuthContext';
 import QrisPaymentForm from '../../components/QrisPaymentForm';
 import moment from 'moment';
@@ -30,275 +31,188 @@ const SubscriptionPage = () => {
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [selectedPaymentReference, setSelectedPaymentReference] = useState(null);
-  const [uploadFile, setUploadFile] = useState(null);
-  const [uploadLoading, setUploadLoading] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
 
   // Efek untuk memuat data saat komponen dimuat
-  // pages/user/SubscriptionPage.jsx - perbaikan bagian useEffect untuk memuat data
-
-const fetchData = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    // Kode yang sama seperti di useEffect untuk memuat data
-    // (copy semua isi useEffect di sini)
-    
-    setLoading(false);
-  } catch (err) {
-    console.error('Error fetching subscription data:', err);
-    setError('Gagal memuat data langganan. Silakan coba lagi nanti.');
-    setLoading(false);
-  }
-};
-
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Fetch subscription plans
+  useEffect(() => {
+    const fetchData = async () => {
       try {
-        const plansResponse = await axiosInstance.get('/api/subscription-plans');
-        setPlans(plansResponse.data);
-      } catch (err) {
-        console.error('Error fetching subscription plans:', err);
-        // Gunakan data dummy jika API gagal
-        setPlans([
-          {
-            id: 1,
-            name: '1 Bulan',
-            price: 100000,
-            duration_days: 30,
-            description: 'Langganan selama 1 bulan'
-          },
-          {
-            id: 2,
-            name: '3 Bulan',
-            price: 270000,
-            duration_days: 90,
-            description: 'Langganan selama 3 bulan (Hemat 10%)'
-          },
-          {
-            id: 3,
-            name: '6 Bulan',
-            price: 500000,
-            duration_days: 180,
-            description: 'Langganan selama 6 bulan (Hemat 17%)'
-          }
-        ]);
-      }
-      
-      // Fetch user subscriptions
-      try {
-        const subsResponse = await axiosInstance.get('/api/subscriptions/user');
+        setLoading(true);
+        setError(null);
         
-        // Sort subscriptions by start date (newest first)
-        const sortedSubs = subsResponse.data.sort((a, b) => 
-          new Date(b.start_date) - new Date(a.start_date)
-        );
-        
-        setSubscriptions(sortedSubs);
-        
-        // Find active subscription
-        const active = subsResponse.data.find(
-          (sub) => sub.status === 'active' && new Date(sub.end_date) > new Date()
-        );
-        
-        setActiveSubscription(active);
-        
-        // Jika status berlangganan berubah, perbarui user context
-        if (updateUserData) {
-          if (active && !user.hasActiveSubscription) {
-            // Update user data in context
-            const updatedUser = { ...user, hasActiveSubscription: true };
-            updateUserData(updatedUser);
-          } else if (!active && user.hasActiveSubscription) {
-            // Update user data in context
-            const updatedUser = { ...user, hasActiveSubscription: false };
-            updateUserData(updatedUser);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching user subscriptions:', err);
-        setSubscriptions([]);
-      }
-      
-      // Tambahkan: Fetch QRIS payments untuk menampilkan di tabel
-      try {
-        const qrisResponse = await axiosInstance.get('/api/qris-payments');
-        
-        // Pastikan qrisResponse.data adalah array
-        let qrisData = [];
-        if (Array.isArray(qrisResponse.data)) {
-          qrisData = qrisResponse.data;
-        } else if (qrisResponse.data && qrisResponse.data.data && Array.isArray(qrisResponse.data.data)) {
-          qrisData = qrisResponse.data.data;
-        } else {
-          console.warn("Respons QRIS payments bukan array:", qrisResponse.data);
-          qrisData = [];
+        // Fetch subscription plans
+        try {
+          const plansResponse = await axiosInstance.get('/api/subscription-plans');
+          setPlans(plansResponse.data);
+        } catch (err) {
+          console.error('Error fetching subscription plans:', err);
+          // Gunakan data dummy jika API gagal
+          setPlans([
+            {
+              id: 1,
+              name: '1 Bulan',
+              price: 100000,
+              duration_days: 30,
+              description: 'Langganan selama 1 bulan'
+            },
+            {
+              id: 2,
+              name: '3 Bulan',
+              price: 270000,
+              duration_days: 90,
+              description: 'Langganan selama 3 bulan (Hemat 10%)'
+            },
+            {
+              id: 3,
+              name: '6 Bulan',
+              price: 500000,
+              duration_days: 180,
+              description: 'Langganan selama 6 bulan (Hemat 17%)'
+            }
+          ]);
         }
         
-        // Filter pembayaran yang belum kedaluwarsa (kurang dari 1 jam)
-        const now = new Date();
-        const pendingPayments = qrisData
-          .filter(payment => payment.status === 'UNPAID') // Hanya yang menunggu pembayaran
-          .filter(payment => {
-            const createdAt = new Date(payment.createdAt);
-            const timeDiff = now - createdAt; // dalam milidetik
-            return timeDiff < 60 * 60 * 1000; // kurang dari 1 jam
-          })
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Urutkan terbaru dulu
-          .slice(0, 3); // Ambil maksimal 3 item
+        // Fetch user subscriptions
+        try {
+          const subsResponse = await axiosInstance.get('/api/subscriptions/user');
+          
+          // Sort subscriptions by start date (newest first)
+          const sortedSubs = subsResponse.data.sort((a, b) => 
+            new Date(b.start_date) - new Date(a.start_date)
+          );
+          
+          setSubscriptions(sortedSubs);
+          
+          // Find active subscription
+          const active = subsResponse.data.find(
+            (sub) => sub.status === 'active' && new Date(sub.end_date) > new Date()
+          );
+          
+          setActiveSubscription(active);
+          
+          // Jika status berlangganan berubah, perbarui user context
+          if (updateUserData) {
+            if (active && !user.hasActiveSubscription) {
+              // Update user data in context
+              const updatedUser = { ...user, hasActiveSubscription: true };
+              updateUserData(updatedUser);
+            } else if (!active && user.hasActiveSubscription) {
+              // Update user data in context
+              const updatedUser = { ...user, hasActiveSubscription: false };
+              updateUserData(updatedUser);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching user subscriptions:', err);
+          setSubscriptions([]);
+        }
         
-        // Set ke state
-        setPendingPayments(pendingPayments);
-        
-        // Auto reject payments that are older than 1 hour
-        const expiredPayments = qrisData
-          .filter(payment => payment.status === 'UNPAID')
-          .filter(payment => {
+        // Tambahkan: Fetch QRIS payments untuk menampilkan di tabel
+        try {
+          const qrisResponse = await axiosInstance.get('/api/qris-payments');
+          // Cari pembayaran QRIS yang menunggu verifikasi (UNPAID)
+          let pendingPayments = Array.isArray(qrisResponse.data) ? 
+            qrisResponse.data.filter(payment => payment.status === 'UNPAID') : 
+            [];
+          
+          // Filter hanya pembayaran yang belum melewati batas waktu 1 jam
+          pendingPayments = pendingPayments.filter(payment => {
             const createdAt = new Date(payment.createdAt);
-            const timeDiff = now - createdAt; // dalam milidetik
-            return timeDiff >= 60 * 60 * 1000; // lebih dari atau sama dengan 1 jam
+            const now = new Date();
+            const diffMs = now - createdAt;
+            const diffHours = diffMs / (1000 * 60 * 60);
+            return diffHours <= 1; // Batas waktu 1 jam
           });
           
-        // Reject expired payments
-        for (const payment of expiredPayments) {
-          try {
-            await axiosInstance.put(`/api/admin/qris-payment/${payment.reference}/verify?admin=true`, 
-              { status: 'REJECTED' }
-            );
-            console.log(`Auto rejected expired payment: ${payment.reference}`);
-          } catch (err) {
-            console.error(`Failed to auto reject payment ${payment.reference}:`, err);
-          }
+          // Urutkan berdasarkan tanggal terbaru
+          pendingPayments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          
+          // Batasi hanya 3 pembayaran terbaru
+          pendingPayments = pendingPayments.slice(0, 3);
+          
+          // Tambahkan info pembayaran yang menunggu ke state
+          setPendingPayments(pendingPayments);
+        } catch (err) {
+          console.error('Error fetching QRIS payments:', err);
+          setPendingPayments([]);
         }
+        
+        setLoading(false);
       } catch (err) {
-        console.error('Error fetching QRIS payments:', err);
-        setPendingPayments([]);
+        console.error('Error fetching subscription data:', err);
+        setError('Gagal memuat data langganan. Silakan coba lagi nanti.');
+        setLoading(false);
       }
-      
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching subscription data:', err);
-      setError('Gagal memuat data langganan. Silakan coba lagi nanti.');
-      setLoading(false);
+    };
+    
+    fetchData();
+  }, [user, updateUserData]);
+  
+  // Fungsi untuk membeli paket langganan
+  const handlePurchase = (plan) => {
+    setSelectedPlan(plan);
+    setPaymentModalVisible(true);
+  };
+  
+  // Fungsi untuk menutup modal pembayaran
+  const handleClosePaymentModal = () => {
+    setPaymentModalVisible(false);
+    setSelectedPlan(null);
+    
+    // Refresh data langganan
+    if (fetchUserProfile) {
+      fetchUserProfile();
     }
   };
   
-  fetchData();
-  
-  // Set interval untuk auto-refresh setiap 30 detik
-  const intervalId = setInterval(fetchData, 30000);
-  return () => clearInterval(intervalId);
-}, [user, updateUserData]);
+  // Fungsi untuk menampilkan modal upload bukti
+  const handleUploadProof = (payment) => {
+    setSelectedPayment(payment);
+    setUploadModalVisible(true);
+  };
 
-// Fungsi untuk membatalkan pembayaran
-const handleCancelPayment = async (reference) => {
-  try {
-    const result = await axiosInstance.put(`/api/admin/qris-payment/${reference}/verify?admin=true`, 
-      { status: 'REJECTED' }
-    );
-    
-    if (result.data && result.data.success) {
+  // Fungsi untuk membatalkan pembayaran
+  const handleCancelPayment = async (reference) => {
+    try {
+      setLoading(true);
+      
+      // Kirim permintaan untuk membatalkan pembayaran
+      await axiosInstance.post(`/api/qris-payment/${reference}/cancel`);
+      
       message.success('Pembayaran berhasil dibatalkan');
+      
       // Refresh data
-      fetchData();
-    } else {
+      const qrisResponse = await axiosInstance.get('/api/qris-payments');
+      // Cari pembayaran QRIS yang menunggu verifikasi (UNPAID)
+      let pendingPayments = Array.isArray(qrisResponse.data) ? 
+        qrisResponse.data.filter(payment => payment.status === 'UNPAID') : 
+        [];
+      
+      // Filter hanya pembayaran yang belum melewati batas waktu 1 jam
+      pendingPayments = pendingPayments.filter(payment => {
+        const createdAt = new Date(payment.createdAt);
+        const now = new Date();
+        const diffMs = now - createdAt;
+        const diffHours = diffMs / (1000 * 60 * 60);
+        return diffHours <= 1; // Batas waktu 1 jam
+      });
+      
+      // Urutkan berdasarkan tanggal terbaru
+      pendingPayments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      // Batasi hanya 3 pembayaran terbaru
+      pendingPayments = pendingPayments.slice(0, 3);
+      
+      // Tambahkan info pembayaran yang menunggu ke state
+      setPendingPayments(pendingPayments);
+      
+    } catch (error) {
+      console.error('Error canceling payment:', error);
       message.error('Gagal membatalkan pembayaran');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error cancelling payment:", error);
-    message.error('Gagal membatalkan pembayaran: ' + (error.message || 'Unknown error'));
-  }
-};
-
-// Fungsi untuk mengunggah bukti pembayaran
-const handleUploadProof = async (reference) => {
-  // Tampilkan dialog upload
-  setUploadModalVisible(true);
-  setSelectedPaymentReference(reference);
-};
-
-// Dialog upload bukti pembayaran
-const renderUploadModal = () => (
-  <Modal
-    title="Upload Bukti Pembayaran"
-    visible={uploadModalVisible}
-    onCancel={() => {
-      setUploadModalVisible(false);
-      setUploadFile(null);
-    }}
-    footer={[
-      <Button 
-        key="cancel" 
-        onClick={() => {
-          setUploadModalVisible(false);
-          setUploadFile(null);
-        }}
-      >
-        Batal
-      </Button>,
-      <Button 
-        key="upload" 
-        type="primary"
-        loading={uploadLoading}
-        disabled={!uploadFile}
-        onClick={handleSubmitUpload}
-      >
-        Upload
-      </Button>
-    ]}
-  >
-    <Upload
-      beforeUpload={(file) => {
-        setUploadFile(file);
-        return false;
-      }}
-      fileList={uploadFile ? [uploadFile] : []}
-      onRemove={() => setUploadFile(null)}
-      accept="image/*"
-    >
-      <Button icon={<UploadOutlined />}>Pilih File Bukti Pembayaran</Button>
-    </Upload>
-    <div style={{ marginTop: 16 }}>
-      <Text type="secondary">
-        Upload bukti pembayaran berupa screenshot atau foto. Pastikan informasi pembayaran terlihat jelas.
-      </Text>
-    </div>
-  </Modal>
-);
-
-// Handler submit upload
-const handleSubmitUpload = async () => {
-  if (!uploadFile || !selectedPaymentReference) {
-    message.error('File bukti pembayaran harus dipilih');
-    return;
-  }
-  
-  setUploadLoading(true);
-  try {
-    const result = await uploadPaymentProof(selectedPaymentReference, uploadFile);
-    
-    if (result && result.success) {
-      message.success('Bukti pembayaran berhasil diunggah');
-      setUploadModalVisible(false);
-      setUploadFile(null);
-      // Refresh data
-      fetchData();
-    } else {
-      message.error(result?.message || 'Gagal mengunggah bukti pembayaran');
-    }
-  } catch (error) {
-    console.error("Error uploading proof:", error);
-    message.error('Gagal mengunggah bukti pembayaran: ' + (error.message || 'Unknown error'));
-  } finally {
-    setUploadLoading(false);
-  }
-};
+  };
   
   if (loading) {
     return (
@@ -334,61 +248,43 @@ const handleSubmitUpload = async () => {
       <Title level={2}>Langganan</Title>
       
       {/* Active Subscription Section */}
-      {pendingPayments.length > 0 && (
-  <Card 
-    title={<Title level={4}>Pembayaran Menunggu Verifikasi</Title>} 
-    style={{ marginBottom: 24 }}
-  >
-    <Alert
-      message="Pembayaran Anda Sedang Ditinjau"
-      description="Anda memiliki pembayaran yang sedang menunggu verifikasi admin. Langganan akan aktif segera setelah pembayaran diverifikasi."
-      type="warning"
-      showIcon
-      style={{ marginBottom: 16 }}
-    />
-    
-    <Table
-      dataSource={pendingPayments}
-      rowKey="reference"
-      columns={[
-        {
-          title: 'Referensi',
-          dataIndex: 'reference',
-          key: 'reference',
-          render: text => <Text copyable>{text}</Text>
-        },
-        {
-          title: 'Paket',
-          key: 'plan',
-          render: (_, record) => (
-            record.SubscriptionPlan ? record.SubscriptionPlan.name : '-'
-          )
-        },
-        {
-          title: 'Jumlah',
-          dataIndex: 'total_amount',
-          key: 'amount',
-          render: amount => `Rp ${parseFloat(amount).toLocaleString('id-ID')}`
-        },
-        {
-          title: 'Tanggal',
-          dataIndex: 'createdAt',
-          key: 'date',
-          render: date => moment(date).format('DD/MM/YYYY HH:mm')
-        },
-        {
-          title: 'Status',
-          key: 'status',
-          render: () => <Tag color="processing">MENUNGGU VERIFIKASI</Tag>
-        }
-      ]}
-      pagination={false}
-    />
-  </Card>
-)}
+      {activeSubscription ? (
+        <Card 
+          title={<Title level={4}>Status Langganan Anda</Title>} 
+          style={{ marginBottom: 24 }}
+        >
+          <Descriptions bordered>
+            <Descriptions.Item label="Status" span={3}>
+              <Tag color="success">Aktif</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Tanggal Mulai" span={3}>
+              {formatDate(activeSubscription.start_date)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Tanggal Berakhir" span={3}>
+              {formatDate(activeSubscription.end_date)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Sisa Waktu" span={3}>
+              {calculateRemainingDays(activeSubscription.end_date)} hari
+            </Descriptions.Item>
+          </Descriptions>
+        </Card>
+      ) : (
+        <Card 
+          title={<Title level={4}>Status Langganan Anda</Title>} 
+          style={{ marginBottom: 24 }}
+        >
+          <Alert
+            message="Anda belum berlangganan"
+            description="Pilih paket langganan di bawah ini untuk mulai menggunakan layanan premium."
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        </Card>
+      )}
       
       {/* Available Plans Section */}
-      <div id="subscription-plans">
+      <div id="subscription-plans" style={{ marginBottom: 24 }}>
         <Title level={4}>Paket Langganan Tersedia</Title>
         <Row gutter={[16, 16]}>
           {plans.length > 0 ? plans.map((plan) => (
@@ -426,7 +322,108 @@ const handleSubmitUpload = async () => {
         </Row>
       </div>
       
-      
+      {/* Pending Payments Section - Moved below plans */}
+      {pendingPayments.length > 0 && (
+        <Card 
+          title={<Title level={4}>Pembayaran Menunggu Verifikasi</Title>} 
+          style={{ marginBottom: 24 }}
+        >
+          <Alert
+            message="Pembayaran Anda Sedang Ditinjau"
+            description="Anda memiliki pembayaran yang sedang menunggu verifikasi admin. Langganan akan aktif segera setelah pembayaran diverifikasi."
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+          
+          <Table
+            dataSource={pendingPayments}
+            rowKey="reference"
+            columns={[
+              {
+                title: 'Referensi',
+                dataIndex: 'reference',
+                key: 'reference',
+                render: text => <Text copyable>{text}</Text>
+              },
+              {
+                title: 'Paket',
+                key: 'plan',
+                render: (_, record) => (
+                  record.SubscriptionPlan ? record.SubscriptionPlan.name : '-'
+                )
+              },
+              {
+                title: 'Jumlah',
+                dataIndex: 'total_amount',
+                key: 'amount',
+                render: amount => `Rp ${parseFloat(amount).toLocaleString('id-ID')}`
+              },
+              {
+                title: 'Tanggal',
+                dataIndex: 'createdAt',
+                key: 'date',
+                render: date => moment(date).format('DD/MM/YYYY HH:mm')
+              },
+              {
+                title: 'Batas Waktu',
+                key: 'expiry',
+                render: (_, record) => {
+                  const createdAt = new Date(record.createdAt);
+                  const expiryTime = new Date(createdAt.getTime() + 60 * 60 * 1000); // 1 jam
+                  return moment(expiryTime).format('DD/MM/YYYY HH:mm');
+                }
+              },
+              {
+                title: 'Status',
+                key: 'status',
+                render: (_, record) => {
+                  if (record.payment_proof) {
+                    return <Tag color="processing">BUKTI TERKIRIM</Tag>;
+                  }
+                  return <Tag color="warning">BELUM UPLOAD BUKTI</Tag>;
+                }
+              },
+              {
+                title: 'Aksi',
+                key: 'action',
+                render: (_, record) => (
+                  <Space>
+                    {!record.payment_proof && (
+                      <Button 
+                        type="primary" 
+                        size="small" 
+                        icon={<UploadOutlined />}
+                        onClick={() => handleUploadProof(record)}
+                      >
+                        Upload Bukti
+                      </Button>
+                    )}
+                    {!record.payment_proof && (
+                      <Popconfirm
+                        title="Batalkan Pembayaran"
+                        description="Anda yakin ingin membatalkan pembayaran ini?"
+                        onConfirm={() => handleCancelPayment(record.reference)}
+                        okText="Ya"
+                        cancelText="Tidak"
+                      >
+                        <Button 
+                          danger 
+                          size="small" 
+                          icon={<DeleteOutlined />}
+                        >
+                          Batalkan
+                        </Button>
+                      </Popconfirm>
+                    )}
+                  </Space>
+                )
+              }
+            ]}
+            pagination={false}
+          />
+        </Card>
+      )}
       
       {/* Payment Modal */}
       <Modal
@@ -440,6 +437,27 @@ const handleSubmitUpload = async () => {
           <QrisPaymentForm 
             plan={selectedPlan} 
             onFinish={handleClosePaymentModal} 
+          />
+        )}
+      </Modal>
+      
+      {/* Upload Proof Modal */}
+      <Modal
+        title="Upload Bukti Pembayaran"
+        open={uploadModalVisible}
+        onCancel={() => setUploadModalVisible(false)}
+        footer={null}
+      >
+        {selectedPayment && (
+          <QrisPaymentForm 
+            plan={selectedPayment.SubscriptionPlan || { id: selectedPayment.plan_id, name: 'Langganan', price: selectedPayment.total_amount }}
+            paymentData={selectedPayment}
+            initialStep={1}
+            onFinish={() => {
+              setUploadModalVisible(false);
+              // Refresh pembayaran
+              window.location.reload();
+            }}
           />
         )}
       </Modal>
@@ -504,7 +522,7 @@ const handleSubmitUpload = async () => {
                   'failed': { color: 'red', text: 'GAGAL' }
                 };
                 
-                const { color, text } = statusMap[status] || { color: 'default', text: status.toUpperCase() };
+                const { color, text } = statusMap[status] || { color: 'default', text: status ? status.toUpperCase() : 'UNKNOWN' };
                 
                 return <Tag color={color}>{text}</Tag>;
               },

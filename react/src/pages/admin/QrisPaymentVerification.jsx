@@ -6,7 +6,8 @@ import {
 } from 'antd';
 import { 
   CheckCircleOutlined, CloseCircleOutlined, 
-  EyeOutlined, ReloadOutlined, ExclamationCircleOutlined 
+  EyeOutlined, ReloadOutlined, ExclamationCircleOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
@@ -18,87 +19,161 @@ const QrisPaymentVerification = () => {
   const [loading, setLoading] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [autoRejectInterval, setAutoRejectInterval] = useState(null);
 
   // Memuat data pembayaran QRIS
-const fetchPayments = async () => {
-  try {
-    setLoading(true);
-    
+  const fetchPayments = async () => {
     try {
-      // Tambahkan parameter admin=true untuk autentikasi yang benar
-      const response = await axiosInstance.get('/api/admin/qris-payments?admin=true');
-      setPayments(response.data);
-    } catch (apiError) {
-      console.error("Error pada API utama:", apiError);
+      setLoading(true);
       
-      // Coba endpoint fallback
       try {
-        const fallbackResponse = await axiosInstance.get('/api/admin/qris-payments-list?admin=true');
-        setPayments(fallbackResponse.data);
-      } catch (fallbackError) {
-        console.error("Error pada API fallback:", fallbackError);
+        // Tambahkan parameter admin=true untuk autentikasi yang benar
+        const response = await axiosInstance.get('/api/admin/qris-payments?admin=true');
         
-        // Jika semua gagal, gunakan data kosong
-        setPayments([]);
-        message.warning("Data QRIS tidak tersedia. Server mungkin sedang maintenance.");
+        // Filter hanya pembayaran dengan status UNPAID
+        const unpaidPayments = response.data.filter(payment => payment.status === 'UNPAID');
+        
+        // Periksa pembayaran yang melebihi batas waktu (1 jam)
+        const paymentsToCheck = [...unpaidPayments];
+        let autoRejected = false;
+        
+        for (const payment of paymentsToCheck) {
+          const createdAt = new Date(payment.createdAt);
+          const now = new Date();
+          const diffMs = now - createdAt;
+          const diffHours = diffMs / (1000 * 60 * 60);
+          
+          // Jika lebih dari 1 jam, otomatis tolak
+          if (diffHours > 1) {
+            try {
+              await handleVerifyPayment(payment.reference, 'REJECTED', true);
+              autoRejected = true;
+            } catch (err) {
+              console.error(`Failed to auto reject payment ${payment.reference}:`, err);
+            }
+          }
+        }
+        
+        if (autoRejected) {
+          // Muat ulang data setelah auto-reject
+          const refreshResponse = await axiosInstance.get('/api/admin/qris-payments?admin=true');
+          setPayments(refreshResponse.data);
+          message.info('Beberapa pembayaran yang melewati batas waktu telah ditolak otomatis');
+        } else {
+          setPayments(response.data);
+        }
+      } catch (apiError) {
+        console.error("Error pada API utama:", apiError);
+        
+        // Coba endpoint fallback
+        try {
+          const fallbackResponse = await axiosInstance.get('/api/admin/qris-payments-list?admin=true');
+          setPayments(fallbackResponse.data);
+        } catch (fallbackError) {
+          console.error("Error pada API fallback:", fallbackError);
+          
+          // Jika semua gagal, gunakan data kosong
+          setPayments([]);
+          message.warning("Data QRIS tidak tersedia. Server mungkin sedang maintenance.");
+        }
       }
+    } catch (error) {
+      console.error("Error fetching QRIS payments:", error);
+      message.error("Gagal memuat data pembayaran QRIS");
+      setPayments([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error fetching QRIS payments:", error);
-    message.error("Gagal memuat data pembayaran QRIS");
-    setPayments([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-// Perbarui fungsi handleVerifyPayment
-const handleVerifyPayment = async (reference, status) => {
-  try {
-    setLoading(true);
+  // Set up interval untuk memeriksa pembayaran yang kedaluwarsa secara berkala
+  useEffect(() => {
+    fetchPayments();
     
-    // Tambahkan parameter admin=true dan error handling
-    const response = await axiosInstance.put(
-      `/api/admin/qris-payment/${reference}/verify?admin=true`, 
-      { status }
-    );
-    
-    if (response.data) {
-      message.success(`Pembayaran berhasil ${status === 'VERIFIED' ? 'diverifikasi' : 'ditolak'}`);
+    // Jalankan auto-reject setiap 5 menit
+    const intervalId = setInterval(() => {
       fetchPayments();
-      setViewModalVisible(false);
-    }
-  } catch (error) {
-    console.error("Error verifying payment:", error);
+    }, 5 * 60 * 1000);
     
-    // Berikan pesan spesifik berdasarkan error
-    if (error.response?.status === 404) {
-      message.error("Referensi pembayaran tidak ditemukan");
-    } else if (error.response?.status === 401) {
-      message.error("Anda tidak memiliki akses untuk melakukan verifikasi");
-    } else {
-      message.error(`Gagal ${status === 'VERIFIED' ? 'memverifikasi' : 'menolak'} pembayaran`);
-    }
+    setAutoRejectInterval(intervalId);
     
-    // Jika server error tapi tetap ingin update UI (opsional)
-    if (error.response?.status === 500) {
-      message.warning("Server error, tapi data akan diperbarui secara local");
+    return () => {
+      if (autoRejectInterval) {
+        clearInterval(autoRejectInterval);
+      }
+    };
+  }, []);
+
+  // Perbarui fungsi handleVerifyPayment
+  const handleVerifyPayment = async (reference, status, isAutoReject = false) => {
+    try {
+      setLoading(true);
       
-      // Update state secara lokal
-      setPayments(prevPayments => 
-        prevPayments.map(payment => 
-          payment.reference === reference 
-            ? {...payment, status: status === 'VERIFIED' ? 'PAID' : 'REJECTED'} 
-            : payment
-        )
+      // Tambahkan parameter admin=true dan error handling
+      const response = await axiosInstance.put(
+        `/api/admin/qris-payment/${reference}/verify?admin=true`, 
+        { status }
       );
       
-      setViewModalVisible(false);
+      if (response.data) {
+        if (!isAutoReject) {
+          message.success(`Pembayaran berhasil ${status === 'VERIFIED' ? 'diverifikasi' : 'ditolak'}`);
+        }
+        await fetchPayments();
+        setViewModalVisible(false);
+      }
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      
+      // Berikan pesan spesifik berdasarkan error
+      if (error.response?.status === 404) {
+        message.error("Referensi pembayaran tidak ditemukan");
+      } else if (error.response?.status === 401) {
+        message.error("Anda tidak memiliki akses untuk melakukan verifikasi");
+      } else {
+        message.error(`Gagal ${status === 'VERIFIED' ? 'memverifikasi' : 'menolak'} pembayaran`);
+      }
+      
+      // Jika server error tapi tetap ingin update UI (opsional)
+      if (error.response?.status === 500) {
+        message.warning("Server error, tapi data akan diperbarui secara local");
+        
+        // Update state secara lokal
+        setPayments(prevPayments => 
+          prevPayments.map(payment => 
+            payment.reference === reference 
+              ? {...payment, status: status === 'VERIFIED' ? 'PAID' : 'REJECTED'} 
+              : payment
+          )
+        );
+        
+        setViewModalVisible(false);
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
+  // Cek status pembayaran berdasarkan waktu
+  const getPaymentTimeStatus = (createdAt) => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffMs = now - created;
+    const diffMinutes = diffMs / (1000 * 60);
+    
+    // Jika kurang dari 30 menit, tampilkan OK
+    if (diffMinutes < 30) {
+      return { color: "green", text: "Masih Baru", icon: <CheckCircleOutlined /> };
+    }
+    
+    // Jika 30-50 menit, tampilkan warning
+    if (diffMinutes < 50) {
+      return { color: "orange", text: "Hampir Kedaluwarsa", icon: <ClockCircleOutlined /> };
+    }
+    
+    // Jika lebih dari 50 menit, tampilkan danger
+    return { color: "red", text: "Segera Kedaluwarsa", icon: <ClockCircleOutlined /> };
+  };
 
   // Tampilkan detail pembayaran
   const viewPaymentDetail = (payment) => {
@@ -172,22 +247,26 @@ const handleVerifyPayment = async (reference, status) => {
       onFilter: (value, record) => record.status === value
     },
     {
-      title: 'Notifikasi WA',
-      dataIndex: 'whatsapp_notification_sent',
-      key: 'notification',
-      render: (sent, record) => {
-        if (sent) {
-          const verification = record.whatsapp_verification;
-          if (verification === 'VERIFIED') {
-            return <Badge status="success" text="Terverifikasi" />;
-          } else if (verification === 'REJECTED') {
-            return <Badge status="error" text="Ditolak" />;
-          } else {
-            return <Badge status="processing" text="Terkirim" />;
-          }
-        } else {
-          return <Badge status="default" text="Belum Terkirim" />;
-        }
+      title: 'Batas Waktu',
+      key: 'expiry',
+      render: (_, record) => {
+        const createdAt = new Date(record.createdAt);
+        const expiryTime = new Date(createdAt.getTime() + 60 * 60 * 1000); // 1 jam
+        
+        const timeStatus = getPaymentTimeStatus(record.createdAt);
+        
+        return (
+          <div>
+            <div>{moment(expiryTime).format('DD/MM/YYYY HH:mm')}</div>
+            <div>
+              <Badge 
+                status={timeStatus.color === "green" ? "success" : 
+                        timeStatus.color === "orange" ? "warning" : "error"} 
+                text={timeStatus.text} 
+              />
+            </div>
+          </div>
+        );
       }
     },
     {
@@ -215,21 +294,23 @@ const handleVerifyPayment = async (reference, status) => {
       title: 'Aksi',
       key: 'action',
       render: (_, record) => {
-        if (record.status === 'UNPAID' && record.payment_proof) {
+        if (record.status === 'UNPAID') {
           return (
             <Space>
-              <Popconfirm
-                title="Verifikasi Pembayaran"
-                description="Apakah Anda yakin ingin memverifikasi pembayaran ini?"
-                onConfirm={() => handleVerifyPayment(record.reference, 'VERIFIED')}
-                okText="Ya"
-                cancelText="Tidak"
-                icon={<ExclamationCircleOutlined style={{ color: 'green' }} />}
-              >
-                <Button type="primary" size="small">
-                  Verifikasi
-                </Button>
-              </Popconfirm>
+              {record.payment_proof && (
+                <Popconfirm
+                  title="Verifikasi Pembayaran"
+                  description="Apakah Anda yakin ingin memverifikasi pembayaran ini?"
+                  onConfirm={() => handleVerifyPayment(record.reference, 'VERIFIED')}
+                  okText="Ya"
+                  cancelText="Tidak"
+                  icon={<ExclamationCircleOutlined style={{ color: 'green' }} />}
+                >
+                  <Button type="primary" size="small">
+                    Verifikasi
+                  </Button>
+                </Popconfirm>
+              )}
               
               <Popconfirm
                 title="Tolak Pembayaran"
@@ -255,6 +336,14 @@ const handleVerifyPayment = async (reference, status) => {
     <div>
       <Title level={2}>Verifikasi Pembayaran QRIS</Title>
       
+      <Alert
+        message="Pembayaran yang Melebihi Batas Waktu"
+        description="Pembayaran yang melebihi batas waktu 1 jam akan ditolak secara otomatis. Sistem melakukan pemeriksaan setiap 5 menit."
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+      />
+      
       <Card
         title="Daftar Pembayaran QRIS"
         extra={
@@ -274,8 +363,27 @@ const handleVerifyPayment = async (reference, status) => {
           rowKey="reference" 
           loading={loading}
           pagination={{ pageSize: 10 }}
+          rowClassName={(record) => {
+            // Highlight baris berdasarkan status waktu
+            if (record.status === 'UNPAID') {
+              const { color } = getPaymentTimeStatus(record.createdAt);
+              if (color === "orange") return 'bg-warning-light';
+              if (color === "red") return 'bg-error-light';
+            }
+            return '';
+          }}
         />
       </Card>
+      
+      {/* Style untuk row highlighting */}
+      <style jsx="true">{`
+        .bg-warning-light {
+          background-color: #fff7e6;
+        }
+        .bg-error-light {
+          background-color: #fff1f0;
+        }
+      `}</style>
       
       {/* Modal untuk melihat bukti pembayaran */}
       <Modal
@@ -299,6 +407,7 @@ const handleVerifyPayment = async (reference, status) => {
               key="verify" 
               type="primary"
               onClick={() => handleVerifyPayment(selectedPayment.reference, 'VERIFIED')}
+              disabled={!selectedPayment.payment_proof}
             >
               Verifikasi Pembayaran
             </Button>
@@ -328,6 +437,21 @@ const handleVerifyPayment = async (reference, status) => {
               }
               <br />
               <Text strong>Tanggal:</Text> {moment(selectedPayment.createdAt).format('DD/MM/YYYY HH:mm')}
+              <br />
+              <Text strong>Batas Waktu:</Text> {
+                moment(new Date(new Date(selectedPayment.createdAt).getTime() + 60 * 60 * 1000)).format('DD/MM/YYYY HH:mm')
+              }
+              <br />
+              {selectedPayment.status === 'UNPAID' && (
+                <div style={{ marginTop: 10 }}>
+                  {(() => {
+                    const { color, text, icon } = getPaymentTimeStatus(selectedPayment.createdAt);
+                    return (
+                      <Tag color={color} icon={icon}>{text}</Tag>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
             
             <Divider />
@@ -335,11 +459,20 @@ const handleVerifyPayment = async (reference, status) => {
             <div style={{ textAlign: 'center' }}>
               <Text strong>Bukti Pembayaran</Text>
               <div style={{ marginTop: 10 }}>
-                <Image
-                  src={selectedPayment.payment_proof}
-                  alt="Bukti Pembayaran"
-                  style={{ maxHeight: '400px' }}
-                />
+                {selectedPayment.payment_proof ? (
+                  <Image
+                    src={selectedPayment.payment_proof}
+                    alt="Bukti Pembayaran"
+                    style={{ maxHeight: '400px' }}
+                  />
+                ) : (
+                  <Alert
+                    message="Belum Ada Bukti Pembayaran"
+                    description="Pengguna belum mengupload bukti pembayaran."
+                    type="warning"
+                    showIcon
+                  />
+                )}
               </div>
             </div>
           </div>

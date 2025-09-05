@@ -207,116 +207,57 @@ const handleQrisError = async (error) => {
 
 // Tambahkan interceptor untuk respons
 qrisInstance.interceptors.response.use(
-  (response) => {
-    // Log success untuk debugging
-    console.log(`QRIS Response success from ${response.config.url}`, {
-      status: response.status,
-      headers: response.headers,
-      data: response.data ? 'Data ada' : 'Data kosong'
-    });
+  (response) => response,
+  async (error) => {
+    console.error("QRIS Error:", error.message || 'Unknown error');
     
-    // Handle struktur respons yang berbeda-beda
-    if (response.data && response.data.data && Array.isArray(response.data.data)) {
-      // Kasus respons berstruktur: { data: [...], timestamp: ... }
-      console.log('Respons QRIS memiliki struktur data dalam data');
-      // Tetap kembalikan respons asli, transformasi dilakukan di service
+    // Coba kembali jika error jaringan
+    if (!error.response) {
+      console.warn("Network error detected, retrying after 2 seconds...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return qrisInstance(error.config);
     }
     
-    return response;
-  },
-  async (error) => {
-    return await handleQrisError(error);
+    // Jika error 429 (Too Many Requests), tunggu dan coba lagi
+    if (error.response.status === 429) {
+      const retryAfter = parseInt(error.response.headers['retry-after']) || 5;
+      console.warn(`Rate limit exceeded, retrying after ${retryAfter} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+      return qrisInstance(error.config);
+    }
+    
+    // Error 403 - mungkin langganan kedaluwarsa
+    if (error.response.status === 403) {
+      if (error.response.data?.subscriptionRequired) {
+        console.warn('Subscription required for this operation');
+        return Promise.reject({
+          ...error,
+          handled: true,
+          customMessage: 'Anda memerlukan langganan aktif untuk menggunakan fitur ini'
+        });
+      }
+    }
+    
+    // Error 401 - masalah autentikasi
+    if (error.response.status === 401) {
+      console.warn('Authentication error with QRIS endpoint');
+      // Jangan lakukan redirect untuk mencegah infinite loop
+    }
+    
+    return Promise.reject(error);
   }
 );
 
-export const uploadPaymentProof = async (reference, file) => {
-  try {
-    const formData = new FormData();
-    formData.append("payment_proof", file);
-    
-    const response = await qrisInstance.post(`/api/qris-payment/${reference}/upload`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.error("Error upload bukti pembayaran QRIS:", error);
-    
-    // Jika gagal dengan metode biasa, coba dengan base64
-    try {
-      console.log("Mencoba dengan metode base64...");
-      
-      const reader = new FileReader();
-      const base64Promise = new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      
-      const base64Data = await base64Promise;
-      const base64Content = base64Data.split(',')[1]; // Ambil bagian base64 saja
-      
-      // Kirim sebagai JSON
-      const response = await qrisInstance.post(`/api/qris-payment/${reference}/upload-base64`, {
-        payment_proof_base64: base64Content,
-        file_type: file.type
-      });
-      
-      return response.data;
-    } catch (base64Error) {
-      console.error("Error upload dengan metode base64:", base64Error);
-      throw base64Error;
-    }
-  }
-};
-
-setInterval(autoRejectExpiredPayments, 15 * 60 * 1000);
 // Fungsi-fungsi helper untuk operasi QRIS
 
 // Mendapatkan pengaturan QRIS
 export const getQrisSettings = async () => {
   try {
-    // Coba beberapa endpoint yang berbeda
-    const endpoints = [
-      '/api/settings/qris-public',
-      '/api/qris-settings/public',
-      '/api/qris-settings?admin=true'
-    ];
-    
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`Mencoba endpoint QRIS settings: ${endpoint}`);
-        const response = await qrisInstance.get(endpoint);
-        if (response.data) {
-          console.log(`Berhasil mendapatkan data dari ${endpoint}`);
-          return response.data;
-        }
-      } catch (err) {
-        console.warn(`Gagal pada endpoint ${endpoint}:`, err);
-      }
-    }
-    
-    // Fallback jika semua endpoint gagal
-    console.warn('Semua endpoint QRIS settings gagal, menggunakan data default');
-    return {
-      merchant_name: "Kinterstore",
-      qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
-      is_active: true,
-      expiry_hours: 24,
-      instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
-    };
+    const response = await qrisInstance.get("/api/qris-settings");
+    return response.data;
   } catch (error) {
     console.error("Error mendapatkan pengaturan QRIS:", error);
-    // Tetap berikan data default untuk fallback UI
-    return {
-      merchant_name: "Kinterstore",
-      qris_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAABlBMVEX///8AAABVwtN+AAABA0lEQVRo3u2YMQ7DIAxFDRk5Qo7AUTgaR+loOQJHYKSImVTNH8fUVSvBwJs88Gfwl2MwEHweHEIoiqIoiqIoitqkL+p5tgAC+Cx4GGNc/kdc5QcRgA/CgwhAACCAAAIIIIB/CwaRAJ8QLwq+QwgggADuBS8KAQQQQDAF9ABmtbqzn6DUa3Yy8ipdV6t76aYN26xFR76yKTbecw5xg7XT0PTLna5YeVGrZqDT/mllTfG6Wdr9KE+5c5p+0xt0w7afMOvQPFQHbqiPmJqTjnGnJmK4epEQ74KDOPNeCnXngJ2KAu4XAL5fWGIbk8jm1+sA4D+CeywAAAQQQAABBBBAAKdlDkO5qQMRbkZBAAAAAElFTkSuQmCC",
-      is_active: true,
-      expiry_hours: 24,
-      instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
-    };
+    throw error;
   }
 };
 
@@ -380,19 +321,10 @@ export const uploadQrisPaymentProof = async (reference, file) => {
 export const getQrisPayments = async () => {
   try {
     const response = await qrisInstance.get("/api/qris-payments");
-    
-    // Pastikan data yang dikembalikan adalah array
-    if (Array.isArray(response.data)) {
-      return response.data;
-    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
-      return response.data.data; // Jika data dibungkus dalam objek { data: [...] }
-    } else {
-      console.warn("Respons QRIS payments bukan array, mengembalikan array kosong:", response.data);
-      return []; // Default ke array kosong
-    }
+    return response.data;
   } catch (error) {
     console.error("Error mendapatkan riwayat pembayaran QRIS:", error);
-    return []; // Return array kosong jika error
+    throw error;
   }
 };
 
@@ -827,11 +759,4 @@ export const testBackendConnection = async (url = null) => {
 export const API_URL = getBackendUrl();
 export const getApiUrl = getBackendUrl;
 
-export { 
-  uploadPaymentProof, 
-  getQrisSettings, 
-  createQrisPayment, 
-  getQrisPayments,
-  qrisInstance
-};
 export default axiosInstance;
