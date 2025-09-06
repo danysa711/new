@@ -1,647 +1,870 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Card, Typography, Form, Input, Button, message, Spin, 
-  Divider, Switch, Alert, Descriptions, Tabs, Table,
-  Space, Tag, Modal, Row, Col, Upload, Tooltip, Popconfirm, Select
+// react/src/pages/admin/PaymentSettings.jsx (Updated with QRIS upload and group name)
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Card, Form, Input, InputNumber, Button, Upload, message,
+  Switch, Divider, Typography, Row, Col, Tabs, Spin, Alert, Space,
+  Select, Modal, Table
 } from 'antd';
-import { 
-  SaveOutlined, ReloadOutlined, PlusOutlined, EditOutlined, 
-  DeleteOutlined, BankOutlined, WalletOutlined, QrcodeOutlined,
-  UploadOutlined, CreditCardOutlined, SettingOutlined
+import {
+  SaveOutlined, UploadOutlined, PictureOutlined, DeleteOutlined,
+  ClockCircleOutlined, MessageOutlined, UserOutlined, QrcodeOutlined,
+  WhatsAppOutlined, ApiOutlined, ReloadOutlined, LinkOutlined,
+  CheckCircleOutlined, GroupOutlined
 } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { TabPane } = Tabs;
+const { Option } = Select;
 
 const PaymentSettings = () => {
   const [form] = Form.useForm();
-  const [manualForm] = Form.useForm();
+  const [whatsappForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [loadingSettings, setLoadingSettings] = useState(true);
-  const [tripayEnabled, setTripayEnabled] = useState(true);
-  const [manualPaymentMethods, setManualPaymentMethods] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingMethod, setEditingMethod] = useState(null);
-  const [testResult, setTestResult] = useState(null);
-  const [testLoading, setTestLoading] = useState(false);
-  
-  // Ambil pengaturan dari backend/localStorage
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [settings, setSettings] = useState(null);
+  const [qrisImageUrl, setQrisImageUrl] = useState('');
+  const [qrisPreview, setQrisPreview] = useState('');
+  const [fileList, setFileList] = useState([]);
+  const [whatsappStatus, setWhatsappStatus] = useState({
+    status: 'disconnected',
+    qrCode: null,
+    isInitialized: false,
+    adminGroupName: null
+  });
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
+  const [statusCheckInterval, setStatusCheckInterval] = useState(null);
+  const [whatsappTestMessage, setWhatsappTestMessage] = useState({
+    phone: '',
+    message: 'Ini adalah pesan uji dari sistem.'
+  });
+  const [whatsappGroups, setWhatsappGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupModalVisible, setGroupModalVisible] = useState(false);
+
+  // Fetch settings
   useEffect(() => {
-    const fetchSettings = async () => {
-  try {
-    setLoadingSettings(true);
-    
-    // Ambil pengaturan Tripay
-    const tripayResponse = await axiosInstance.get('/api/settings/tripay');
-    const tripaySettings = tripayResponse.data;
-    
-    // Ambil metode pembayaran manual
-    const manualResponse = await axiosInstance.get('/api/payment-methods/manual');
-    const manualMethods = manualResponse.data;
-    
-    // Set state
-    setTripayEnabled(tripaySettings.tripay_enabled);
-    setManualPaymentMethods(manualMethods);
-    
-    // Set form fields
-    form.setFieldsValue({
-      tripay_enabled: tripaySettings.tripay_enabled,
-      api_key: tripaySettings.api_key,
-      private_key: tripaySettings.private_key,
-      merchant_code: tripaySettings.merchant_code,
-      sandbox_mode: tripaySettings.sandbox_mode,
-      callback_url: window.location.origin + '/api/tripay/callback'
-    });
-    
-    setLoadingSettings(false);
-  } catch (error) {
-    console.error('Error loading payment settings:', error);
-    message.error('Gagal memuat pengaturan pembayaran');
-    setLoadingSettings(false);
-  }
-};
-
-// Ganti simpan pengaturan Tripay
-const handleSaveTripaySettings = async (values) => {
-  try {
-    setLoading(true);
-    
-    // Simpan ke API
-    await axiosInstance.post('/api/settings/tripay', values);
-    
-    setTripayEnabled(values.tripay_enabled);
-    message.success('Pengaturan Tripay berhasil disimpan');
-    setLoading(false);
-  } catch (error) {
-    console.error('Error saving Tripay settings:', error);
-    message.error('Gagal menyimpan pengaturan Tripay');
-    setLoading(false);
-  }
-};
-
-// Ganti simpan metode pembayaran manual
-const handleSavePaymentMethod = async () => {
-  try {
-    await manualForm.validateFields();
-    const values = manualForm.getFieldsValue();
-    
-    if (editingMethod) {
-      // Update metode yang sudah ada
-      await axiosInstance.put(`/api/payment-methods/${editingMethod.id}`, values);
-      message.success('Metode pembayaran berhasil diperbarui');
-    } else {
-      // Tambah metode baru
-      await axiosInstance.post('/api/payment-methods', values);
-      message.success('Metode pembayaran berhasil ditambahkan');
-    }
-    
-    // Refresh daftar metode pembayaran
-    const response = await axiosInstance.get('/api/payment-methods/manual');
-    setManualPaymentMethods(response.data);
-    
-    setModalVisible(false);
-  } catch (error) {
-    console.error('Error saving payment method:', error);
-    message.error('Gagal menyimpan metode pembayaran');
-  }
-};
-
     fetchSettings();
-  }, [form]);
+  }, []);
 
-  // Simpan pengaturan Tripay
-  const handleSaveTripaySettings = async (values) => {
+  // Check WhatsApp status regularly if initialized
+  useEffect(() => {
+    if (whatsappStatus.isInitialized || whatsappStatus.status === 'qr') {
+      const interval = setInterval(() => {
+        checkWhatsAppStatus();
+      }, 5000); // Check every 5 seconds
+      
+      setStatusCheckInterval(interval);
+      return () => clearInterval(interval);
+    } else if (statusCheckInterval) {
+      clearInterval(statusCheckInterval);
+      setStatusCheckInterval(null);
+    }
+  }, [whatsappStatus]);
+
+  const fetchSettings = async () => {
     try {
       setLoading(true);
+      const response = await axiosInstance.get('/api/payment-settings');
+      setSettings(response.data);
+      setQrisImageUrl(response.data.qris_image_url);
+      setQrisPreview(response.data.qris_image_url);
       
-      // Simpan ke localStorage untuk demo
-      localStorage.setItem('tripay_enabled', values.tripay_enabled.toString());
-      setTripayEnabled(values.tripay_enabled);
+      // Reset file list
+      setFileList([]);
       
-      // Simulasi
-      setTimeout(() => {
-        message.success('Pengaturan Tripay berhasil disimpan');
-        setLoading(false);
-      }, 1000);
+      form.setFieldsValue({
+        payment_expiry_hours: response.data.payment_expiry_hours,
+        verification_message_template: response.data.verification_message_template,
+        success_message_template: response.data.success_message_template,
+        rejected_message_template: response.data.rejected_message_template,
+        whatsapp_enabled: response.data.whatsapp_enabled,
+        max_pending_orders: response.data.max_pending_orders
+      });
+      
+      // Check WhatsApp status if enabled
+      if (response.data.whatsapp_enabled) {
+        checkWhatsAppStatus();
+      }
     } catch (error) {
-      console.error('Error saving Tripay settings:', error);
-      message.error('Gagal menyimpan pengaturan Tripay');
+      console.error('Error fetching payment settings:', error);
+      message.error('Gagal memuat pengaturan pembayaran');
+    } finally {
       setLoading(false);
     }
   };
 
-  // Tes koneksi Tripay
-  const handleTestTripayConnection = async () => {
+  const handleSave = async (values) => {
     try {
-      setTestLoading(true);
-      setTestResult(null);
+      setSaveLoading(true);
       
-      // Simulasi tes koneksi
+      // Create form data for file upload
+      const formData = new FormData();
+      
+      // Add text fields
+      formData.append('payment_expiry_hours', values.payment_expiry_hours);
+      formData.append('verification_message_template', values.verification_message_template);
+      formData.append('success_message_template', values.success_message_template);
+      formData.append('rejected_message_template', values.rejected_message_template);
+      formData.append('whatsapp_enabled', values.whatsapp_enabled ? 'true' : 'false');
+      formData.append('max_pending_orders', values.max_pending_orders);
+      
+      // Handle file upload
+      if (fileList.length > 0 && fileList[0].originFileObj) {
+        formData.append('qris_image', fileList[0].originFileObj);
+      }
+      
+      // Update with new values
+      const response = await axiosInstance.put('/api/payment-settings', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      setSettings(response.data.settings);
+      setQrisImageUrl(response.data.settings.qris_image_url);
+      setQrisPreview(response.data.settings.qris_image_url);
+      
+      // Reset file list after successful upload
+      setFileList([]);
+      
+      message.success('Pengaturan pembayaran berhasil disimpan');
+    } catch (error) {
+      console.error('Error saving payment settings:', error);
+      message.error('Gagal menyimpan pengaturan pembayaran');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  // WhatsApp Functions
+  const checkWhatsAppStatus = async () => {
+    try {
+      const response = await axiosInstance.get('/api/whatsapp/status');
+      setWhatsappStatus(response.data);
+      
+      // If connected, fetch groups
+      if (response.data.status === 'ready' && !groupsLoading && whatsappGroups.length === 0) {
+        fetchWhatsappGroups();
+      }
+    } catch (error) {
+      console.error('Error checking WhatsApp status:', error);
+    }
+  };
+
+  const fetchWhatsappGroups = async () => {
+    try {
+      setGroupsLoading(true);
+      const response = await axiosInstance.get('/api/whatsapp/groups');
+      setWhatsappGroups(response.data.groups || []);
+    } catch (error) {
+      console.error('Error fetching WhatsApp groups:', error);
+      message.error('Gagal mendapatkan daftar grup WhatsApp');
+    } finally {
+      setGroupsLoading(false);
+    }
+  };
+
+  const initWhatsApp = async () => {
+    try {
+      setWhatsappLoading(true);
+      await axiosInstance.post('/api/whatsapp/init');
+      message.success('Inisialisasi WhatsApp berhasil dimulai. Periksa QR code di console server.');
+      message.info('PENTING: Cek console server untuk melihat QR code, kemudian scan dengan WhatsApp di ponsel Anda.');
+      
+      // Check status after a short delay
       setTimeout(() => {
-        setTestResult({
-          success: true,
-          message: 'Koneksi ke Tripay berhasil!',
-          merchantName: 'PT Demo Merchant',
-          environment: form.getFieldValue('sandbox_mode') ? 'Sandbox' : 'Production'
-        });
-        setTestLoading(false);
+        checkWhatsAppStatus();
       }, 2000);
     } catch (error) {
-      setTestResult({
-        success: false,
-        message: 'Koneksi ke Tripay gagal. Periksa pengaturan Anda.',
-        error: error.response?.data?.message || error.message
-      });
-      setTestLoading(false);
+      console.error('Error initializing WhatsApp:', error);
+      message.error('Gagal menginisialisasi WhatsApp');
+    } finally {
+      setWhatsappLoading(false);
     }
   };
 
-  // Tampilkan modal tambah/edit metode pembayaran manual
-  const showPaymentMethodModal = (method = null) => {
-    setEditingMethod(method);
-    
-    if (method) {
-      manualForm.setFieldsValue({
-        name: method.name,
-        type: method.type,
-        accountNumber: method.accountNumber,
-        accountName: method.accountName,
-        instructions: method.instructions,
-        qrImageUrl: method.qrImageUrl,
-        isActive: method.isActive
-      });
-    } else {
-      manualForm.resetFields();
-      manualForm.setFieldsValue({
-        isActive: true
-      });
-    }
-    
-    setModalVisible(true);
-  };
-
-  // Simpan metode pembayaran manual
-  const handleSavePaymentMethod = async () => {
+  const logoutWhatsApp = async () => {
     try {
-      await manualForm.validateFields();
-      const values = manualForm.getFieldsValue();
+      setWhatsappLoading(true);
+      await axiosInstance.post('/api/whatsapp/logout');
+      message.success('Logout WhatsApp berhasil');
       
-      if (editingMethod) {
-        // Update metode yang sudah ada
-        const updatedMethods = manualPaymentMethods.map(method => 
-          method.id === editingMethod.id ? { ...method, ...values } : method
-        );
-        setManualPaymentMethods(updatedMethods);
-        
-        // Simpan ke localStorage
-        localStorage.setItem('manual_payment_methods', JSON.stringify(updatedMethods));
-      } else {
-        // Tambah metode baru
-        const newMethod = {
-          id: Date.now().toString(),
-          ...values
-        };
-        const newMethods = [...manualPaymentMethods, newMethod];
-        setManualPaymentMethods(newMethods);
-        
-        // Simpan ke localStorage
-        localStorage.setItem('manual_payment_methods', JSON.stringify(newMethods));
-      }
+      // Update status
+      setWhatsappStatus({
+        status: 'disconnected',
+        qrCode: null,
+        isInitialized: false,
+        adminGroupName: null
+      });
       
-      message.success(`Metode pembayaran berhasil ${editingMethod ? 'diperbarui' : 'ditambahkan'}`);
-      setModalVisible(false);
+      // Reset grup
+      setWhatsappGroups([]);
     } catch (error) {
-      console.error('Error saving payment method:', error);
-      message.error('Gagal menyimpan metode pembayaran');
+      console.error('Error logging out from WhatsApp:', error);
+      message.error('Gagal logout dari WhatsApp');
+    } finally {
+      setWhatsappLoading(false);
     }
   };
 
-  // Hapus metode pembayaran manual
-  const handleDeletePaymentMethod = (id) => {
-    const updatedMethods = manualPaymentMethods.filter(method => method.id !== id);
-    setManualPaymentMethods(updatedMethods);
-    localStorage.setItem('manual_payment_methods', JSON.stringify(updatedMethods));
-    message.success('Metode pembayaran berhasil dihapus');
+  const openGroupModal = async () => {
+    try {
+      if (whatsappGroups.length === 0) {
+        await fetchWhatsappGroups();
+      }
+      setGroupModalVisible(true);
+    } catch (error) {
+      console.error('Error preparing group modal:', error);
+      message.error('Gagal memuat daftar grup');
+    }
   };
 
-  // Toggle status aktif metode pembayaran
-  const togglePaymentMethodStatus = (id) => {
-    const updatedMethods = manualPaymentMethods.map(method => 
-      method.id === id ? { ...method, isActive: !method.isActive } : method
-    );
-    setManualPaymentMethods(updatedMethods);
-    localStorage.setItem('manual_payment_methods', JSON.stringify(updatedMethods));
-    message.success('Status metode pembayaran berhasil diperbarui');
+  const handleSelectGroup = (group) => {
+    setSelectedGroup(group);
   };
 
-  // Kolom tabel metode pembayaran manual
-  const manualPaymentColumns = [
-    {
-      title: 'Nama Metode',
-      dataIndex: 'name',
-      key: 'name'
-    },
-    {
-      title: 'Tipe',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => {
-        let color = 'default';
-        let icon = null;
-        let text = type;
-        
-        if (type === 'bank') {
-          color = 'blue';
-          icon = <BankOutlined />;
-          text = 'Bank Transfer';
-        } else if (type === 'qris') {
-          color = 'green';
-          icon = <QrcodeOutlined />;
-          text = 'QRIS';
-        } else if (type === 'ewallet') {
-          color = 'purple';
-          icon = <WalletOutlined />;
-          text = 'E-Wallet';
-        }
-        
-        return (
-          <Tag color={color} icon={icon}>
-            {text}
-          </Tag>
+  const confirmSetAdminGroup = async () => {
+    if (!selectedGroup) {
+      message.warning('Silakan pilih grup terlebih dahulu');
+      return;
+    }
+    
+    try {
+      setWhatsappLoading(true);
+      await axiosInstance.post('/api/whatsapp/admin-group', {
+        group_id: selectedGroup.id,
+        group_name: selectedGroup.name
+      });
+      
+      message.success(`Grup ${selectedGroup.name} berhasil diatur sebagai grup admin`);
+      setGroupModalVisible(false);
+      
+      // Refresh status
+      await checkWhatsAppStatus();
+      await fetchSettings();
+    } catch (error) {
+      console.error('Error setting admin group:', error);
+      message.error('Gagal mengatur grup admin');
+    } finally {
+      setWhatsappLoading(false);
+    }
+  };
+
+  const sendTestMessage = async () => {
+    try {
+      setWhatsappLoading(true);
+      await axiosInstance.post('/api/whatsapp/test-message', {
+        phone_number: whatsappTestMessage.phone,
+        message: whatsappTestMessage.message
+      });
+      message.success('Pesan uji berhasil dikirim');
+    } catch (error) {
+      console.error('Error sending test message:', error);
+      message.error('Gagal mengirim pesan uji');
+    } finally {
+      setWhatsappLoading(false);
+    }
+  };
+
+  // Handle QRIS image upload
+  const handleQrisUpload = ({ fileList }) => {
+    setFileList(fileList);
+    
+    // Preview file if available
+    if (fileList.length > 0) {
+      const file = fileList[0];
+      if (file.originFileObj) {
+        // Create a preview URL for the file
+        const reader = new FileReader();
+        reader.onload = () => {
+          setQrisPreview(reader.result);
+        };
+        reader.readAsDataURL(file.originFileObj);
+      }
+    } else {
+      // Reset preview to server URL if no file selected
+      setQrisPreview(qrisImageUrl);
+    }
+  };
+
+  const handleRemoveQris = () => {
+    setFileList([]);
+    setQrisPreview(null);
+    
+    // Update form with remove_qris_image flag
+    form.setFieldsValue({
+      ...form.getFieldsValue(),
+      remove_qris_image: true
+    });
+  };
+
+  // Reset settings to default
+  const resetSettings = async (req, res) => {
+  try {
+    // Hanya admin yang boleh reset
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ error: "Tidak memiliki izin" });
+    }
+    
+    // Buat pengaturan default baru
+    const newSettings = await PaymentSettings.create({
+      payment_expiry_hours: 24,
+      qris_image: null,
+      qris_image_url: null,
+      verification_message_template: `*VERIFIKASI PEMBAYARAN BARU KE GRUP*
+    
+Nama: {username}
+Email: {email}
+ID Transaksi: {transaction_id}
+Paket: {plan_name}
+Durasi: {duration} hari
+Nominal: Rp {price}
+Waktu: {datetime}
+
+Balas pesan ini dengan angka:
+*1* untuk *VERIFIKASI*
+*2* untuk *TOLAK*`,
+      whatsapp_enabled: false,
+      max_pending_orders: 3
+    });
+    
+    return res.status(200).json({
+      message: "Pengaturan pembayaran berhasil direset ke default",
+      settings: newSettings
+    });
+  } catch (error) {
+    console.error("Error resetting payment settings:", error);
+    return res.status(500).json({ error: "Terjadi kesalahan pada server" });
+  }
+};
+
+  // Render WhatsApp status
+  const renderWhatsAppStatus = () => {
+    if (whatsappLoading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <Spin size="large" />
+          <div style={{ marginTop: 16 }}>Memproses...</div>
+        </div>
+      );
+    }
+    
+    let statusText = '';
+    let statusColor = '';
+    let statusAction = null;
+    
+    switch (whatsappStatus.status) {
+      case 'disconnected':
+        statusText = 'Terputus';
+        statusColor = '#ff4d4f';
+        statusAction = (
+          <Button 
+            type="primary" 
+            onClick={initWhatsApp}
+          >
+            Inisialisasi WhatsApp
+          </Button>
         );
-      },
-      filters: [
-        { text: 'Bank Transfer', value: 'bank' },
-        { text: 'QRIS', value: 'qris' },
-        { text: 'E-Wallet', value: 'ewallet' }
-      ],
-      onFilter: (value, record) => record.type === value
+        break;
+      case 'qr':
+        statusText = 'Menunggu Scan QR Code';
+        statusColor = '#faad14';
+        statusAction = (
+          <Button 
+            danger
+            onClick={logoutWhatsApp}
+          >
+            Batalkan
+          </Button>
+        );
+        break;
+      case 'ready':
+        statusText = 'Terhubung';
+        statusColor = '#52c41a';
+        statusAction = (
+          <Button 
+            danger
+            onClick={logoutWhatsApp}
+          >
+            Logout
+          </Button>
+        );
+        break;
+      case 'authenticated':
+        statusText = 'Terotentikasi';
+        statusColor = '#1677ff';
+        statusAction = (
+          <Button 
+            danger
+            onClick={logoutWhatsApp}
+          >
+            Logout
+          </Button>
+        );
+        break;
+      case 'error':
+        statusText = 'Error';
+        statusColor = '#ff4d4f';
+        statusAction = (
+          <Button 
+            type="primary" 
+            onClick={initWhatsApp}
+          >
+            Coba Lagi
+          </Button>
+        );
+        break;
+      default:
+        statusText = 'Tidak diketahui';
+        statusColor = '#d9d9d9';
+        statusAction = (
+          <Button 
+            type="primary" 
+            onClick={initWhatsApp}
+          >
+            Inisialisasi WhatsApp
+          </Button>
+        );
+    }
+    
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div>
+            <Text strong>Status: </Text>
+            <Text style={{ color: statusColor }}>{statusText}</Text>
+          </div>
+          {statusAction}
+        </div>
+        
+        {whatsappStatus.status === 'ready' && (
+          <Alert
+            message="WhatsApp Terhubung"
+            description={
+              <div>
+                <p>WhatsApp berhasil terhubung. Anda dapat menggunakan fitur notifikasi WhatsApp sekarang.</p>
+                {whatsappStatus.adminGroupName ? (
+                  <p><strong>Grup Admin:</strong> {whatsappStatus.adminGroupName}</p>
+                ) : (
+                  <p><strong>Grup Admin:</strong> Belum diatur</p>
+                )}
+                <Button 
+                  type="primary"
+                  icon={<GroupOutlined />}
+                  onClick={openGroupModal}
+                  style={{ marginTop: 8 }}
+                >
+                  {whatsappStatus.adminGroupName ? "Ubah Grup Admin" : "Pilih Grup Admin"}
+                </Button>
+              </div>
+            }
+            type="success"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+      </div>
+    );
+  };
+
+  // If loading
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '50px' }}>
+        <Spin size="large" />
+        <div style={{ marginTop: 20 }}>Memuat pengaturan pembayaran...</div>
+      </div>
+    );
+  }
+
+  // Group modal columns
+  const groupColumns = [
+    {
+      title: 'Nama Grup',
+      dataIndex: 'name',
+      key: 'name',
     },
     {
-      title: 'Nomor Rekening/Akun',
-      dataIndex: 'accountNumber',
-      key: 'accountNumber',
-      render: (text, record) => {
-        if (record.type === 'qris') {
-          return '-';
-        }
-        return text || '-';
-      }
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      ellipsis: true,
+      render: text => (
+        <Text copyable style={{ width: 200, display: 'inline-block' }}>{text}</Text>
+      )
     },
     {
-      title: 'Nama Pemilik',
-      dataIndex: 'accountName',
-      key: 'accountName',
-      render: (text, record) => {
-        if (record.type === 'qris') {
-          return '-';
-        }
-        return text || '-';
-      }
-    },
-    {
-      title: 'Status',
-      dataIndex: 'isActive',
-      key: 'isActive',
-      render: (isActive) => (
-        <Tag color={isActive ? 'success' : 'error'}>
-          {isActive ? 'AKTIF' : 'NONAKTIF'}
-        </Tag>
-      ),
-      filters: [
-        { text: 'Aktif', value: true },
-        { text: 'Nonaktif', value: false }
-      ],
-      onFilter: (value, record) => record.isActive === value
+      title: 'Jumlah Peserta',
+      dataIndex: 'participantsCount',
+      key: 'participantsCount',
+      sorter: (a, b) => a.participantsCount - b.participantsCount
     },
     {
       title: 'Aksi',
       key: 'action',
       render: (_, record) => (
-        <Space>
-          <Tooltip title="Edit">
-            <Button 
-              icon={<EditOutlined />} 
-              onClick={() => showPaymentMethodModal(record)}
-              size="small"
-            />
-          </Tooltip>
-          <Tooltip title={record.isActive ? 'Nonaktifkan' : 'Aktifkan'}>
-            <Button 
-              icon={record.isActive ? <DeleteOutlined /> : <ReloadOutlined />}
-              onClick={() => togglePaymentMethodStatus(record.id)}
-              type={record.isActive ? 'default' : 'primary'}
-              size="small"
-            />
-          </Tooltip>
-          <Tooltip title="Hapus">
-            <Popconfirm 
-              title="Yakin ingin menghapus metode pembayaran ini?"
-              onConfirm={() => handleDeletePaymentMethod(record.id)}
-              okText="Ya"
-              cancelText="Batal"
-            >
-              <Button 
-                danger 
-                icon={<DeleteOutlined />} 
-                size="small"
-              />
-            </Popconfirm>
-          </Tooltip>
-        </Space>
+        <Button 
+          type="primary" 
+          onClick={() => handleSelectGroup(record)}
+        >
+          Pilih
+        </Button>
       )
     }
   ];
-
-  if (loadingSettings) {
-    return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Spin size="large" />
-        <div style={{ marginTop: 16 }}>Memuat pengaturan pembayaran...</div>
-      </div>
-    );
-  }
 
   return (
     <div>
       <Title level={2}>Pengaturan Pembayaran</Title>
       
-      <Tabs defaultActiveKey="tripay">
-        <TabPane tab="Tripay" key="tripay">
-          <Card>
-            <div style={{ marginBottom: 20 }}>
-              <Form
-                form={form}
-                layout="vertical"
-                onFinish={handleSaveTripaySettings}
-                initialValues={{
-                  tripay_enabled: tripayEnabled,
-                  sandbox_mode: true
-                }}
-              >
-                <Form.Item
-                  name="tripay_enabled"
-                  label="Status Tripay"
-                  valuePropName="checked"
-                >
-                  <Switch 
-                    checkedChildren="Aktif" 
-                    unCheckedChildren="Nonaktif"
-                  />
-                </Form.Item>
-                
-                <Alert
-                  message={tripayEnabled ? "Tripay Aktif" : "Tripay Nonaktif"}
-                  description={tripayEnabled 
-                    ? "Pembayaran melalui Tripay tersedia untuk pelanggan" 
-                    : "Pembayaran melalui Tripay tidak tersedia untuk pelanggan"}
-                  type={tripayEnabled ? "success" : "warning"}
-                  showIcon
-                  style={{ marginBottom: 20 }}
-                />
-                
-                <Divider />
-                
-                <Form.Item
-                  name="api_key"
-                  label="API Key"
-                  rules={[{ required: true, message: 'API Key diperlukan' }]}
-                >
-                  <Input.Password placeholder="Masukkan API Key dari Tripay" disabled={!tripayEnabled} />
-                </Form.Item>
-                
-                <Form.Item
-                  name="private_key"
-                  label="Private Key"
-                  rules={[{ required: true, message: 'Private Key diperlukan' }]}
-                >
-                  <Input.Password placeholder="Masukkan Private Key dari Tripay" disabled={!tripayEnabled} />
-                </Form.Item>
-                
-                <Form.Item
-                  name="merchant_code"
-                  label="Kode Merchant"
-                  rules={[{ required: true, message: 'Kode Merchant diperlukan' }]}
-                >
-                  <Input placeholder="Masukkan Kode Merchant dari Tripay" disabled={!tripayEnabled} />
-                </Form.Item>
-                
-                <Form.Item
-                  name="callback_url"
-                  label="URL Callback"
-                >
-                  <Input disabled />
-                </Form.Item>
-                
-                <Form.Item
-                  label="Mode Sandbox"
-                  valuePropName="checked"
-                >
-                  <Switch disabled={!tripayEnabled} />
-                </Form.Item>
-                
-                <Form.Item>
-                  <Space>
-                    <Button 
-                      type="primary" 
-                      htmlType="submit" 
-                      icon={<SaveOutlined />} 
-                      loading={loading}
-                    >
-                      Simpan Pengaturan
-                    </Button>
-                    
-                    <Button 
-                      onClick={handleTestTripayConnection} 
-                      icon={<ReloadOutlined />}
-                      loading={testLoading}
-                      disabled={!tripayEnabled}
-                    >
-                      Tes Koneksi
-                    </Button>
-                  </Space>
-                </Form.Item>
-              </Form>
-              
-              {testResult && (
-                <>
-                  <Divider />
-                  {testResult.success ? (
-                    <>
-                      <Alert
-                        message="Koneksi Berhasil"
-                        description={testResult.message}
-                        type="success"
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                      />
-                      
-                      <Descriptions title="Detail Merchant" bordered size="small">
-                        <Descriptions.Item label="Nama Merchant" span={3}>
-                          {testResult.merchantName}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Lingkungan" span={3}>
-                          {testResult.environment}
-                        </Descriptions.Item>
-                      </Descriptions>
-                    </>
-                  ) : (
-                    <Alert
-                      message="Koneksi Gagal"
-                      description={testResult.message}
-                      type="error"
-                      showIcon
+      <Tabs defaultActiveKey="1">
+        <TabPane 
+          tab={
+            <span>
+              <QrcodeOutlined />
+              Pengaturan QRIS
+            </span>
+          } 
+          key="1"
+        >
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSave}
+            initialValues={settings}
+          >
+            <Row gutter={24}>
+              <Col span={12}>
+                <Card title="Pengaturan Umum" bordered={false}>
+                  <Form.Item
+                    name="payment_expiry_hours"
+                    label="Batas Waktu Pembayaran (Jam)"
+                    rules={[{ required: true, message: 'Harap masukkan batas waktu pembayaran' }]}
+                  >
+                    <InputNumber
+                      min={1}
+                      max={72}
+                      style={{ width: '100%' }}
+                      addonAfter="Jam"
+                      placeholder="Contoh: 24"
                     />
-                  )}
-                </>
-              )}
+                  </Form.Item>
+                  
+                  <Form.Item
+                    name="max_pending_orders"
+                    label="Maksimum Pesanan Tertunda per Pengguna"
+                    rules={[{ required: true, message: 'Harap masukkan maksimum pesanan tertunda' }]}
+                  >
+                    <InputNumber
+                      min={1}
+                      max={10}
+                      style={{ width: '100%' }}
+                      addonAfter="Pesanan"
+                      placeholder="Contoh: 3"
+                    />
+                  </Form.Item>
+                  
+                  {/* Hidden field for remove_qris_image flag */}
+                  <Form.Item name="remove_qris_image" hidden>
+                    <Input />
+                  </Form.Item>
+                </Card>
+              </Col>
+              
+              <Col span={12}>
+                <Card title="Kode QR Pembayaran (QRIS)" bordered={false}>
+                  <Form.Item label="Gambar QRIS">
+                    <Upload
+                      listType="picture-card"
+                      fileList={fileList}
+                      onChange={handleQrisUpload}
+                      beforeUpload={() => false} // Prevent auto upload
+                      maxCount={1}
+                      accept="image/*"
+                    >
+                      {fileList.length === 0 && (
+                        <div>
+                          <UploadOutlined />
+                          <div style={{ marginTop: 8 }}>Upload</div>
+                        </div>
+                      )}
+                    </Upload>
+                  </Form.Item>
+                  
+                  <div style={{ textAlign: 'center', marginTop: 16 }}>
+                    {qrisPreview ? (
+                      <div>
+                        <img 
+                          src={qrisPreview} 
+                          alt="QRIS Preview" 
+                          style={{ maxWidth: '100%', maxHeight: 300, objectFit: 'contain' }}
+                        />
+                        <Button 
+                          type="danger" 
+                          icon={<DeleteOutlined />} 
+                          onClick={handleRemoveQris} 
+                          style={{ marginTop: 8 }}
+                        >
+                          Hapus QRIS
+                        </Button>
+                      </div>
+                    ) : (
+                      <div style={{ 
+                        padding: '40px', 
+                        background: '#f5f5f5', 
+                        borderRadius: 4, 
+                        textAlign: 'center'
+                      }}>
+                        <QrcodeOutlined style={{ fontSize: 64, color: '#d9d9d9' }} />
+                        <div>Gambar QRIS belum diupload</div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+            
+            <Card title="Template Pesan Verifikasi" bordered={false} style={{ marginTop: 16 }}>
+  <Alert
+    message="Informasi Variabel Template"
+    description={
+      <ul>
+        <li><code>{"{username}"}</code> - Nama pengguna</li>
+        <li><code>{"{email}"}</code> - Alamat email pengguna</li>
+        <li><code>{"{transaction_id}"}</code> - ID transaksi</li>
+        <li><code>{"{plan_name}"}</code> - Nama paket langganan</li>
+        <li><code>{"{duration}"}</code> - Durasi paket langganan (hari)</li>
+        <li><code>{"{price}"}</code> - Harga paket langganan</li>
+        <li><code>{"{datetime}"}</code> - Tanggal dan waktu saat ini</li>
+      </ul>
+    }
+    type="info"
+    showIcon
+  />
+  
+  <Form.Item
+    name="verification_message_template"
+    label="Template Pesan Verifikasi (ke Grup Admin)"
+    rules={[{ required: true, message: 'Harap masukkan template pesan verifikasi' }]}
+  >
+    <TextArea rows={8} placeholder="Template pesan verifikasi" />
+  </Form.Item>
+</Card>
+            
+            <div style={{ marginTop: 16, textAlign: 'right' }}>
+              <Space>
+                <Button 
+                  onClick={resetSettings}
+                  icon={<ReloadOutlined />}
+                >
+                  Reset ke Default
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  icon={<SaveOutlined />}
+                  loading={saveLoading}
+                >
+                  Simpan Pengaturan
+                </Button>
+              </Space>
             </div>
-          </Card>
+          </Form>
         </TabPane>
         
-        <TabPane tab="Pembayaran Manual" key="manual">
-          <Card
-            title="Metode Pembayaran Manual"
-            extra={
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={() => showPaymentMethodModal()}
+        <TabPane
+          tab={
+            <span>
+              <WhatsAppOutlined />
+              Konfigurasi WhatsApp
+            </span>
+          }
+          key="2"
+        >
+          <Card title="Status WhatsApp" bordered={false}>
+            {renderWhatsAppStatus()}
+          </Card>
+          
+          <Card title="Kirim Pesan Uji" bordered={false} style={{ marginTop: 16 }}>
+            {whatsappStatus.status === 'ready' ? (
+              <div>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <div style={{ marginBottom: 16 }}>
+                      <Text strong>Nomor Telepon:</Text>
+                      <Input
+                        placeholder="Contoh: 081234567890"
+                        addonBefore="+62"
+                        value={whatsappTestMessage.phone}
+                        onChange={(e) => setWhatsappTestMessage({ ...whatsappTestMessage, phone: e.target.value })}
+                        style={{ marginTop: 8 }}
+                      />
+                    </div>
+                  </Col>
+                  <Col span={12}>
+                    <div style={{ marginBottom: 16 }}>
+                      <Text strong>Pesan:</Text>
+                      <TextArea
+                        placeholder="Masukkan pesan uji"
+                        rows={4}
+                        value={whatsappTestMessage.message}
+                        onChange={(e) => setWhatsappTestMessage({ ...whatsappTestMessage, message: e.target.value })}
+                        style={{ marginTop: 8 }}
+                      />
+                    </div>
+                  </Col>
+                </Row>
+                
+                <Button
+                  type="primary"
+                  onClick={sendTestMessage}
+                  disabled={!whatsappTestMessage.phone || !whatsappTestMessage.message}
+                  loading={whatsappLoading}
+                >
+                  Kirim Pesan Uji
+                </Button>
+              </div>
+            ) : (
+              <Alert
+                message="WhatsApp Belum Terhubung"
+                description="Silakan hubungkan WhatsApp terlebih dahulu sebelum mengirim pesan uji."
+                type="warning"
+                showIcon
+              />
+            )}
+          </Card>
+          
+          <Card title="Status Fitur WhatsApp" bordered={false} style={{ marginTop: 16 }}>
+            <Form
+              initialValues={{
+                whatsapp_enabled: settings?.whatsapp_enabled || false
+              }}
+              onFinish={(values) => handleSave({ ...form.getFieldsValue(), whatsapp_enabled: values.whatsapp_enabled })}
+            >
+              <Form.Item
+                name="whatsapp_enabled"
+                label="Aktifkan Fitur WhatsApp"
+                valuePropName="checked"
               >
-                Tambah Metode
-              </Button>
-            }
-          >
-            <Table
-              dataSource={manualPaymentMethods}
-              columns={manualPaymentColumns}
-              rowKey="id"
-              pagination={false}
-            />
+                <Switch 
+                  checkedChildren="Aktif" 
+                  unCheckedChildren="Nonaktif"
+                  disabled={whatsappStatus.status !== 'ready' || !whatsappStatus.adminGroupName}
+                />
+              </Form.Item>
+              
+              {whatsappStatus.status === 'ready' && !whatsappStatus.adminGroupName && (
+                <Alert
+                  message="Grup Admin Belum Diatur"
+                  description="Silakan atur grup admin terlebih dahulu sebelum mengaktifkan fitur WhatsApp."
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
+              
+              <Form.Item>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={saveLoading}
+                  disabled={whatsappStatus.status !== 'ready' || !whatsappStatus.adminGroupName}
+                >
+                  Simpan Status
+                </Button>
+              </Form.Item>
+            </Form>
+            
+            {whatsappStatus.status !== 'ready' && (
+              <Alert
+                message="WhatsApp Belum Terhubung"
+                description="Silakan hubungkan WhatsApp terlebih dahulu sebelum mengaktifkan fitur WhatsApp."
+                type="warning"
+                showIcon
+              />
+            )}
           </Card>
         </TabPane>
       </Tabs>
       
-      {/* Modal Tambah/Edit Metode Pembayaran */}
+      {/* Modal untuk memilih grup WhatsApp */}
       <Modal
-        title={`${editingMethod ? 'Edit' : 'Tambah'} Metode Pembayaran`}
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
+        title="Pilih Grup Admin"
+        open={groupModalVisible}
+        onCancel={() => setGroupModalVisible(false)}
         footer={[
-          <Button key="cancel" onClick={() => setModalVisible(false)}>
+          <Button key="back" onClick={() => setGroupModalVisible(false)}>
             Batal
           </Button>,
-          <Button key="save" type="primary" onClick={handleSavePaymentMethod}>
-            Simpan
+          <Button
+            key="submit"
+            type="primary"
+            onClick={confirmSetAdminGroup}
+            disabled={!selectedGroup}
+            loading={whatsappLoading}
+          >
+            Konfirmasi
           </Button>
         ]}
+        width={800}
       >
-        <Form
-          form={manualForm}
-          layout="vertical"
-        >
-          <Form.Item
-            name="name"
-            label="Nama Metode Pembayaran"
-            rules={[{ required: true, message: 'Nama metode pembayaran diperlukan' }]}
-          >
-            <Input placeholder="Contoh: Transfer Bank BCA, DANA, dll." />
-          </Form.Item>
-          
-          <Form.Item
-            name="type"
-            label="Tipe Pembayaran"
-            rules={[{ required: true, message: 'Tipe pembayaran diperlukan' }]}
-          >
-            <Select placeholder="Pilih tipe pembayaran">
-              <Select.Option value="bank">Bank Transfer</Select.Option>
-              <Select.Option value="qris">QRIS</Select.Option>
-              <Select.Option value="ewallet">E-Wallet</Select.Option>
-            </Select>
-          </Form.Item>
-          
-          <Form.Item
-            noStyle
-            shouldUpdate={(prevValues, currentValues) => prevValues.type !== currentValues.type}
-          >
-            {({ getFieldValue }) => {
-              const type = getFieldValue('type');
-              
-              if (type === 'qris') {
-                return (
-                  <>
-                    <Form.Item
-                      name="qrImageUrl"
-                      label="URL Gambar QR"
-                      rules={[{ required: true, message: 'URL gambar QR diperlukan' }]}
-                    >
-                      <Input placeholder="Masukkan URL gambar kode QR" />
-                    </Form.Item>
-                    
-                    <Form.Item label="Upload QR Code">
-                      <Upload listType="picture-card">
-                        <div>
-                          <PlusOutlined />
-                          <div style={{ marginTop: 8 }}>Upload</div>
-                        </div>
-                      </Upload>
-                      <Text type="secondary">
-                        * Upload tidak berfungsi dalam versi demo
-                      </Text>
-                    </Form.Item>
-                  </>
-                );
-              }
-              
-              if (type === 'bank' || type === 'ewallet') {
-                return (
-                  <>
-                    <Form.Item
-                      name="accountNumber"
-                      label={type === 'bank' ? 'Nomor Rekening' : 'Nomor Akun'}
-                      rules={[{ required: true, message: 'Nomor rekening/akun diperlukan' }]}
-                    >
-                      <Input placeholder={type === 'bank' ? 'Contoh: 1234567890' : 'Contoh: 081234567890'} />
-                    </Form.Item>
-                    
-                    <Form.Item
-                      name="accountName"
-                      label="Nama Pemilik"
-                      rules={[{ required: true, message: 'Nama pemilik rekening/akun diperlukan' }]}
-                    >
-                      <Input placeholder="Contoh: PT Demo Store" />
-                    </Form.Item>
-                  </>
-                );
-              }
-              
-              return null;
-            }}
-          </Form.Item>
-          
-          <Form.Item
-            name="instructions"
-            label="Instruksi Pembayaran"
-          >
-            <TextArea 
-              rows={4} 
-              placeholder="Masukkan instruksi pembayaran untuk pelanggan" 
+        {groupsLoading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <Spin />
+            <div style={{ marginTop: 16 }}>Memuat daftar grup...</div>
+          </div>
+        ) : (
+          <>
+            <Alert
+              message="Pilih Grup"
+              description="Pilih grup WhatsApp yang akan dijadikan sebagai grup admin untuk menerima notifikasi pembayaran."
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
             />
-          </Form.Item>
-          
-          <Form.Item
-            name="isActive"
-            label="Status"
-            valuePropName="checked"
-          >
-            <Switch 
-              checkedChildren="Aktif" 
-              unCheckedChildren="Nonaktif" 
-            />
-          </Form.Item>
-        </Form>
+            
+            {whatsappGroups.length === 0 ? (
+              <Empty description="Tidak ada grup WhatsApp yang tersedia" />
+            ) : (
+              <>
+                {selectedGroup && (
+                  <Alert
+                    message="Grup Terpilih"
+                    description={`${selectedGroup.name} (${selectedGroup.id})`}
+                    type="success"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
+                
+                <Table
+                  dataSource={whatsappGroups}
+                  columns={groupColumns}
+                  rowKey="id"
+                  pagination={{ pageSize: 5 }}
+                  rowClassName={(record) => record.id === selectedGroup?.id ? 'ant-table-row-selected' : ''}
+                  onRow={(record) => ({
+                    onClick: () => handleSelectGroup(record),
+                    style: { cursor: 'pointer' }
+                  })}
+                />
+              </>
+            )}
+            
+            <div style={{ marginTop: 16, textAlign: 'center' }}>
+              <Button 
+                icon={<ReloadOutlined />} 
+                onClick={fetchWhatsappGroups}
+                loading={groupsLoading}
+              >
+                Refresh Daftar Grup
+              </Button>
+            </div>
+          </>
+        )}
       </Modal>
     </div>
   );

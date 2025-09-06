@@ -1,9 +1,12 @@
-// Perbaikan untuk express/server.js
+// express/server.js - Versi lengkap dengan integrasi WhatsApp
 
 const express = require("express");
 const cors = require("cors");
 const { db } = require("./models");
+const fs = require("fs");
+const path = require("path");
 
+// Import semua routes yang dibutuhkan
 const licenseRoutes = require("./routes/licenseRoutes");
 const softwareRoutes = require("./routes/softwareRoutes");
 const softwareVersionRoutes = require("./routes/softwareVersionRoutes");
@@ -15,6 +18,13 @@ const tripayRoutes = require("./routes/tripayRoutes");
 const publicApiRoutes = require("./routes/publicApiRoutes");
 const settingsRoutes = require('./routes/settingsRoutes');
 const paymentMethodRoutes = require('./routes/paymentMethodRoutes');
+
+// Import routes baru untuk WhatsApp dan Payment Settings
+const whatsappRoutes = require('./routes/whatsappRoutes');
+const paymentSettingsRoutes = require('./routes/paymentSettingsRoutes');
+
+// Import controller untuk memeriksa langganan kedaluwarsa
+const { checkExpiredSubscriptions } = require('./controllers/subscriptionController');
 
 const app = express();
 const PORT = process.env.PORT || 3500;
@@ -91,6 +101,18 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Tambahkan middleware khusus untuk preflight requests
 app.options('*', cors(corsOptions));
 
+// Buat folder uploads jika belum ada
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Buat direktori untuk menyimpan data sesi WhatsApp jika belum ada
+const sessionDir = path.join(__dirname, 'baileys_auth_info');
+if (!fs.existsSync(sessionDir)) {
+  fs.mkdirSync(sessionDir, { recursive: true });
+}
+
 // TAMBAHKAN HANDLER UNTUK ROOT PATH
 app.get("/", (req, res) => {
   res.send(`
@@ -156,64 +178,39 @@ app.get("/api/test", (req, res) => {
 // Endpoint global untuk payment-methods
 app.get('/api/payment-methods', async (req, res) => {
   try {
-    // Data default
+    // Coba ambil pengaturan pembayaran
+    const paymentSettings = await db.PaymentSettings.findOne({ order: [['id', 'DESC']] });
+    
+    // Cek jika ada QRIS image atau URL
+    let qrisImageUrl = null;
+    if (paymentSettings) {
+      if (paymentSettings.qris_image_url) {
+        qrisImageUrl = paymentSettings.qris_image_url;
+      } else if (paymentSettings.qris_image) {
+        // Generate URL untuk akses gambar dari API
+        const baseUrl = process.env.BACKEND_URL || 'https://db.kinterstore.my.id';
+        qrisImageUrl = `${baseUrl}/api/payment-settings/qris-image`;
+      }
+    }
+    
+    // Data default - hanya QRIS
     let methods = [
-      // Manual methods (default)
       {
-        code: 'MANUAL_1',
-        name: 'Transfer Bank BCA',
-        type: 'bank',
-        fee: 0,
-        isManual: true,
-        manualData: {
-          id: 1,
-          name: 'Transfer Bank BCA',
-          type: 'bank',
-          accountNumber: '1234567890',
-          accountName: 'PT Demo Store',
-          instructions: 'Transfer ke rekening BCA a/n PT Demo Store',
-          isActive: true
-        }
-      },
-      {
-        code: 'MANUAL_2',
+        code: 'MANUAL_QRIS',
         name: 'QRIS',
         type: 'qris',
         fee: 0,
         isManual: true,
         manualData: {
-          id: 2,
+          id: 1,
           name: 'QRIS',
           type: 'qris',
-          qrImageUrl: 'https://example.com/qr.png',
+          qrImageUrl: qrisImageUrl || 'https://example.com/qr.png',
           instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking',
           isActive: true
         }
       }
     ];
-    
-    // Cek apakah Tripay diaktifkan
-    try {
-      const tripayEnabled = await db.Setting.findOne({ where: { key: 'tripay_enabled' } });
-      if (tripayEnabled && tripayEnabled.value === 'true') {
-        // Tambahkan metode Tripay
-        const tripayMethods = [
-          { code: 'QRIS', name: 'QRIS', type: 'qris', fee: 800 },
-          { code: 'BRIVA', name: 'Bank BRI', type: 'bank', fee: 4000 },
-          { code: 'MANDIRIVA', name: 'Bank Mandiri', type: 'bank', fee: 4000 },
-          { code: 'BNIVA', name: 'Bank BNI', type: 'bank', fee: 4000 },
-          { code: 'BCAVA', name: 'Bank BCA', type: 'bank', fee: 4000 },
-          { code: 'OVO', name: 'OVO', type: 'ewallet', fee: 2000 },
-          { code: 'DANA', name: 'DANA', type: 'ewallet', fee: 2000 },
-          { code: 'LINKAJA', name: 'LinkAja', type: 'ewallet', fee: 2000 },
-          { code: 'SHOPEEPAY', name: 'ShopeePay', type: 'ewallet', fee: 2000 }
-        ];
-        methods = [...tripayMethods, ...methods];
-      }
-    } catch (settingError) {
-      console.error('Error checking Tripay status:', settingError);
-      // Anggap Tripay tidak aktif
-    }
     
     res.json(methods);
   } catch (error) {
@@ -235,6 +232,30 @@ app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", paymentMethodRoutes);
 
+// Tambahkan routes baru
+app.use("/api", whatsappRoutes);
+app.use("/api", paymentSettingsRoutes);
+
+// Menjalankan cron job untuk memeriksa langganan yang kedaluwarsa (setiap 15 menit)
+setInterval(async () => {
+  try {
+    const result = await checkExpiredSubscriptions();
+    console.log("Pemeriksaan langganan kedaluwarsa:", result);
+  } catch (error) {
+    console.error("Error saat memeriksa langganan kedaluwarsa:", error);
+  }
+}, 15 * 60 * 1000);
+
+// Inisialisasi WhatsApp saat server start (opsional - bisa diaktifkan jika ingin otomatis terhubung)
+// const whatsappService = require('./services/whatsappService');
+// whatsappService.initWhatsApp().then(result => {
+//   if (result) {
+//     console.log('WhatsApp initialized successfully');
+//   } else {
+//     console.log('Failed to initialize WhatsApp');
+//   }
+// });
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
@@ -254,6 +275,8 @@ app.listen(PORT, async () => {
   try {
     await db.sequelize.authenticate();
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
+    console.log(`✅ Database terhubung`);
+    console.log(`✅ Integrasi WhatsApp siap digunakan`);
   } catch (error) {
     console.error("❌ Gagal menyambungkan database:", error);
   }

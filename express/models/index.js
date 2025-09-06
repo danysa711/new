@@ -1,9 +1,10 @@
-// Tambahkan model baru ke dalam index.js
+// express/models/index.js
 
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 const { Sequelize } = require("sequelize");
 
+// Define User Model
 const User = sequelize.define(
   "User",
   {
@@ -39,12 +40,21 @@ const User = sequelize.define(
       allowNull: true,
       unique: true,
     },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    backend_url: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    }
   },
   {
     timestamps: true,
   }
 );
 
+// Define Subscription Model
 const Subscription = sequelize.define(
   "Subscription",
   {
@@ -61,6 +71,14 @@ const Subscription = sequelize.define(
         key: "id",
       },
     },
+    plan_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "SubscriptionPlans",
+        key: "id",
+      }
+    },
     start_date: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -71,8 +89,8 @@ const Subscription = sequelize.define(
       allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM("active", "expired", "canceled"),
-      defaultValue: "active",
+      type: DataTypes.ENUM("active", "pending", "expired", "canceled"),
+      defaultValue: "pending",
       allowNull: false,
     },
     payment_status: {
@@ -84,12 +102,21 @@ const Subscription = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    tripay_merchant_ref: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    expired_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    }
   },
   {
     timestamps: true,
   }
 );
 
+// Define SubscriptionPlan Model
 const SubscriptionPlan = sequelize.define(
   "SubscriptionPlan",
   {
@@ -125,6 +152,7 @@ const SubscriptionPlan = sequelize.define(
   }
 );
 
+// Define Software Model
 const Software = sequelize.define(
   "Software",
   {
@@ -144,6 +172,7 @@ const Software = sequelize.define(
   { timestamps: true }
 );
 
+// Define SoftwareVersion Model
 const SoftwareVersion = sequelize.define(
   "SoftwareVersion",
   {
@@ -164,6 +193,7 @@ const SoftwareVersion = sequelize.define(
   { timestamps: true }
 );
 
+// Define License Model
 const License = sequelize.define(
   "License",
   {
@@ -193,6 +223,7 @@ const License = sequelize.define(
   { timestamps: true }
 );
 
+// Define Order Model
 const Order = sequelize.define(
   "Order",
   {
@@ -215,6 +246,7 @@ const Order = sequelize.define(
   { timestamps: true }
 );
 
+// Define OrderLicense Model
 const OrderLicense = sequelize.define(
   "OrderLicense",
   {
@@ -225,6 +257,31 @@ const OrderLicense = sequelize.define(
   { timestamps: true }
 );
 
+// Define Settings Model
+const Settings = sequelize.define(
+  "Settings",
+  {
+    key: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      primaryKey: true,
+    },
+    value: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+  },
+  {
+    timestamps: true,
+    tableName: "settings",
+  }
+);
+
+// Define WhatsAppTrialSettings Model
 const WhatsAppTrialSettings = sequelize.define(
   "WhatsAppTrialSettings",
   {
@@ -255,6 +312,63 @@ const WhatsAppTrialSettings = sequelize.define(
   }
 );
 
+// Define PaymentSettings Model
+const PaymentSettings = sequelize.define(
+  "PaymentSettings",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    payment_expiry_hours: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 24, // Default 24 jam
+    },
+    qris_image: {
+      type: DataTypes.BLOB('long'),
+      allowNull: true,
+    },
+    qris_image_url: {
+      type: DataTypes.STRING(1000),
+      allowNull: true,
+    },
+    verification_message_template: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue: `*VERIFIKASI PEMBAYARAN BARU KE GRUP*
+    
+Nama: {username}
+Email: {email}
+ID Transaksi: {transaction_id}
+Paket: {plan_name}
+Durasi: {duration} hari
+Nominal: Rp {price}
+Waktu: {datetime}
+
+Balas pesan ini dengan angka:
+*1* untuk *VERIFIKASI*
+*2* untuk *TOLAK*`,
+    },
+    whatsapp_enabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    max_pending_orders: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 3, // Batasi 3 pesanan menunggu
+    }
+  },
+  {
+    timestamps: true,
+    tableName: "payment_settings",
+  }
+);
+
+// Set up database object
 const db = {
   sequelize,
   Sequelize,
@@ -267,14 +381,11 @@ const db = {
   Subscription,
   SubscriptionPlan,
   WhatsAppTrialSettings,
+  Settings,
+  PaymentSettings
 };
 
-Object.keys(db).forEach((modelName) => {
-  if (db[modelName].associate) {
-    db[modelName].associate(db);
-  }
-});
-
+// Define associations
 Software.hasMany(SoftwareVersion, { foreignKey: "software_id" });
 SoftwareVersion.belongsTo(Software, { foreignKey: "software_id" });
 
@@ -293,7 +404,10 @@ License.belongsToMany(Order, { through: OrderLicense, foreignKey: "license_id" }
 User.hasMany(Subscription, { foreignKey: "user_id" });
 Subscription.belongsTo(User, { foreignKey: "user_id" });
 
-// Tambahkan asosiasi baru sesuai Langkah 10
+Subscription.belongsTo(SubscriptionPlan, { foreignKey: "plan_id" });
+SubscriptionPlan.hasMany(Subscription, { foreignKey: "plan_id" });
+
+// User associations
 User.hasMany(Software, { foreignKey: "user_id" });
 Software.belongsTo(User, { foreignKey: "user_id" });
 
@@ -306,4 +420,17 @@ License.belongsTo(User, { foreignKey: "user_id" });
 User.hasMany(Order, { foreignKey: "user_id" });
 Order.belongsTo(User, { foreignKey: "user_id" });
 
-module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, WhatsAppTrialSettings, db };
+module.exports = {
+  User,
+  Software,
+  SoftwareVersion,
+  License,
+  Order,
+  OrderLicense,
+  Subscription,
+  SubscriptionPlan,
+  WhatsAppTrialSettings,
+  Settings,
+  PaymentSettings,
+  db
+};

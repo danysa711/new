@@ -24,6 +24,7 @@ import SubscriptionPlans from "../../pages/admin/SubscriptionPlans";
 import TripaySettings from "../../pages/admin/TripaySettings";
 import TripayTransactions from "../../pages/admin/TripayTransactions";
 import RequestTrialSettings from "../../pages/admin/RequestTrialSettings";
+import PendingSubscriptions from "../../pages/admin/PendingSubscriptions";
 import PaymentSettings from "../../pages/admin/PaymentSettings";
 
 const { Header, Sider, Content } = Layout;
@@ -149,6 +150,9 @@ const AdminLayout = () => {
             <Route path="/users" element={<UserManagement />} />
             <Route path="/subscriptions" element={<SubscriptionManagement />} />
             <Route path="/subscription-plans" element={<SubscriptionPlans />} />
+            <Route path="/pending-subscriptions" element={<PendingSubscriptions />} /> {/* Tambahkan route ini */}
+            <Route path="/payment/settings" element={<PaymentSettings />} /> {/* Tambahkan route ini */}
+            <Route path="/whatsapp/settings" element={<PaymentSettings initialTab="2" />} /> {/* Tambahkan route ini */}
             <Route path="/tripay/transactions" element={<TripayTransactions />} />
             <Route path="/tripay/settings" element={<TripaySettings />} />
             <Route path="/payment/settings" element={<PaymentSettings />} />
