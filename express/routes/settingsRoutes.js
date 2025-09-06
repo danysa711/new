@@ -3,7 +3,6 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateUser, requireAdmin } = require('../middlewares/auth');
-const qrisController = require("../controllers/qrisController");
 const fs = require('fs');
 const path = require('path');
 
@@ -186,46 +185,5 @@ router.post('/settings/tripay', authenticateUser, async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 });
-
-router.get("/settings/public", (req, res) => {
-  // Kirim informasi publik minimal
-  res.json({
-    apiVersion: "3.0.9",
-    serverTime: new Date().toISOString(),
-    features: {
-      qris: true,
-      whatsapp: true
-    }
-  });
-});
-
-// Endpoint publik untuk pengaturan QRIS
-router.get("/settings/qris-public", async (req, res) => {
-  try {
-    // Dapatkan pengaturan QRIS
-    const qrisSettings = await QrisSettings.findOne({
-      where: { is_active: true },
-      attributes: ['merchant_name', 'is_active', 'instructions'] // Hanya kirim data yang aman
-    });
-    
-    if (!qrisSettings) {
-      return res.json({
-        merchant_name: "Kinterstore",
-        is_active: true,
-        instructions: "Scan kode QR menggunakan aplikasi e-wallet atau mobile banking Anda."
-      });
-    }
-    
-    return res.json(qrisSettings);
-  } catch (error) {
-    console.error("Error getting public QRIS settings:", error);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Endpoint yang memerlukan autentikasi
-router.get("/settings/qris", authenticateUser, qrisController.getQrisSettings);
-router.post("/settings/qris", authenticateUser, requireAdmin, qrisController.saveQrisSettings);
-
 
 module.exports = router;

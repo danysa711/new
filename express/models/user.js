@@ -39,21 +39,13 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         unique: true,
       },
-      backend_url: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      defaultValue: process.env.BACKEND_URL || "https://db.kinterstore.my.id"
+      backend_url: {  // Tambahkan kolom baru ini
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: process.env.BACKEND_URL || "https://db.kinterstore.my.id"
+      }
     },
-    whatsapp_connected: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
-    },
-    whatsapp_number: {
-      type: DataTypes.STRING,
-      allowNull: true
-    }
-  },
-  {
+    {
       sequelize,
       modelName: "User",
       timestamps: true,

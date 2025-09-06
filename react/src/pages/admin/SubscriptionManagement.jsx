@@ -34,50 +34,50 @@ const SubscriptionManagement = () => {
   const [extendForm] = Form.useForm();
 
   const fetchData = async () => {
-  try {
-    setLoading(true);
-    
-    // Fetch subscriptions
-    const subsResponse = await axiosInstance.get('/api/subscriptions');
-    console.log('Subscriptions response:', subsResponse.data);
-    setSubscriptions(subsResponse.data);
-    
-    // Calculate stats
-    const total = subsResponse.data.length;
-    const active = subsResponse.data.filter(sub => 
-      sub.status === 'active' && new Date(sub.end_date) > new Date()
-    ).length;
-    const expired = subsResponse.data.filter(sub => 
-      sub.status === 'active' && new Date(sub.end_date) <= new Date()
-    ).length;
-    const canceled = subsResponse.data.filter(sub => 
-      sub.status === 'canceled'
-    ).length;
-    
-    setStats({ total, active, expired, canceled });
-    
-    // Fetch users dengan parameter admin=true
-    const usersResponse = await axiosInstance.get('/api/users?admin=true');
-    console.log('Users response:', usersResponse.data);
-    setUsers(usersResponse.data);
-    
-    // Fetch subscription plans dengan parameter admin=true
-    const plansResponse = await axiosInstance.get('/api/subscription-plans?admin=true');
-    console.log('Plans response:', plansResponse.data);
-    setPlans(plansResponse.data);
-    
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    message.error('Gagal memuat data langganan. Periksa koneksi backend atau login kembali.');
-    
-    // Jika ada error khusus, tampilkan pesannya
-    if (error.response?.data?.error) {
-      message.error(`Error: ${error.response.data.error}`);
+    try {
+      setLoading(true);
+      
+      // Fetch subscriptions
+      const subsResponse = await axiosInstance.get('/api/subscriptions');
+      console.log('Subscriptions response:', subsResponse.data);
+      setSubscriptions(subsResponse.data);
+      
+      // Calculate stats
+      const total = subsResponse.data.length;
+      const active = subsResponse.data.filter(sub => 
+        sub.status === 'active' && new Date(sub.end_date) > new Date()
+      ).length;
+      const expired = subsResponse.data.filter(sub => 
+        sub.status === 'active' && new Date(sub.end_date) <= new Date()
+      ).length;
+      const canceled = subsResponse.data.filter(sub => 
+        sub.status === 'canceled'
+      ).length;
+      
+      setStats({ total, active, expired, canceled });
+      
+      // Fetch users dengan parameter admin=true
+      const usersResponse = await axiosInstance.get('/api/users?admin=true');
+      console.log('Users response:', usersResponse.data);
+      setUsers(usersResponse.data);
+      
+      // Fetch subscription plans dengan parameter admin=true
+      const plansResponse = await axiosInstance.get('/api/subscription-plans?admin=true');
+      console.log('Plans response:', plansResponse.data);
+      setPlans(plansResponse.data);
+      
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      message.error('Gagal memuat data langganan. Periksa koneksi backend atau login kembali.');
+      
+      // Jika ada error khusus, tampilkan pesannya
+      if (error.response?.data?.error) {
+        message.error(`Error: ${error.response.data.error}`);
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     fetchData();

@@ -32,6 +32,23 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: "active",
         allowNull: false,
       },
+      payment_status: {
+        type: DataTypes.ENUM("pending", "paid", "failed"),
+        defaultValue: "pending",
+        allowNull: false,
+      },
+      payment_method: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      tripay_reference: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      tripay_merchant_ref: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
     },
     {
       sequelize,

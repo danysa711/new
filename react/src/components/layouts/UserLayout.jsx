@@ -28,11 +28,10 @@ import OrderTable from "../tables/OrderTable";
 import HomeView from "../tables/HomeView";
 import ChangePass from "../../pages/ChangePass";
 import SubscriptionPage from "../../pages/user/SubscriptionPage";
+import UserPaymentPage from "../../pages/user/UserPaymentPage";
 import SoftwareTable from "../tables/SoftwareTable";
 import VersionTable from "../tables/VersionTable";
 import LicenseTable from "../tables/LicenseTable";
-// Import UserPaymentPage dengan benar
-import UserPaymentPage from "../../pages/user/UserPaymentPage";
 import BackendSettings from "../../pages/user/BackendSettings"; // Impor halaman BackendSettings (buat setelah ini)
 import axiosInstance from "../../services/axios";
 
@@ -350,37 +349,21 @@ const requestTrial = async () => {
        
        {/* Tampilkan peringatan jika langganan kedaluwarsa, tapi tetap izinkan akses ke halaman */}
        {effectiveConnectionStatus === 'subscription_expired' && (
-  <Alert
-    message="Langganan Kedaluwarsa"
-    description="Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda."
-    type="warning"
-    showIcon
-    icon={<WarningOutlined />}
-    action={
-      <Button type="primary" size="small" onClick={() => navigate(`/user/page/${slug}/subscription`)}>
-        Perbarui Langganan
-      </Button>
-    }
-    closable
-    style={{ margin: "8px 16px 0" }}
-  />
-)}
-
-{effectiveConnectionStatus === 'error' && (
-  <Alert
-    message="Kesalahan Koneksi API"
-    description={`Terdapat masalah pada koneksi ke backend (${backendUrl}). Beberapa fitur mungkin tidak berfungsi dengan baik.`}
-    type="error"
-    showIcon
-    action={
-      <Button type="primary" size="small" onClick={() => navigate(`/user/page/${slug}/backend-settings`)}>
-        Pengaturan Koneksi
-      </Button>
-    }
-    closable
-    style={{ margin: "8px 16px 0" }}
-  />
-)}
+         <Alert
+           message="Langganan Kedaluwarsa"
+           description="Koneksi ke API terputus karena langganan Anda telah berakhir. Beberapa fitur mungkin tidak berfungsi dengan baik. Silakan perbarui langganan Anda."
+           type="warning"
+           showIcon
+           icon={<WarningOutlined />}
+           action={
+             <Button type="primary" size="small" onClick={() => navigate(`/user/page/${slug}/subscription`)}>
+               Perbarui Langganan
+             </Button>
+           }
+           closable
+           style={{ margin: "8px 16px 0" }}
+         />
+       )}
        
        {/* API URL Banner */}
        <div style={{ 
