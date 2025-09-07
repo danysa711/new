@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Sep 07, 2025 at 04:51 AM
+-- Generation Time: Sep 08, 2025 at 02:17 AM
 -- Server version: 10.11.6-MariaDB
 -- PHP Version: 8.0.30
 
@@ -20,6 +20,45 @@ SET time_zone = "+00:00";
 --
 -- Database: `db_shopee_bot`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `baileys_logs`
+--
+
+CREATE TABLE `baileys_logs` (
+  `id` int(11) NOT NULL,
+  `type` enum('connection','notification','verification','error') NOT NULL,
+  `status` enum('success','failed','pending') NOT NULL,
+  `message` text NOT NULL,
+  `data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`data`)),
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `baileys_settings`
+--
+
+CREATE TABLE `baileys_settings` (
+  `id` int(11) NOT NULL,
+  `phone_number` varchar(255) NOT NULL,
+  `group_name` varchar(255) NOT NULL,
+  `notification_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `template_message` text NOT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+--
+-- Dumping data for table `baileys_settings`
+--
+
+INSERT INTO `baileys_settings` (`id`, `phone_number`, `group_name`, `notification_enabled`, `template_message`, `created_at`, `updated_at`) VALUES
+(1, '081284712564', 'Verifikasi', 1, 'Permintaan pembayaran baru dari {username} ({email}) dengan nominal Rp {amount} untuk paket {plan_name}. Nomor pesanan: {order_number}. Balas *1* untuk verifikasi atau *2* untuk tolak.', '2025-09-07 18:42:37', '2025-09-07 18:42:37');
 
 -- --------------------------------------------------------
 
@@ -124,6 +163,62 @@ INSERT INTO `Orders` (`id`, `order_id`, `item_name`, `os`, `version`, `license_c
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `qris_payments`
+--
+
+CREATE TABLE `qris_payments` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `plan_id` int(11) NOT NULL,
+  `order_number` varchar(255) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `status` enum('pending','waiting_verification','verified','rejected','expired') NOT NULL DEFAULT 'pending',
+  `expired_at` datetime NOT NULL,
+  `verified_at` datetime DEFAULT NULL,
+  `rejected_at` datetime DEFAULT NULL,
+  `plan_name` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+--
+-- Dumping data for table `qris_payments`
+--
+
+INSERT INTO `qris_payments` (`id`, `user_id`, `plan_id`, `order_number`, `amount`, `status`, `expired_at`, `verified_at`, `rejected_at`, `plan_name`, `created_at`, `updated_at`) VALUES
+(1, 45, 25, 'QRIS70800534GCYN', 100552.00, 'pending', '2025-09-08 02:46:40', NULL, NULL, '1 Bulan', '2025-09-07 18:46:40', '2025-09-07 18:46:40'),
+(2, 45, 25, 'QRIS70916094I53H', 100592.00, 'pending', '2025-09-08 02:48:36', NULL, NULL, '1 Bulan', '2025-09-07 18:48:36', '2025-09-07 18:48:36'),
+(3, 45, 25, 'QRIS70966520PUA9', 100758.00, 'pending', '2025-09-08 02:49:26', NULL, NULL, '1 Bulan', '2025-09-07 18:49:26', '2025-09-07 18:49:26'),
+(4, 45, 25, 'QRIS71007555AQ94', 100009.00, 'pending', '2025-09-08 02:50:07', NULL, NULL, '1 Bulan', '2025-09-07 18:50:07', '2025-09-07 18:50:07'),
+(5, 45, 25, 'QRIS71338110OG2D', 100438.00, 'pending', '2025-09-08 02:55:38', NULL, NULL, '1 Bulan', '2025-09-07 18:55:38', '2025-09-07 18:55:38'),
+(6, 45, 25, 'QRIS71950110W319', 100975.00, 'pending', '2025-09-08 03:05:50', NULL, NULL, '1 Bulan', '2025-09-07 19:05:50', '2025-09-07 19:05:50'),
+(7, 45, 25, 'QRIS72067794WN50', 100624.00, 'pending', '2025-09-08 03:07:47', NULL, NULL, '1 Bulan', '2025-09-07 19:07:47', '2025-09-07 19:07:47'),
+(8, 45, 25, 'QRIS72402273FD73', 100940.00, 'pending', '2025-09-08 03:13:22', NULL, NULL, '1 Bulan', '2025-09-07 19:13:22', '2025-09-07 19:13:22');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `qris_settings`
+--
+
+CREATE TABLE `qris_settings` (
+  `id` int(11) NOT NULL,
+  `expiry_hours` int(11) NOT NULL DEFAULT 1,
+  `qris_image` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+--
+-- Dumping data for table `qris_settings`
+--
+
+INSERT INTO `qris_settings` (`id`, `expiry_hours`, `qris_image`, `created_at`, `updated_at`) VALUES
+(1, 1, '/uploads/qris_1757271994482.jpg', '2025-09-07 18:41:20', '2025-09-07 19:06:34');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `SequelizeMeta`
 --
 
@@ -150,6 +245,10 @@ INSERT INTO `SequelizeMeta` (`name`) VALUES
 ('20250820095420-add-tripay-fields.js'),
 ('20250830000000-create-whatsapp-trial-settings.js'),
 ('20250906090141-update-payment-settings.js'),
+('20250907000001-create-qris-payment.js'),
+('20250907000002-create-qris-settings.js'),
+('20250907000003-create-baileys-settings.js'),
+('20250907000004-create-baileys-log.js'),
 ('202509070358-create-whatsapp-settings.js'),
 ('2025090711-create-settings-table.js'),
 ('20250920000001-create-setting.js'),
@@ -309,6 +408,23 @@ INSERT INTO `Subscriptions` (`id`, `user_id`, `start_date`, `end_date`, `status`
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `subscription_plans`
+--
+
+CREATE TABLE `subscription_plans` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `duration_days` int(11) NOT NULL,
+  `price` decimal(12,2) NOT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `createdAt` timestamp NULL DEFAULT current_timestamp(),
+  `updatedAt` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `Users`
 --
 
@@ -400,6 +516,18 @@ INSERT INTO `whatsapp_settings` (`id`, `whatsapp_number`, `trial_enabled`, `tria
 --
 
 --
+-- Indexes for table `baileys_logs`
+--
+ALTER TABLE `baileys_logs`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `baileys_settings`
+--
+ALTER TABLE `baileys_settings`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `Licenses`
 --
 ALTER TABLE `Licenses`
@@ -426,6 +554,21 @@ ALTER TABLE `Orders`
   ADD KEY `fk_user_id` (`user_id`),
   ADD KEY `Orders_software_id_foreign_idx` (`software_id`),
   ADD KEY `user_id` (`user_id`);
+
+--
+-- Indexes for table `qris_payments`
+--
+ALTER TABLE `qris_payments`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `order_number` (`order_number`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `plan_id` (`plan_id`);
+
+--
+-- Indexes for table `qris_settings`
+--
+ALTER TABLE `qris_settings`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `SequelizeMeta`
@@ -473,6 +616,12 @@ ALTER TABLE `Subscriptions`
   ADD KEY `user_id` (`user_id`);
 
 --
+-- Indexes for table `subscription_plans`
+--
+ALTER TABLE `subscription_plans`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `Users`
 --
 ALTER TABLE `Users`
@@ -501,6 +650,18 @@ ALTER TABLE `whatsapp_settings`
 --
 
 --
+-- AUTO_INCREMENT for table `baileys_logs`
+--
+ALTER TABLE `baileys_logs`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `baileys_settings`
+--
+ALTER TABLE `baileys_settings`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `Licenses`
 --
 ALTER TABLE `Licenses`
@@ -517,6 +678,18 @@ ALTER TABLE `OrderLicenses`
 --
 ALTER TABLE `Orders`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=160;
+
+--
+-- AUTO_INCREMENT for table `qris_payments`
+--
+ALTER TABLE `qris_payments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
+-- AUTO_INCREMENT for table `qris_settings`
+--
+ALTER TABLE `qris_settings`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `Software`
@@ -549,10 +722,16 @@ ALTER TABLE `Subscriptions`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
+-- AUTO_INCREMENT for table `subscription_plans`
+--
+ALTER TABLE `subscription_plans`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `Users`
 --
 ALTER TABLE `Users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
 
 --
 -- AUTO_INCREMENT for table `UserSubscriptions`
@@ -591,6 +770,13 @@ ALTER TABLE `OrderLicenses`
 ALTER TABLE `Orders`
   ADD CONSTRAINT `Orders_software_id_foreign_idx` FOREIGN KEY (`software_id`) REFERENCES `Software` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `user_id` FOREIGN KEY (`user_id`) REFERENCES `Users` (`id`);
+
+--
+-- Constraints for table `qris_payments`
+--
+ALTER TABLE `qris_payments`
+  ADD CONSTRAINT `qris_payments_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `Users` (`id`),
+  ADD CONSTRAINT `qris_payments_ibfk_2` FOREIGN KEY (`plan_id`) REFERENCES `SubscriptionPlans` (`id`);
 
 --
 -- Constraints for table `Software`
