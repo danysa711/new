@@ -33,8 +33,7 @@ module.exports = (sequelize, DataTypes) => {
       modelName: "BaileysLog",
       tableName: "baileys_logs",
       timestamps: true,
-      createdAt: "created_at",
-      updatedAt: "updated_at",
+      underscored: true, // Penting! Ini memberitahu Sequelize bahwa kolom menggunakan snake_case
     }
   );
 

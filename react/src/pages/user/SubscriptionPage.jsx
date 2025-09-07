@@ -12,6 +12,7 @@ import {
   InfoCircleOutlined, ClockCircleOutlined,
   CheckOutlined, CloseOutlined, DollarOutlined, ReloadOutlined
 } from '@ant-design/icons';
+import axios from 'axios'; // Tambahkan impor ini
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
 import { AuthContext } from '../../context/AuthContext';
@@ -46,6 +47,8 @@ const SubscriptionPage = () => {
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const [fetchingPending, setFetchingPending] = useState(false);
   const [form] = Form.useForm();
+  const [statusMap, setStatusMap] = useState({});
+  const defaultQrisUrl = `${axiosInstance.defaults.baseURL || ''}/default-qris.png`;
 
   // Format date
   const formatDate = (dateString) => {
@@ -169,19 +172,25 @@ const SubscriptionPage = () => {
     
     const response = await axiosInstance.get('/api/qris/image');
     console.log('Response gambar QRIS:', response.data);
+
+
     
     if (response.data && response.data.imageUrl) {
       setQrisImage(response.data.imageUrl);
       console.log('Gambar QRIS berhasil dimuat:', response.data.imageUrl);
+
+      console.log('Attempting to load QRIS image from:', response.data.imageUrl);
     } else {
-      // Gunakan gambar placeholder jika tidak ada data
-      setQrisImage('/uploads/default-qris.png');
-      console.warn('Tidak ada URL gambar QRIS yang valid, menggunakan default');
+      // Gunakan gambar placeholder dengan URL lengkap
+      const defaultImageUrl = `${axiosInstance.defaults.baseURL || ''}/default-qris.png`;
+      setQrisImage(defaultImageUrl);
+      console.warn('Tidak ada URL gambar QRIS yang valid, menggunakan default:', defaultImageUrl);
     }
   } catch (err) {
     console.error('Error mengambil gambar QRIS:', err);
-    // Gunakan gambar placeholder saat error
-    setQrisImage('/uploads/default-qris.png');
+    // Gunakan gambar placeholder dengan URL lengkap
+    const defaultImageUrl = `${axiosInstance.defaults.baseURL || ''}/default-qris.png`;
+    setQrisImage(defaultImageUrl);
     message.warning('Gagal memuat gambar QRIS, menggunakan gambar default');
   } finally {
     setQrisImageLoading(false);
@@ -253,63 +262,90 @@ const SubscriptionPage = () => {
 
   // Handle check payment status
   const handleCheckStatus = async (transactionId) => {
-    try {
-      setCheckingStatus(true);
-      
-      const response = await axiosInstance.get(`/api/qris/status/${transactionId}`);
-      
-      if (response.data && response.data.success) {
-        // Jika status sudah berubah, refresh data
-        if (response.data.status !== 'pending') {
-          fetchPendingTransactions();
-          fetchTransactionHistory();
-          fetchUserProfile();
-          
-          if (response.data.status === 'verified') {
-            message.success('Pembayaran telah diverifikasi!');
-          } else if (response.data.status === 'rejected') {
-            message.error('Pembayaran ditolak');
-          }
-        } else {
-          message.info('Status pembayaran belum berubah. Silakan coba lagi nanti.');
-        }
-      } else {
-        message.warning('Gagal memeriksa status pembayaran');
+  try {
+    setCheckingStatus(true);
+    console.log('Memeriksa status pembayaran untuk ID:', transactionId);
+
+    const response = await axiosInstance.get(`/api/qris/status/${transactionId}`);
+    console.log('Response status pembayaran:', response.data);
+
+    if (response.data && response.data.success) {
+      const currentStatus = response.data.status;
+
+      // ✅ Simpan status ke dalam state map
+      setStatusMap(prev => ({ ...prev, [transactionId]: currentStatus }));
+
+      // ✅ Jika status berubah jadi verified/rejected → refresh data
+      if (currentStatus === 'verified' || currentStatus === 'rejected' || currentStatus === 'expired') {
+        fetchPendingTransactions();
+        fetchTransactionHistory();
+        if (fetchUserProfile) fetchUserProfile();
       }
-    } catch (err) {
-      console.error('Error memeriksa status pembayaran:', err);
-      message.error('Gagal memeriksa status pembayaran');
-    } finally {
-      setCheckingStatus(false);
+    } else {
+      throw new Error(response.data?.message || 'Gagal memeriksa status pembayaran');
     }
-  };
+  } catch (err) {
+    console.error('Error memeriksa status pembayaran:', err);
+    Modal.error({
+      title: 'Gagal Memeriksa Status',
+      content: 'Gagal memeriksa status pembayaran: ' + (err.response?.data?.error || err.message || 'Terjadi kesalahan')
+    });
+  } finally {
+    setCheckingStatus(false);
+  }
+};
 
   // Handle payment confirmation (I already paid)
   const handleIHavePaid = async (transactionId) => {
-    try {
-      setPaymentLoading(true);
+  try {
+    setPaymentLoading(true);
+    console.log('Mengirim konfirmasi pembayaran untuk ID:', transactionId);
+    
+    const response = await axiosInstance.post(`/api/qris/confirm/${transactionId}`);
+    console.log('Response konfirmasi pembayaran:', response.data);
+    
+    if (response.data && response.data.success) {
+      // Tutup modal pembayaran jika terbuka
+      setPaymentModalVisible(false);
+      setPaymentResult(null); // Reset payment result
       
-      const response = await axiosInstance.post(`/api/qris/confirm/${transactionId}`);
-      
-      if (response.data && response.data.success) {
-        message.success('Konfirmasi pembayaran dikirim. Admin akan segera memverifikasi pembayaran Anda.');
-        
-        // Update status transaksi menjadi "waiting_verification"
-        const updatedTransaction = pendingTransactions.find(t => t.id === transactionId);
-        if (updatedTransaction) {
-          updatedTransaction.status = 'waiting_verification';
-          setPendingTransactions([...pendingTransactions]);
+      // Gunakan Modal.success alih-alih message.success
+      Modal.success({
+        title: 'Konfirmasi Berhasil',
+        content: 'Konfirmasi pembayaran dikirim. Admin akan segera memverifikasi pembayaran Anda.',
+        onOk: () => {
+          // Refresh data setelah modal ditutup
+          fetchPendingTransactions();
         }
-      } else {
-        throw new Error(response.data?.message || 'Gagal mengirim konfirmasi pembayaran');
-      }
-    } catch (err) {
-      console.error('Error mengirim konfirmasi pembayaran:', err);
-      message.error('Gagal mengirim konfirmasi pembayaran: ' + (err.message || 'Terjadi kesalahan'));
-    } finally {
-      setPaymentLoading(false);
+      });
+      
+      // Update status transaksi menjadi "waiting_verification"
+      const updatedTransactions = pendingTransactions.map(t => {
+        if (t.id === transactionId) {
+          return { ...t, status: 'waiting_verification' };
+        }
+        return t;
+      });
+      
+      setPendingTransactions(updatedTransactions);
+      
+      // Refresh data transaksi
+      setTimeout(() => {
+        fetchPendingTransactions();
+      }, 1000);
+    } else {
+      throw new Error(response.data?.message || 'Gagal mengirim konfirmasi pembayaran');
     }
-  };
+  } catch (err) {
+    console.error('Error mengirim konfirmasi pembayaran:', err);
+    Modal.error({
+      title: 'Konfirmasi Gagal',
+      content: 'Gagal mengirim konfirmasi pembayaran: ' + (err.response?.data?.error || err.message || 'Terjadi kesalahan')
+    });
+  } finally {
+    setPaymentLoading(false);
+  }
+};
 
   // Render payment instructions
   const renderPaymentInstructions = (transaction) => {
@@ -329,12 +365,12 @@ const SubscriptionPage = () => {
               src={qrisImage || '/uploads/default-qris.png'} 
               alt="QRIS Code" 
               style={{ maxWidth: '250px', margin: '20px auto', border: '1px solid #eee' }} 
-              fallback="/uploads/default-qris.png"
+              fallback={defaultQrisUrl}
               preview={false}
               onError={(e) => {
                 console.error('Error loading QRIS image, using fallback');
                 // Set fallback manual jika Image fallback tidak bekerja
-                e.target.src = '/uploads/default-qris.png';
+                e.target.src = defaultQrisUrl;
               }}
             />
             
@@ -371,10 +407,10 @@ const SubscriptionPage = () => {
         </Text>
         
         {transaction.amount && (
-          <Text strong style={{ display: 'block', marginTop: 10, fontSize: '16px' }}>
-            Total Pembayaran: Rp {transaction.amount.toLocaleString('id-ID')}
-          </Text>
-        )}
+        <Text strong style={{ display: 'block', marginTop: 10, fontSize: '16px' }}>
+          Total Pembayaran: Rp {new Intl.NumberFormat('id-ID').format(transaction.amount)}
+        </Text>
+      )}
         
         {countdown && (
           <div style={{ marginTop: 10 }}>
@@ -397,8 +433,11 @@ const SubscriptionPage = () => {
           size="large"
           loading={paymentLoading} 
           onClick={() => handleIHavePaid(transaction.id)}
+          disabled={paymentLoading || transaction.status === 'waiting_verification'}
         >
-          Saya Sudah Bayar
+          {paymentLoading ? 'Memproses...' : 
+           transaction.status === 'waiting_verification' ? 'Menunggu Verifikasi Admin' : 
+           'Saya Sudah Bayar'}
         </Button>
       </div>
     </div>
@@ -577,9 +616,6 @@ const SubscriptionPage = () => {
                     {activeSubscription.payment_status === 'paid' ? 'LUNAS' : 'MENUNGGU'}
                   </Tag>
                 </Descriptions.Item>
-                <Descriptions.Item label="Metode Pembayaran">
-                  {activeSubscription.payment_method || 'QRIS'}
-                </Descriptions.Item>
               </Descriptions>
             </Col>
           </Row>
@@ -611,7 +647,7 @@ const SubscriptionPage = () => {
                 title={
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>{plan.name}</span>
-                    <Tag color="green">Rp {plan.price.toLocaleString('id-ID')}</Tag>
+                    <Tag color="green">Rp {new Intl.NumberFormat('id-ID').format(plan.price)}</Tag>
                   </div>
                 }
                 actions={[
@@ -670,7 +706,7 @@ const SubscriptionPage = () => {
                     </Descriptions.Item>
                     <Descriptions.Item label="Jumlah">
                       <Text strong>
-                        Rp {transaction.amount?.toLocaleString('id-ID') || '0'}
+                        Rp {transaction.amount ? new Intl.NumberFormat('id-ID').format(transaction.amount) : '0'}
                       </Text>
                     </Descriptions.Item>
                     <Descriptions.Item label="Tanggal">
@@ -678,13 +714,23 @@ const SubscriptionPage = () => {
                     </Descriptions.Item>
                     <Descriptions.Item label="Status">
                       <Tag color={
+                        statusMap[transaction.id] === 'verified' ? 'green' :
+                        statusMap[transaction.id] === 'rejected' ? 'red' :
+                        statusMap[transaction.id] === 'expired' ? 'orange' :
                         transaction.status === 'waiting_verification' ? 'blue' : 
                         transaction.status === 'pending' ? 'orange' : 'default'
                       }>
-                        {transaction.status === 'waiting_verification' ? 'MENUNGGU VERIFIKASI' : 
-                         transaction.status === 'pending' ? 'MENUNGGU PEMBAYARAN' : transaction.status.toUpperCase()}
+                        {
+                        statusMap[transaction.id]
+                      ? statusMap[transaction.id].toUpperCase()
+                      : (
+                        transaction.status === 'waiting_verification' ? 'MENUNGGU VERIFIKASI' :
+                        transaction.status === 'pending' ? 'MENUNGGU PEMBAYARAN' :
+                        transaction.status.toUpperCase()
+                        )
+                        }
                       </Tag>
-                    </Descriptions.Item>
+              </Descriptions.Item>
                   </Descriptions>
                   
                   <div style={{ marginTop: 16, textAlign: 'center' }}>
@@ -725,94 +771,6 @@ const SubscriptionPage = () => {
         defaultActiveKey="subscriptions"
         items={[
           {
-            key: "subscriptions",
-            label: "Riwayat Langganan",
-            children: (
-              <Table
-                dataSource={subscriptions}
-                rowKey="id"
-                columns={[
-                  {
-                    title: 'Tanggal Mulai',
-                    dataIndex: 'start_date',
-                    key: 'start_date',
-                    render: (date) => formatDate(date),
-                    sorter: (a, b) => new Date(b.start_date) - new Date(a.start_date),
-                    defaultSortOrder: 'descend',
-                  },
-                  {
-                    title: 'Tanggal Berakhir',
-                    dataIndex: 'end_date',
-                    key: 'end_date',
-                    render: (date) => formatDate(date),
-                  },
-                  {
-                    title: 'Status',
-                    dataIndex: 'status',
-                    key: 'status',
-                    render: (status, record) => {
-                      let color = 'default';
-                      let displayText = status.toUpperCase();
-                      
-                      if (status === 'active') {
-                        const now = new Date();
-                        const endDate = new Date(record.end_date);
-                        
-                        if (endDate > now) {
-                          color = 'success';
-                          displayText = 'AKTIF';
-                        } else {
-                          color = 'error';
-                          displayText = 'KADALUARSA';
-                        }
-                      } else if (status === 'canceled') {
-                        color = 'warning';
-                        displayText = 'DIBATALKAN';
-                      }
-                      
-                      return <Tag color={color}>{displayText}</Tag>;
-                    },
-                    filters: [
-                      { text: 'Aktif', value: 'active' },
-                      { text: 'Dibatalkan', value: 'canceled' },
-                    ],
-                    onFilter: (value, record) => record.status === value,
-                  },
-                  {
-                    title: 'Status Pembayaran',
-                    dataIndex: 'payment_status',
-                    key: 'payment_status',
-                    render: (status) => {
-                      const statusMap = {
-                        'paid': { color: 'green', text: 'LUNAS' },
-                        'pending': { color: 'orange', text: 'MENUNGGU' },
-                        'failed': { color: 'red', text: 'GAGAL' }
-                      };
-                      
-                      const { color, text } = statusMap[status] || { color: 'default', text: status.toUpperCase() };
-                      
-                      return <Tag color={color}>{text}</Tag>;
-                    },
-                    filters: [
-                      { text: 'Lunas', value: 'paid' },
-                      { text: 'Menunggu', value: 'pending' },
-                      { text: 'Gagal', value: 'failed' },
-                    ],
-                    onFilter: (value, record) => record.payment_status === value,
-                  },
-                  {
-                    title: 'Metode Pembayaran',
-                    dataIndex: 'payment_method',
-                    key: 'payment_method',
-                    render: (method) => method || 'QRIS',
-                  },
-                ]}
-                pagination={{ pageSize: 5 }}
-                locale={{ emptyText: 'Belum ada riwayat langganan' }}
-              />
-            )
-          },
-          {
             key: "transactions",
             label: "Riwayat Transaksi",
             children: (
@@ -840,7 +798,7 @@ const SubscriptionPage = () => {
                       title: 'Jumlah',
                       dataIndex: 'amount',
                       key: 'amount',
-                      render: (amount) => `Rp ${amount.toLocaleString('id-ID')}`,
+                      render: (amount) => `Rp ${new Intl.NumberFormat('id-ID').format(amount || 0)}`,
                       sorter: (a, b) => a.amount - b.amount,
                     },
                     {
@@ -917,206 +875,214 @@ const SubscriptionPage = () => {
       />
 
       {/* Payment Modal */}
-      <Modal
-        title={paymentResult ? "Detail Transaksi" : "Pembayaran Langganan"}
-        open={paymentModalVisible}
-        onCancel={() => {
-          if (!paymentLoading) setPaymentModalVisible(false);
-        }}
-        footer={
-          paymentResult ? [
-            <Button key="close" onClick={() => setPaymentModalVisible(false)}>
-              Tutup
-            </Button>
-          ] : null
-        }
-        width={700}
-      >
-        {selectedPlan && !paymentResult && (
-          <div>
-            <div style={{ marginBottom: 20 }}>
-              <Title level={4}>Paket: {selectedPlan.name}</Title>
-              <Paragraph>
-                <Text strong>Harga:</Text> Rp {selectedPlan.price.toLocaleString('id-ID')}
-              </Paragraph>
-              <Paragraph>
-                <Text strong>Durasi:</Text> {selectedPlan.duration_days} hari
-              </Paragraph>
-              <Paragraph>
-                <Text strong>Deskripsi:</Text> {selectedPlan.description || `Langganan standar selama ${selectedPlan.name}`}
-              </Paragraph>
-            </div>
-            
-            <Divider />
-            
-            <Form form={form} layout="vertical" onFinish={handlePaymentConfirmation}>
-              <Form.Item
-                name="name"
-                label="Nama Lengkap"
-                rules={[{ required: true, message: 'Harap masukkan nama lengkap' }]}
-                initialValue={user?.username}
-              >
-                <Input placeholder="Nama lengkap sesuai identitas" />
-              </Form.Item>
-              
-              <Form.Item
-                name="email"
-                label="Email"
-                rules={[
-                  { required: true, message: 'Harap masukkan email' },
-                  { type: 'email', message: 'Format email tidak valid' }
-                ]}
-                initialValue={user?.email}
-              >
-                <Input placeholder="Email aktif untuk notifikasi pembayaran" />
-              </Form.Item>
-              
-              <Form.Item
-                name="phone"
-                label="Nomor Telepon"
-                rules={[
-                  { required: true, message: 'Harap masukkan nomor telepon' },
-                  { pattern: /^[0-9+]+$/, message: 'Hanya angka dan tanda + diperbolehkan' }
-                ]}
-              >
-                <Input placeholder="Contoh: 081234567890" />
-              </Form.Item>
-              
-              <div style={{ marginTop: 16 }}>
-                <Descriptions bordered column={1} size="small">
-                  <Descriptions.Item label="Harga Paket">
-                    Rp {selectedPlan.price.toLocaleString('id-ID')}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Total Pembayaran">
-                    <Text strong>
-                      Rp {selectedPlan.price.toLocaleString('id-ID')}
-                    </Text>
-                  </Descriptions.Item>
-                </Descriptions>
-              </div>
-              
-              <Form.Item style={{ marginTop: 24 }}>
-                <Button 
-                  type="primary" 
-                  htmlType="submit"
-                  loading={paymentLoading}
-                  disabled={paymentLoading}
-                  block
-                >
-                  Lanjutkan Pembayaran
-                </Button>
-              </Form.Item>
-            </Form>
-          </div>
-        )}
+<Modal
+  title={paymentResult ? "Detail Transaksi" : "Pembayaran Langganan"}
+  open={paymentModalVisible}
+  onCancel={() => {
+    if (!paymentLoading) {
+      setPaymentModalVisible(false);
+      setPaymentResult(null); // Reset payment result saat modal ditutup
+    }
+  }}
+  footer={
+    paymentResult ? [
+      <Button key="close" onClick={() => {
+        setPaymentModalVisible(false);
+        setPaymentResult(null); // Reset payment result
+      }}>
+        Tutup
+      </Button>
+    ] : null
+  }
+  width={700}
+  maskClosable={!paymentLoading} // Mencegah modal ditutup saat loading
+>
+  {/* Modal content */}
+  {selectedPlan && !paymentResult && (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <Title level={4}>Paket: {selectedPlan.name}</Title>
+        <Paragraph>
+          <Text strong>Harga:</Text> Rp {new Intl.NumberFormat('id-ID').format(selectedPlan.price)}
+        </Paragraph>
+        <Paragraph>
+          <Text strong>Durasi:</Text> {selectedPlan.duration_days} hari
+        </Paragraph>
+        <Paragraph>
+          <Text strong>Deskripsi:</Text> {selectedPlan.description || `Langganan standar selama ${selectedPlan.name}`}
+        </Paragraph>
+      </div>
+      
+      <Divider />
+      
+      <Form form={form} layout="vertical" onFinish={handlePaymentConfirmation}>
+        <Form.Item
+          name="name"
+          label="Nama Lengkap"
+          rules={[{ required: true, message: 'Harap masukkan nama lengkap' }]}
+          initialValue={user?.username}
+        >
+          <Input placeholder="Nama lengkap sesuai identitas" />
+        </Form.Item>
         
-        {/* Payment Result */}
-        {paymentResult && (
+        <Form.Item
+          name="email"
+          label="Email"
+          rules={[
+            { required: true, message: 'Harap masukkan email' },
+            { type: 'email', message: 'Format email tidak valid' }
+          ]}
+          initialValue={user?.email}
+        >
+          <Input placeholder="Email aktif untuk notifikasi pembayaran" />
+        </Form.Item>
+        
+        <Form.Item
+          name="phone"
+          label="Nomor Telepon"
+          rules={[
+            { required: true, message: 'Harap masukkan nomor telepon' },
+            { pattern: /^[0-9+]+$/, message: 'Hanya angka dan tanda + diperbolehkan' }
+          ]}
+        >
+          <Input placeholder="Contoh: 081234567890" />
+        </Form.Item>
+        
+        <div style={{ marginTop: 16 }}>
+          <Descriptions bordered column={1} size="small">
+            <Descriptions.Item label="Harga Paket">
+              Rp {new Intl.NumberFormat('id-ID').format(selectedPlan.price)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Total Pembayaran">
+              <Text strong>
+                Rp {new Intl.NumberFormat('id-ID').format(selectedPlan.price)}
+              </Text>
+            </Descriptions.Item>
+          </Descriptions>
+        </div>
+        
+        <Form.Item style={{ marginTop: 24 }}>
+          <Button 
+            type="primary" 
+            htmlType="submit"
+            loading={paymentLoading}
+            disabled={paymentLoading}
+            block
+          >
+            {paymentLoading ? 'Memproses...' : 'Lanjutkan Pembayaran'}
+          </Button>
+        </Form.Item>
+      </Form>
+    </div>
+  )}
+  
+  {/* Payment Result */}
+  {paymentResult && (
+    <div>
+      {/* Payment Details */}
+      <Result
+        status={
+          paymentResult.status === 'verified' ? 'success' :
+          paymentResult.status === 'rejected' ? 'error' :
+          paymentResult.status === 'expired' ? 'warning' :
+          'info'
+        }
+        title={
+          paymentResult.status === 'verified' ? "Pembayaran Terverifikasi" :
+          paymentResult.status === 'rejected' ? "Pembayaran Ditolak" :
+          paymentResult.status === 'expired' ? "Pembayaran Kedaluwarsa" :
+          paymentResult.status === 'waiting_verification' ? "Menunggu Verifikasi" :
+          "Menunggu Pembayaran"
+        }
+        subTitle={
           <div>
-            {/* Payment Details */}
-            <Result
-              status={
+            <div>Nomor Pesanan: {paymentResult.order_number}</div>
+            <div>
+              Status: 
+              <Tag color={
                 paymentResult.status === 'verified' ? 'success' :
                 paymentResult.status === 'rejected' ? 'error' :
                 paymentResult.status === 'expired' ? 'warning' :
-                'info'
-              }
-              title={
-                paymentResult.status === 'verified' ? "Pembayaran Terverifikasi" :
-                paymentResult.status === 'rejected' ? "Pembayaran Ditolak" :
-                paymentResult.status === 'expired' ? "Pembayaran Kedaluwarsa" :
-                paymentResult.status === 'waiting_verification' ? "Menunggu Verifikasi" :
-                "Menunggu Pembayaran"
-              }
-              subTitle={
-                <div>
-                  <div>Nomor Pesanan: {paymentResult.order_number}</div>
-                  <div>
-                    Status: 
-                    <Tag color={
-                      paymentResult.status === 'verified' ? 'success' :
-                      paymentResult.status === 'rejected' ? 'error' :
-                      paymentResult.status === 'expired' ? 'warning' :
-                      paymentResult.status === 'waiting_verification' ? 'blue' :
-                      'orange'
-                    } style={{ marginLeft: 8 }}>
-                      {
-                        paymentResult.status === 'verified' ? 'TERVERIFIKASI' :
-                        paymentResult.status === 'rejected' ? 'DITOLAK' :
-                        paymentResult.status === 'expired' ? 'KEDALUWARSA' :
-                        paymentResult.status === 'waiting_verification' ? 'MENUNGGU VERIFIKASI' :
-                        'MENUNGGU PEMBAYARAN'
-                      }
-                    </Tag>
-                  </div>
-                </div>
-              }
-            />
-            
-            <Descriptions
-              title="Detail Transaksi"
-              bordered
-              column={1}
-              style={{ marginBottom: 20 }}
-            >
-              <Descriptions.Item label="Nomor Pesanan">
-                <Text copyable>{paymentResult.order_number}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label="Metode Pembayaran">
-                QRIS
-              </Descriptions.Item>
-              <Descriptions.Item label="Paket">
-                {paymentResult.plan_name || 'Paket Langganan'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Jumlah">
-                <Text strong>Rp {paymentResult.amount?.toLocaleString('id-ID')}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label="Tanggal Dibuat">
-                {moment(paymentResult.created_at).format('DD MMMM YYYY HH:mm')}
-              </Descriptions.Item>
-              {paymentResult.verified_at && (
-                <Descriptions.Item label="Tanggal Verifikasi">
-                  {moment(paymentResult.verified_at).format('DD MMMM YYYY HH:mm')}
-                </Descriptions.Item>
-              )}
-              {paymentResult.expired_at && paymentResult.status === 'pending' && (
-                <Descriptions.Item label="Batas Waktu Pembayaran">
-                  <Text type="danger">
-                    {moment(paymentResult.expired_at).format('DD MMMM YYYY HH:mm')}
-                  </Text>
-                </Descriptions.Item>
-              )}
-            </Descriptions>
-            
-            {/* Payment Instructions for pending or waiting_verification status */}
-            {(paymentResult.status === 'pending' || paymentResult.status === 'waiting_verification') && 
-              renderPaymentInstructions(paymentResult)
-            }
-            
-            {/* Check status button for pending or waiting_verification status */}
-            {(paymentResult.status === 'pending' || paymentResult.status === 'waiting_verification') && (
-              <div style={{ marginTop: 20, textAlign: 'center' }}>
-                <Button
-                  type="primary"
-                  icon={<ReloadOutlined />}
-                  loading={checkingStatus}
-                  onClick={() => handleCheckStatus(paymentResult.id)}
-                >
-                  Periksa Status Pembayaran
-                </Button>
-              </div>
-            )}
+                paymentResult.status === 'waiting_verification' ? 'blue' :
+                'orange'
+              } style={{ marginLeft: 8 }}>
+                {
+                  paymentResult.status === 'verified' ? 'TERVERIFIKASI' :
+                  paymentResult.status === 'rejected' ? 'DITOLAK' :
+                  paymentResult.status === 'expired' ? 'KEDALUWARSA' :
+                  paymentResult.status === 'waiting_verification' ? 'MENUNGGU VERIFIKASI' :
+                  'MENUNGGU PEMBAYARAN'
+                }
+              </Tag>
+            </div>
           </div>
+        }
+      />
+      
+      <Descriptions
+        title="Detail Transaksi"
+        bordered
+        column={1}
+        style={{ marginBottom: 20 }}
+      >
+        <Descriptions.Item label="Nomor Pesanan">
+          <Text copyable>{paymentResult.order_number}</Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="Metode Pembayaran">
+          QRIS
+        </Descriptions.Item>
+        <Descriptions.Item label="Paket">
+          {paymentResult.plan_name || 'Paket Langganan'}
+        </Descriptions.Item>
+        <Descriptions.Item label="Jumlah">
+          <Text strong>Rp {new Intl.NumberFormat('id-ID').format(paymentResult.amount || 0)}</Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="Tanggal Dibuat">
+          {moment(paymentResult.created_at).format('DD MMMM YYYY HH:mm')}
+        </Descriptions.Item>
+        {paymentResult.verified_at && (
+          <Descriptions.Item label="Tanggal Verifikasi">
+            {moment(paymentResult.verified_at).format('DD MMMM YYYY HH:mm')}
+          </Descriptions.Item>
         )}
-        
-        {/* Loading indicator */}
-        {paymentLoading && !paymentResult && (
-          <div style={{ textAlign: 'center', padding: '30px' }}>
-            <Spin size="large" />
-            <div style={{ marginTop: '16px' }}>Memproses pembayaran...</div>
-          </div>
+        {paymentResult.expired_at && paymentResult.status === 'pending' && (
+          <Descriptions.Item label="Batas Waktu Pembayaran">
+            <Text type="danger">
+              {moment(paymentResult.expired_at).format('DD MMMM YYYY HH:mm')}
+            </Text>
+          </Descriptions.Item>
         )}
-      </Modal>
+      </Descriptions>
+      
+      {/* Payment Instructions for pending or waiting_verification status */}
+      {(paymentResult.status === 'pending' || paymentResult.status === 'waiting_verification') && 
+        renderPaymentInstructions(paymentResult)
+      }
+      
+      {/* Check status button for pending or waiting_verification status */}
+      {(paymentResult.status === 'pending' || paymentResult.status === 'waiting_verification') && (
+        <div style={{ marginTop: 20, textAlign: 'center' }}>
+          <Button
+            type="primary"
+            icon={<ReloadOutlined />}
+            loading={checkingStatus}
+            onClick={() => handleCheckStatus(paymentResult.id)}
+          >
+            Periksa Status Pembayaran
+          </Button>
+        </div>
+      )}
+    </div>
+  )}
+  
+  {/* Loading indicator */}
+  {paymentLoading && !paymentResult && (
+    <div style={{ textAlign: 'center', padding: '30px' }}>
+      <Spin size="large" />
+      <div style={{ marginTop: '16px' }}>Memproses pembayaran...</div>
+    </div>
+  )}
+</Modal>
     </div>
   );
 };

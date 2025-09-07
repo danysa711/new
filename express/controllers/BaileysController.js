@@ -332,7 +332,7 @@ const getLogs = async (req, res) => {
     
     // Get logs
     const logs = await db.BaileysLog.findAll({
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']], // Ubah dari 'createdAt' menjadi 'created_at'
       limit: 100
     });
     

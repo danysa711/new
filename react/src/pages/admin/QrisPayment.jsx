@@ -1,26 +1,25 @@
 // File: src/pages/admin/QrisPayment.jsx
+import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import { 
   Card, Typography, Table, Tag, Button, Space, 
   Modal, Form, Input, Upload, Spin, message, Descriptions, 
-  Divider, Image, Statistic, Row, Col, DatePicker, TimePicker, Select, Tabs
+  Divider, Image, Statistic, Row, Col, DatePicker, Select, Tabs
 } from 'antd';
 import { 
   ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, 
   UploadOutlined, ClockCircleOutlined, SearchOutlined,
-  SettingOutlined, DollarOutlined, QrcodeOutlined
+  SettingOutlined, QrcodeOutlined
 } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
 
 const { Title, Text, Paragraph } = Typography;
-const { RangePicker } = DatePicker;
 
 const QrisPayment = () => {
   // State variables
   const [loading, setLoading] = useState(false);
   const [pendingPayments, setPendingPayments] = useState([]);
-  const [paymentHistory, setPaymentHistory] = useState([]);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
@@ -31,63 +30,23 @@ const QrisPayment = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [settingsForm] = Form.useForm();
   const [filterForm] = Form.useForm();
+  const [searchKeyword, setSearchKeyword] = useState('');
   
   // Fetch pending payments
   const fetchPendingPayments = async () => {
-  try {
-    setLoading(true);
-    const response = await axiosInstance.get('/api/qris/pending-admin');
-    console.log('Response data:', response.data);
-    setPendingPayments(Array.isArray(response.data) ? response.data : []);
-  } catch (error) {
-    console.error('Error fetching pending payments:', error);
-    message.error('Gagal mengambil data pembayaran tertunda');
-    setPendingPayments([]); // Set empty array untuk menghindari error
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Fetch payment history
-  const fetchPaymentHistory = async (filters = {}) => {
-  try {
-    setLoading(true);
-    
-    let url = '/api/qris/history-admin';
-    
-    // Tambahkan params jika filter ada
-    const params = new URLSearchParams();
-    
-    if (filters.dateRange && filters.dateRange.length === 2) {
-      params.append('startDate', filters.dateRange[0].format('YYYY-MM-DD'));
-      params.append('endDate', filters.dateRange[1].format('YYYY-MM-DD'));
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get('/api/qris/pending-admin');
+      console.log('Response data:', response.data);
+      setPendingPayments(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching pending payments:', error);
+      message.error('Gagal mengambil data pembayaran tertunda');
+      setPendingPayments([]); // Set empty array untuk menghindari error
+    } finally {
+      setLoading(false);
     }
-    
-    if (filters.status) {
-      params.append('status', filters.status);
-    }
-    
-    if (filters.keyword) {
-      params.append('keyword', filters.keyword);
-    }
-    
-    if (params.toString()) {
-      url += `?${params.toString()}`;
-    }
-    
-    console.log('Fetching payment history with URL:', url);
-    const response = await axiosInstance.get(url);
-    console.log('History response:', response.data);
-    
-    setPaymentHistory(Array.isArray(response.data) ? response.data : []);
-  } catch (error) {
-    console.error('Error fetching payment history:', error);
-    message.error('Gagal mengambil riwayat pembayaran');
-    setPaymentHistory([]); // Set empty array untuk menghindari error
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Fetch QRIS settings
   const fetchQrisSettings = async () => {
@@ -109,42 +68,107 @@ const QrisPayment = () => {
       console.error('Error fetching QRIS settings:', error);
     }
   };
-
-  // Verify payment
-  const verifyPayment = async (id) => {
-    try {
-      const response = await axiosInstance.post(`/api/qris/verify/${id}`);
-      
-      if (response.data && response.data.success) {
-        message.success('Pembayaran berhasil diverifikasi');
-        fetchPendingPayments();
-        fetchPaymentHistory();
-      } else {
-        throw new Error(response.data?.message || 'Gagal memverifikasi pembayaran');
+  
+  // Direct XHR implementation for verify payment
+  // Direct XHR implementation for verify payment
+const directVerifyPayment = (id) => {
+  console.log('Direct verify payment for ID:', id);
+  message.loading('Memverifikasi pembayaran...', 1);
+  
+  const xhr = new XMLHttpRequest();
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  
+  xhr.open('POST', 'https://db.kinterstore.my.id/api/qris/verify/' + id, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+  
+  xhr.onload = function() {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      try {
+        const response = JSON.parse(xhr.responseText);
+        console.log('Verify response:', response);
+        if (response.success) {
+          message.success('Pembayaran berhasil diverifikasi');
+          
+          // Perbarui data di state secara manual
+          setPendingPayments(prevPayments => 
+            prevPayments.filter(payment => payment.id !== id)
+          );
+          
+          // Kemudian fetch ulang data setelah jeda singkat
+          setTimeout(() => {
+            fetchPendingPayments();
+          }, 1000);
+        } else {
+          message.error('Gagal memverifikasi pembayaran: ' + (response.error || 'Terjadi kesalahan'));
+        }
+      } catch (e) {
+        console.error('Error parsing response:', e);
+        message.error('Gagal memproses respons server');
       }
-    } catch (error) {
-      console.error('Error verifying payment:', error);
-      message.error('Gagal memverifikasi pembayaran: ' + (error.message || 'Terjadi kesalahan'));
+    } else {
+      console.error('XHR error:', xhr.status, xhr.statusText);
+      message.error('Error ' + xhr.status + ': ' + xhr.statusText);
     }
   };
+  
+  xhr.onerror = function() {
+    console.error('Network error');
+    message.error('Terjadi kesalahan jaringan');
+  };
+  
+  xhr.send(JSON.stringify({}));
+};
 
-  // Reject payment
-  const rejectPayment = async (id) => {
-    try {
-      const response = await axiosInstance.post(`/api/qris/reject/${id}`);
-      
-      if (response.data && response.data.success) {
-        message.success('Pembayaran berhasil ditolak');
-        fetchPendingPayments();
-        fetchPaymentHistory();
-      } else {
-        throw new Error(response.data?.message || 'Gagal menolak pembayaran');
+  // Direct XHR implementation for reject payment
+  const directRejectPayment = (id) => {
+  console.log('Direct reject payment for ID:', id);
+  message.loading('Menolak pembayaran...', 1);
+  
+  const xhr = new XMLHttpRequest();
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  
+  xhr.open('POST', 'https://db.kinterstore.my.id/api/qris/reject/' + id, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+  
+  xhr.onload = function() {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      try {
+        const response = JSON.parse(xhr.responseText);
+        console.log('Reject response:', response);
+        if (response.success) {
+          message.success('Pembayaran berhasil ditolak');
+          
+          // Perbarui data di state secara manual
+          setPendingPayments(prevPayments => 
+            prevPayments.filter(payment => payment.id !== id)
+          );
+          
+          // Kemudian fetch ulang data setelah jeda singkat
+          setTimeout(() => {
+            fetchPendingPayments();
+          }, 1000);
+        } else {
+          message.error('Gagal menolak pembayaran: ' + (response.error || 'Terjadi kesalahan'));
+        }
+      } catch (e) {
+        console.error('Error parsing response:', e);
+        message.error('Gagal memproses respons server');
       }
-    } catch (error) {
-      console.error('Error rejecting payment:', error);
-      message.error('Gagal menolak pembayaran: ' + (error.message || 'Terjadi kesalahan'));
+    } else {
+      console.error('XHR error:', xhr.status, xhr.statusText);
+      message.error('Error ' + xhr.status + ': ' + xhr.statusText);
     }
   };
+  
+  xhr.onerror = function() {
+    console.error('Network error');
+    message.error('Terjadi kesalahan jaringan');
+  };
+  
+  xhr.send(JSON.stringify({}));
+};
 
   // Save QRIS settings
   const saveQrisSettings = async (values) => {
@@ -205,9 +229,9 @@ const QrisPayment = () => {
     }
   };
 
-  // Filter payments
-  const handleFilterSubmit = (values) => {
-    fetchPaymentHistory(values);
+  // Filter pending payments
+  const handleSearch = (value) => {
+    setSearchKeyword(value);
   };
 
   // Show payment details
@@ -219,7 +243,6 @@ const QrisPayment = () => {
   // Initialize
   useEffect(() => {
     fetchPendingPayments();
-    fetchPaymentHistory();
     fetchQrisSettings();
     
     // Set interval to refresh pending payments
@@ -230,13 +253,21 @@ const QrisPayment = () => {
     return () => clearInterval(intervalId);
   }, []);
 
+  // Filter pending payments based on search keyword
+  const filteredPendingPayments = searchKeyword
+    ? pendingPayments.filter(payment => 
+        payment.order_number?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+        payment.username?.toLowerCase().includes(searchKeyword.toLowerCase())
+      )
+    : pendingPayments;
+
   return (
     <div>
       <Title level={2}>Verifikasi Pembayaran QRIS</Title>
       
       {/* Quick Stats */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={8}>
+        <Col span={12}>
           <Card>
             <Statistic
               title="Pembayaran Tertunda"
@@ -246,23 +277,13 @@ const QrisPayment = () => {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col span={12}>
           <Card>
             <Statistic
-              title="Transaksi Berhasil"
-              value={paymentHistory.filter(payment => payment.status === 'verified').length}
-              valueStyle={{ color: '#52c41a' }}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Transaksi Ditolak"
-              value={paymentHistory.filter(payment => payment.status === 'rejected').length}
-              valueStyle={{ color: '#ff4d4f' }}
-              prefix={<CloseCircleOutlined />}
+              title="Menunggu Verifikasi"
+              value={pendingPayments.filter(payment => payment.status === 'waiting_verification').length}
+              valueStyle={{ color: '#1890ff' }}
+              prefix={<ClockCircleOutlined />}
             />
           </Card>
         </Col>
@@ -279,10 +300,7 @@ const QrisPayment = () => {
         </Button>
         <Button
           icon={<ReloadOutlined />}
-          onClick={() => {
-            fetchPendingPayments();
-            fetchPaymentHistory();
-          }}
+          onClick={() => fetchPendingPayments()}
         >
           Refresh Data
         </Button>
@@ -292,9 +310,17 @@ const QrisPayment = () => {
       <Card 
         title="Pembayaran Tertunda" 
         style={{ marginBottom: 24 }}
+        extra={
+          <Input.Search
+            placeholder="Cari no. pesanan/username"
+            allowClear
+            onSearch={handleSearch}
+            style={{ width: 250 }}
+          />
+        }
       >
         <Table
-          dataSource={pendingPayments}
+          dataSource={filteredPendingPayments}
           rowKey="id"
           loading={loading}
           columns={[
@@ -325,7 +351,7 @@ const QrisPayment = () => {
               title: 'Jumlah',
               dataIndex: 'amount',
               key: 'amount',
-              render: amount => `Rp ${amount.toLocaleString('id-ID')}`,
+              render: amount => `Rp ${new Intl.NumberFormat('id-ID').format(amount)}`,
             },
             {
               title: 'Status',
@@ -364,34 +390,41 @@ const QrisPayment = () => {
               render: (_, record) => (
                 <Space size="small">
                   <Button
-                    type="primary"
+                    type="primary" 
                     size="small"
-                    icon={<CheckCircleOutlined />}
+                    style={{ 
+                      backgroundColor: '#52c41a', 
+                      borderColor: '#52c41a'
+                    }}
                     onClick={() => {
+                      console.log('Verifikasi button clicked for ID:', record.id);
                       Modal.confirm({
                         title: 'Verifikasi Pembayaran',
-                        content: `Apakah Anda yakin ingin memverifikasi pembayaran ini?`,
-                        onOk: () => verifyPayment(record.id),
+                        content: `Apakah Anda yakin ingin memverifikasi pembayaran #${record.order_number}?`,
+                        onOk: () => directVerifyPayment(record.id),
                       });
                     }}
+                    icon={<CheckCircleOutlined />}
                   >
                     Verifikasi
                   </Button>
+                  
                   <Button
-                    type="primary"
                     danger
                     size="small"
-                    icon={<CloseCircleOutlined />}
                     onClick={() => {
+                      console.log('Tolak button clicked for ID:', record.id);
                       Modal.confirm({
                         title: 'Tolak Pembayaran',
-                        content: `Apakah Anda yakin ingin menolak pembayaran ini?`,
-                        onOk: () => rejectPayment(record.id),
+                        content: `Apakah Anda yakin ingin menolak pembayaran #${record.order_number}?`,
+                        onOk: () => directRejectPayment(record.id),
                       });
                     }}
+                    icon={<CloseCircleOutlined />}
                   >
                     Tolak
                   </Button>
+                  
                   <Button
                     type="link"
                     size="small"
@@ -405,129 +438,6 @@ const QrisPayment = () => {
           ]}
           pagination={{ pageSize: 5 }}
           locale={{ emptyText: 'Tidak ada pembayaran tertunda' }}
-        />
-      </Card>
-      
-      {/* Payment History Section */}
-      <Card title="Riwayat Pembayaran">
-        {/* Filter Form */}
-        <Form
-          form={filterForm}
-          layout="inline"
-          onFinish={handleFilterSubmit}
-          style={{ marginBottom: 16 }}
-        >
-          <Form.Item name="dateRange" label="Rentang Tanggal">
-            <RangePicker format="DD/MM/YYYY" />
-          </Form.Item>
-          <Form.Item name="status" label="Status">
-            <Input.Group compact>
-              <Select style={{ width: 180 }} allowClear>
-                <Select.Option value="verified">Terverifikasi</Select.Option>
-                <Select.Option value="rejected">Ditolak</Select.Option>
-                <Select.Option value="expired">Kedaluwarsa</Select.Option>
-                <Select.Option value="waiting_verification">Menunggu Verifikasi</Select.Option>
-                <Select.Option value="pending">Menunggu Pembayaran</Select.Option>
-              </Select>
-            </Input.Group>
-          </Form.Item>
-          <Form.Item name="keyword" label="Pencarian">
-            <Input placeholder="No. Pesanan / Username" prefix={<SearchOutlined />} />
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
-              Cari
-            </Button>
-          </Form.Item>
-        </Form>
-        
-        <Table
-          dataSource={paymentHistory}
-          rowKey="id"
-          loading={loading}
-          columns={[
-            {
-              title: 'No. Pesanan',
-              dataIndex: 'order_number',
-              key: 'order_number',
-              render: text => <Text copyable>{text}</Text>
-            },
-            {
-              title: 'Username',
-              dataIndex: 'username',
-              key: 'username',
-            },
-            {
-              title: 'Paket',
-              dataIndex: 'plan_name',
-              key: 'plan_name',
-              responsive: ['md'],
-            },
-            {
-              title: 'Jumlah',
-              dataIndex: 'amount',
-              key: 'amount',
-              render: amount => `Rp ${amount.toLocaleString('id-ID')}`,
-            },
-            {
-              title: 'Status',
-              dataIndex: 'status',
-              key: 'status',
-              render: status => {
-                let color = 'default';
-                let text = status;
-                
-                if (status === 'verified') {
-                  color = 'success';
-                  text = 'TERVERIFIKASI';
-                } else if (status === 'rejected') {
-                  color = 'error';
-                  text = 'DITOLAK';
-                } else if (status === 'expired') {
-                  color = 'warning';
-                  text = 'KEDALUWARSA';
-                } else if (status === 'waiting_verification') {
-                  color = 'blue';
-                  text = 'MENUNGGU VERIFIKASI';
-                } else if (status === 'pending') {
-                  color = 'orange';
-                  text = 'MENUNGGU PEMBAYARAN';
-                }
-                
-                return <Tag color={color}>{text}</Tag>;
-              },
-              filters: [
-                { text: 'TERVERIFIKASI', value: 'verified' },
-                { text: 'DITOLAK', value: 'rejected' },
-                { text: 'KEDALUWARSA', value: 'expired' },
-                { text: 'MENUNGGU VERIFIKASI', value: 'waiting_verification' },
-                { text: 'MENUNGGU PEMBAYARAN', value: 'pending' },
-              ],
-              onFilter: (value, record) => record.status === value,
-            },
-            {
-              title: 'Tanggal',
-              dataIndex: 'created_at',
-              key: 'created_at',
-              render: date => moment(date).format('DD/MM/YYYY HH:mm'),
-              sorter: (a, b) => new Date(b.created_at) - new Date(a.created_at),
-              defaultSortOrder: 'descend',
-            },
-            {
-              title: 'Aksi',
-              key: 'action',
-              render: (_, record) => (
-                <Button
-                  type="link"
-                  onClick={() => showPaymentDetails(record)}
-                >
-                  Detail
-                </Button>
-              ),
-            },
-          ]}
-          pagination={{ pageSize: 10 }}
-          locale={{ emptyText: 'Tidak ada riwayat pembayaran' }}
         />
       </Card>
       
@@ -564,7 +474,7 @@ const QrisPayment = () => {
                 {selectedPayment.plan_name || 'Paket Langganan'}
               </Descriptions.Item>
               <Descriptions.Item label="Jumlah">
-                <Text strong>Rp {selectedPayment.amount?.toLocaleString('id-ID')}</Text>
+                <Text strong>Rp {new Intl.NumberFormat('id-ID').format(selectedPayment.amount || 0)}</Text>
               </Descriptions.Item>
               <Descriptions.Item label="Status">
                 <Tag color={
@@ -609,12 +519,16 @@ const QrisPayment = () => {
                 <Button
                   type="primary"
                   icon={<CheckCircleOutlined />}
+                  style={{ 
+                    backgroundColor: '#52c41a', 
+                    borderColor: '#52c41a'
+                  }}
                   onClick={() => {
                     Modal.confirm({
                       title: 'Verifikasi Pembayaran',
                       content: `Apakah Anda yakin ingin memverifikasi pembayaran ini?`,
                       onOk: () => {
-                        verifyPayment(selectedPayment.id);
+                        directVerifyPayment(selectedPayment.id);
                         setDetailModalVisible(false);
                       },
                     });
@@ -622,8 +536,8 @@ const QrisPayment = () => {
                 >
                   Verifikasi Pembayaran
                 </Button>
+                
                 <Button
-                  type="primary"
                   danger
                   icon={<CloseCircleOutlined />}
                   onClick={() => {
@@ -631,7 +545,7 @@ const QrisPayment = () => {
                       title: 'Tolak Pembayaran',
                       content: `Apakah Anda yakin ingin menolak pembayaran ini?`,
                       onOk: () => {
-                        rejectPayment(selectedPayment.id);
+                        directRejectPayment(selectedPayment.id);
                         setDetailModalVisible(false);
                       },
                     });

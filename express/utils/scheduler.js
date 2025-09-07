@@ -1,6 +1,7 @@
 // utils/scheduler.js
 const cron = require('node-cron');
-const { QrisPayment, Subscription, User } = require('../models');
+const { db } = require('../models'); // Perbaikan impor
+const { Op } = require('sequelize');
 
 // Jalankan scheduler setiap 5 menit
 const startScheduler = () => {
@@ -11,12 +12,20 @@ const startScheduler = () => {
     try {
       console.log('Checking expired payments...');
       
+      // Pastikan QrisPayment diambil dari db
+      const { QrisPayment } = db;
+      
+      if (!QrisPayment) {
+        console.error('QrisPayment model not found');
+        return;
+      }
+      
       // Ambil semua pembayaran yang belum terverifikasi dan sudah kadaluarsa
       const expiredPayments = await QrisPayment.findAll({
         where: {
           status: ['pending', 'waiting_verification'],
           expired_at: {
-            [db.Sequelize.Op.lt]: new Date()
+            [Op.lt]: new Date()
           }
         }
       });

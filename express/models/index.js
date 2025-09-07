@@ -9,7 +9,6 @@ const BaileysSettings = require('./BaileysSettings')(sequelize, Sequelize.DataTy
 const BaileysLog = require('./BaileysLog')(sequelize, Sequelize.DataTypes);
 const QrisPayment = require('./QrisPayment')(sequelize, Sequelize.DataTypes);
 const QrisSettings = require('./QrisSettings')(sequelize, Sequelize.DataTypes);
-const QrisPaymentModel = require('./QrisPayment');
 
 
 const User = sequelize.define(
@@ -280,8 +279,7 @@ const db = {
   BaileysSettings,
   BaileysLog,
   QrisPayment,
-  QrisSettings,
-  QrisPaymentModel
+  QrisSettings
 };
 
 Object.keys(db).forEach((modelName) => {

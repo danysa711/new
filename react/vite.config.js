@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
-// https://vite.dev/config/
+// https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
@@ -14,11 +14,19 @@ export default defineConfig(({ command, mode }) => {
       allowedHosts: [
         "kinterstore.com",
         "www.kinterstore.com",
-        "db.kinterstore.com", 
-        "www.kinterstore.my.id", 
-        "kinterstore.my.id", 
-        "db.kinterstore.my.id"     
+        "db.kinterstore.com",
+        "www.kinterstore.my.id",
+        "kinterstore.my.id",
+        "db.kinterstore.my.id",
       ],
+      proxy: {
+        // Semua request /api/* diarahkan ke backend
+        "/api": {
+          target: "https://db.kinterstore.my.id",
+          changeOrigin: true,
+          secure: false,
+        },
+      },
     },
   };
 });

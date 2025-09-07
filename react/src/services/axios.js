@@ -27,6 +27,7 @@ const getBackendUrl = () => {
 
 // Buat instance axios dengan baseURL yang dinamis
 const axiosInstance = axios.create({
+  baseURL: 'https://db.kinterstore.my.id',
   timeout: 90000,
   headers: {
     "Content-Type": "application/json",

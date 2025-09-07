@@ -41,36 +41,67 @@ if (!fs.existsSync(baileysAuthDir)) {
 
 // Definisikan corsOptions dengan semua domain yang diizinkan
 const corsOptions = {
-  origin: function(origin, callback) {
-    // Daftar domain yang diperbolehkan
-    const allowedOrigins = [
-      "https://kinterstore.com",
-      "https://www.kinterstore.com", 
-      "https://db.kinterstore.com",
-      "https://kinterstore.my.id",
-      "https://www.kinterstore.my.id", 
-      "https://db.kinterstore.my.id",
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "http://localhost:5174"
-    ];
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      console.log('Origin rejected by CORS:', origin);
-      // Izinkan semua origin untuk sementara selama debugging
-      callback(null, true);
-    }
-  },
+  origin: '*', // Izinkan semua origin untuk debugging
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // Cache preflight request selama 24 jam
 };
+
+// Gunakan CORS di seluruh aplikasi dengan opsi yang baru
+app.use(cors(corsOptions));
+
+// Ganti middleware debug dengan versi yang lebih sederhana
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin || 'No Origin'}`);
+  
+  // Tambahkan header CORS secara manual untuk memastikan
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+// Tambahkan endpoint test khusus untuk verifikasi koneksi
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'API is working', 
+    timestamp: new Date().toISOString(),
+    server: 'express',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Tambahkan endpoint khusus untuk mengecek status admin
+app.get('/api/admin-check', (req, res) => {
+  const token = req.header("Authorization")?.split(" ")[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized, token missing" });
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "mysecretkey");
+    
+    res.json({
+      success: true,
+      isAdmin: decoded.role === 'admin' || decoded.userId === 'admin',
+      userId: decoded.id,
+      role: decoded.role
+    });
+  } catch (error) {
+    return res.status(403).json({ error: "Invalid token", details: error.message });
+  }
+});
 
 // Tambahkan middleware untuk menyajikan file statis
 app.use(express.static(path.join(__dirname, 'public')));
@@ -142,6 +173,24 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Global Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error("Global error handler caught:", err);
+  
+  // Log error stack untuk debugging
+  console.error(err.stack);
+  
+  // Jangan mengekspos informasi stack error ke client di production
+  const response = {
+    message: "Terjadi kesalahan pada server",
+    error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message,
+    path: req.path,
+    method: req.method
+  };
+  
+  res.status(500).json(response);
+});
+
 // Catch 404 and forward to error handler
 app.use((req, res) => {
   res.status(404).json({ message: "Endpoint tidak ditemukan" });
@@ -150,7 +199,12 @@ app.use((req, res) => {
 // Fungsi untuk memastikan QrisSettings ada
 const ensureQrisSettings = async () => {
   try {
-    const { QrisSettings } = require('./models');
+    const { QrisSettings } = db; // Ambil dari db bukan require langsung
+    
+    if (!QrisSettings) {
+      console.error('QrisSettings model not found');
+      return;
+    }
     
     // Cek apakah sudah ada setting
     const existingSettings = await QrisSettings.findOne();
@@ -167,6 +221,7 @@ const ensureQrisSettings = async () => {
     console.error('Error memastikan QrisSettings:', err);
   }
 };
+
 
 // Start server
 app.listen(PORT, async () => {
