@@ -1,15 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Typography, Button, Tag, Divider, message, Tooltip } from 'antd';
 import { LinkOutlined, CopyOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { getActiveBackendUrl } from '../api/utils';
+import { detectDomainAndGenerateBackendUrl } from '../utils/domainUtils';
 
 const { Title, Text, Paragraph } = Typography;
 
 const UserApiInfo = ({ user }) => {
+  const [backendUrl, setBackendUrl] = useState('');
+  
+  // Effect untuk memperbarui backendUrl ketika domain berubah atau user berubah
+  useEffect(() => {
+    const currentBackendUrl = user?.backend_url || getActiveBackendUrl();
+    setBackendUrl(currentBackendUrl);
+    
+    // Perbarui backendUrl setiap kali URL halaman berubah
+    const handleUrlChange = () => {
+      const newBackendUrl = user?.backend_url || getActiveBackendUrl();
+      setBackendUrl(newBackendUrl);
+    };
+    
+    // Tambahkan listener untuk perubahan URL
+    window.addEventListener('popstate', handleUrlChange);
+    
+    // Cleanup listener saat komponen unmount
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+    };
+  }, [user]);
+  
   if (!user) return null;
   
   // URL yang akan ditampilkan
-  const userBackendUrl = user.backend_url || getActiveBackendUrl();
+  const userBackendUrl = backendUrl || detectDomainAndGenerateBackendUrl();
   const publicApiUrl = `${userBackendUrl}/api/public/user/${user.url_slug}`;
   const ordersApiUrl = `${userBackendUrl}/api/orders/find`;
   

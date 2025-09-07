@@ -1,17 +1,19 @@
 // File: api/api-adapter.js
 
+import { detectDomainAndGenerateBackendUrl } from '../utils/domainUtils';
+
 /**
  * API Adapter - Modul untuk menghubungkan frontend dengan berbagai backend
  * 
  * Adapter ini memungkinkan aplikasi untuk:
- * 1. Bekerja dengan backend utama (https://db.kinterstore.my.id)
+ * 1. Bekerja dengan backend utama (berdasarkan domain saat ini)
  * 2. Bekerja dengan backend spesifik per user
  * 3. Menangani autentikasi secara konsisten di semua backend
  */
 
 // Fungsi untuk mendapatkan URL backend yang aktif
 export const getActiveBackendUrl = () => {
-  // Prioritas: URL backend dari user aktif > URL backend yang tersimpan > URL default
+  // Prioritas: URL backend dari user aktif > URL backend yang tersimpan > URL berdasarkan domain saat ini
   try {
     const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
     if (userStr) {
@@ -24,7 +26,14 @@ export const getActiveBackendUrl = () => {
     console.error('Error parsing user data:', error);
   }
   
-  return localStorage.getItem('backendUrl') || 'https://db.kinterstore.my.id';
+  // Jika tidak ada di user data, gunakan yang tersimpan di localStorage
+  const savedBackendUrl = localStorage.getItem('backendUrl');
+  if (savedBackendUrl) {
+    return savedBackendUrl;
+  }
+  
+  // Jika tidak ada yang tersimpan, gunakan backend URL berdasarkan domain saat ini
+  return detectDomainAndGenerateBackendUrl();
 };
 
 // Fungsi untuk mendapatkan token autentikasi

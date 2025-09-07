@@ -28,7 +28,6 @@ import OrderTable from "../tables/OrderTable";
 import HomeView from "../tables/HomeView";
 import ChangePass from "../../pages/ChangePass";
 import SubscriptionPage from "../../pages/user/SubscriptionPage";
-import UserPaymentPage from "../../pages/user/UserPaymentPage";
 import SoftwareTable from "../tables/SoftwareTable";
 import VersionTable from "../tables/VersionTable";
 import LicenseTable from "../tables/LicenseTable";
@@ -253,7 +252,7 @@ const requestTrial = async () => {
          items={[
            { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Beranda" },
            { key: `/user/page/${slug}/subscription`, icon: <ShoppingOutlined />, label: "Langganan" },
-           { key: `/user/page/${slug}/payment`, icon: <WalletOutlined />, label: "Pembayaran" },
+
            { key: `/user/page/${slug}/orders`, icon: <VideoCameraOutlined />, label: "Pesanan" },
            { key: `/user/page/${slug}/software`, icon: <AppstoreOutlined />, label: "Produk" },
            { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
@@ -389,7 +388,6 @@ const requestTrial = async () => {
          <Routes>
            <Route path="/" element={<HomeView />} />
            <Route path="/subscription" element={<SubscriptionPage />} />
-           <Route path="/payment" element={<UserPaymentPage />} />
            <Route path="/orders" element={<OrderTable />} />
            <Route path="/software" element={<SoftwareTable />} />
            <Route path="/version" element={<VersionTable />} />

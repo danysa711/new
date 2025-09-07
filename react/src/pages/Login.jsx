@@ -1,4 +1,4 @@
-// Updated src/pages/Login.jsx with elegant chat support button
+// Updated src/pages/Login.jsx without backend URL notification
 
 import React, { useState, useContext, useEffect } from 'react';
 import { Form, Input, Button, Card, Typography, Alert, Spin, Tooltip } from 'antd';
@@ -6,6 +6,7 @@ import { UserOutlined, LockOutlined, CommentOutlined, SendOutlined } from '@ant-
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { detectDomainAndGenerateBackendUrl } from '../utils/domainUtils';
 
 const { Title, Text } = Typography;
 
@@ -16,25 +17,49 @@ const Login = () => {
   const navigate = useNavigate();
   const [supportNumber, setSupportNumber] = useState('');
 
-  // URL backend dari env atau default
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://db.kinterstore.my.id';
+  // Deteksi URL backend berdasarkan domain tanpa menampilkannya
+  const [backendUrl, setBackendUrl] = useState(() => detectDomainAndGenerateBackendUrl());
+  
+  // Effect untuk memperbarui backend URL jika domain berubah
+  useEffect(() => {
+    const domainBasedUrl = detectDomainAndGenerateBackendUrl();
+    setBackendUrl(domainBasedUrl);
+    
+    // Periksa jika domain telah berubah
+    const savedBackendUrl = localStorage.getItem('backendUrl');
+    if (savedBackendUrl && savedBackendUrl !== domainBasedUrl) {
+      // Jika domain berubah, perbarui URL backend
+      console.log('Domain berubah, memperbarui URL backend:', domainBasedUrl);
+      localStorage.setItem('backendUrl', domainBasedUrl);
+      
+      // Periksa jika user telah login sebelumnya dan domain berubah
+      if (localStorage.getItem('domain_changed') === 'true' || sessionStorage.getItem('domain_changed') === 'true') {
+        // Hapus flag domain_changed
+        localStorage.removeItem('domain_changed');
+        sessionStorage.removeItem('domain_changed');
+        
+        // Tampilkan pesan kepada pengguna
+        setError('Domain website berubah. URL backend telah disesuaikan otomatis. Silakan login kembali.');
+      }
+    }
+  }, []);
   
   // Fetch support number from backend
   useEffect(() => {
     const fetchSupportNumber = async () => {
-  try {
-    // Pastikan menggunakan endpoint publik
-    const response = await axios.get(`${backendUrl}/api/settings/whatsapp-public`);
-    if (response.data && response.data.whatsappNumber) {
-      setSupportNumber(response.data.whatsappNumber);
-    } else {
-      setSupportNumber('6281284712684');
-    }
-  } catch (error) {
-    console.error('Error fetching support number:', error);
-    setSupportNumber('6281284712684');
-  }
-};
+      try {
+        // Pastikan menggunakan endpoint publik
+        const response = await axios.get(`${backendUrl}/api/settings/whatsapp-public`);
+        if (response.data && response.data.whatsappNumber) {
+          setSupportNumber(response.data.whatsappNumber);
+        } else {
+          setSupportNumber('6281284712684');
+        }
+      } catch (error) {
+        console.error('Error fetching support number:', error);
+        setSupportNumber('6281284712684');
+      }
+    };
 
     fetchSupportNumber();
   }, [backendUrl]);
@@ -46,6 +71,9 @@ const Login = () => {
     try {
       console.log('Login request with values:', values);
       console.log('Using backend URL:', backendUrl);
+      
+      // Simpan URL backend sebelum login
+      localStorage.setItem('backendUrl', backendUrl);
       
       // SOLUSI: Gunakan AuthContext login function dengan parameter yang benar
       const response = await login(values.username, values.password, true);
@@ -88,6 +116,8 @@ const Login = () => {
           <Title level={2}>Login</Title>
           <Text type="secondary">Masuk ke akun Anda</Text>
         </div>
+        
+        {/* Notifikasi backend URL telah dihilangkan */}
         
         {error && (
           <Alert

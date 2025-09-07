@@ -1,13 +1,14 @@
 // File: src/services/axios.js
 
 import axios from "axios";
+import { detectDomainAndGenerateBackendUrl } from "../utils/domainUtils";
 
 // Fungsi untuk mendapatkan backend URL
 const getBackendUrl = () => {
   // Urutan prioritas:
   // 1. URL backend dari user yang sedang login (dari localStorage/sessionStorage)
   // 2. URL backend yang tersimpan di localStorage
-  // 3. URL default dari environment variable
+  // 3. URL berdasarkan domain saat ini
   const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
   let user = null;
   
@@ -21,8 +22,7 @@ const getBackendUrl = () => {
   
   return user?.backend_url || 
          localStorage.getItem("backendUrl") || 
-         import.meta.env.VITE_BACKEND_URL || 
-         "https://db.kinterstore.com";
+         detectDomainAndGenerateBackendUrl();
 };
 
 // Buat instance axios dengan baseURL yang dinamis
@@ -114,7 +114,7 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
     const currentBackendUrl = getBackendUrl();
 
-     // Cek apakah response adalah HTML (biasanya menandakan error atau langganan kedaluwarsa)
+    // Cek apakah response adalah HTML (biasanya menandakan error atau langganan kedaluwarsa)
     const contentType = error.response?.headers?.['content-type'] || '';
     if (contentType.includes('text/html')) {
       console.warn("Received HTML response instead of JSON, likely subscription expired");

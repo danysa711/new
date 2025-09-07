@@ -1,6 +1,7 @@
 // src/api/utils.js
 
 import { STORAGE_KEYS } from './config';
+import { detectDomainAndGenerateBackendUrl } from '../utils/domainUtils';
 
 /**
  * Utilitas untuk API dan Storage
@@ -22,7 +23,13 @@ export const getActiveBackendUrl = () => {
   }
   
   // Jika tidak ada di user data, coba dari storage langsung
-  return localStorage.getItem(STORAGE_KEYS.BACKEND_URL) || 'https://db.kinterstore.my.id';
+  const savedBackendUrl = localStorage.getItem(STORAGE_KEYS.BACKEND_URL);
+  if (savedBackendUrl) {
+    return savedBackendUrl;
+  }
+  
+  // Jika tidak ada yang tersimpan, gunakan URL berdasarkan domain saat ini
+  return detectDomainAndGenerateBackendUrl();
 };
 
 // Mendapatkan token dari storage

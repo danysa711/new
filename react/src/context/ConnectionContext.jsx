@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { AuthContext } from "./AuthContext";
+import { detectDomainAndGenerateBackendUrl } from "../utils/domainUtils";
 
 // Konstanta untuk status koneksi
 export const CONNECTION_STATUS = {
@@ -16,7 +17,7 @@ export const ConnectionProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
   const [backendUrl, setBackendUrl] = useState(() => {
     // Prioritaskan backend URL dari user jika tersedia
-    return user?.backend_url || localStorage.getItem("backendUrl") || import.meta.env.VITE_BACKEND_URL || "https://db.kinterstore.my.id";
+    return user?.backend_url || localStorage.getItem("backendUrl") || detectDomainAndGenerateBackendUrl();
   });
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("checking");
@@ -42,6 +43,11 @@ useEffect(() => {
     if (user?.backend_url) {
       setBackendUrl(user.backend_url);
       localStorage.setItem("backendUrl", user.backend_url);
+    } else {
+      // Jika user tidak memiliki backend_url, gunakan URL berdasarkan domain
+      const domainBasedUrl = detectDomainAndGenerateBackendUrl();
+      setBackendUrl(domainBasedUrl);
+      localStorage.setItem("backendUrl", domainBasedUrl);
     }
   }, [user]);
   
@@ -185,6 +191,36 @@ useEffect(() => {
     
     return () => clearInterval(intervalId);
   }, [backendUrl, user, proxyEnabled]);
+
+  // Tambahkan efek baru untuk mendeteksi perubahan domain dan memperbarui URL backend
+  useEffect(() => {
+    const detectDomainChange = () => {
+      // Dapatkan URL backend berdasarkan domain saat ini
+      const domainBasedUrl = detectDomainAndGenerateBackendUrl();
+      
+      // Jika user tidak memiliki backend_url spesifik, gunakan yang berdasarkan domain
+      if (!user?.backend_url && backendUrl !== domainBasedUrl) {
+        console.log('Domain berubah, memperbarui URL backend:', domainBasedUrl);
+        setBackendUrl(domainBasedUrl);
+        localStorage.setItem('backendUrl', domainBasedUrl);
+      }
+    };
+    
+    // Periksa domain saat komponen dimuat
+    detectDomainChange();
+    
+    // Periksa juga saat URL berubah
+    const handleUrlChange = () => {
+      detectDomainChange();
+    };
+    
+    // Listener untuk perubahan URL
+    window.addEventListener('popstate', handleUrlChange);
+    
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+    };
+  }, [backendUrl, user]);
 
   return (
     <ConnectionContext.Provider

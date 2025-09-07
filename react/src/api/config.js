@@ -1,11 +1,13 @@
 // src/api/config.js
 
+import { detectDomainAndGenerateBackendUrl } from '../utils/domainUtils';
+
 /**
  * Konfigurasi API dan Backend
  */
 
-// URL backend default
-export const DEFAULT_BACKEND_URL = 'https://db.kinterstore.my.id';
+// URL backend default berdasarkan domain saat ini
+export const DEFAULT_BACKEND_URL = detectDomainAndGenerateBackendUrl();
 
 // Timeout untuk request API (dalam milidetik)
 export const REQUEST_TIMEOUT = 30000;

@@ -10,10 +10,10 @@ import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
 import ProtectedRoute from "./components/layouts/ProtectedRoute";
 import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman untuk pengaturan koneksi
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import OrderSearch from './components/OrderSearch';
 import React from "react";
-import { useEffect } from "react";
+import { detectDomainAndGenerateBackendUrl } from "./utils/domainUtils";
 
 // Komponen pengalihan beranda
 const HomeRedirect = () => {
@@ -31,43 +31,75 @@ const HomeRedirect = () => {
 };
 
 const App = () => {
-  // Di dalam komponen App
-useEffect(() => {
-  // Bersihkan URL lama jika ada
-  if (localStorage.getItem('backendUrl') === 'https://sha.kinterstore.my.id') {
-    console.log('Mengganti URL lama di localStorage');
-    localStorage.setItem('backendUrl', 'https://db.kinterstore.my.id');
-  }
-  
-  // Periksa juga user data jika ada backend_url
-  const userStr = localStorage.getItem('user');
-  if (userStr) {
-    try {
-      const userData = JSON.parse(userStr);
-      if (userData.backend_url === 'https://sha.kinterstore.my.id') {
-        console.log('Mengganti URL lama di user data');
-        userData.backend_url = 'https://db.kinterstore.my.id';
-        localStorage.setItem('user', JSON.stringify(userData));
+  // Efek untuk mendeteksi domain dan memperbarui URL backend
+  useEffect(() => {
+    // Mendapatkan URL backend berdasarkan domain saat ini
+    const domainBasedBackendUrl = detectDomainAndGenerateBackendUrl();
+    
+    // Mendapatkan URL backend yang tersimpan
+    const savedBackendUrl = localStorage.getItem('backendUrl');
+    
+    // Jika URL backend belum diatur atau berbeda dengan domain saat ini
+    if (!savedBackendUrl) {
+      console.log('Mengatur URL backend berdasarkan domain:', domainBasedBackendUrl);
+      localStorage.setItem('backendUrl', domainBasedBackendUrl);
+    } else {
+      // Bandingkan domain URL yang tersimpan dengan domain saat ini
+      const savedDomain = new URL(savedBackendUrl).hostname;
+      const currentDomain = window.location.hostname;
+      
+      // Jika domain berubah, perbarui URL backend
+      if (savedDomain.includes('kinterstore.my.id') && currentDomain.includes('kinterstore.com')) {
+        console.log('Domain berubah dari my.id ke com, memperbarui URL backend');
+        localStorage.setItem('backendUrl', domainBasedBackendUrl);
+      } 
+      else if (savedDomain.includes('kinterstore.com') && currentDomain.includes('kinterstore.my.id')) {
+        console.log('Domain berubah dari com ke my.id, memperbarui URL backend');
+        localStorage.setItem('backendUrl', domainBasedBackendUrl);
       }
-    } catch (e) {
-      console.error('Error parsing user data:', e);
     }
-  }
-  
-  // Lakukan hal yang sama untuk sessionStorage
-  const sessionUserStr = sessionStorage.getItem('user');
-  if (sessionUserStr) {
-    try {
-      const userData = JSON.parse(sessionUserStr);
-      if (userData.backend_url === 'https://sha.kinterstore.my.id') {
-        userData.backend_url = 'https://db.kinterstore.my.id';
-        sessionStorage.setItem('user', JSON.stringify(userData));
+    
+    // Periksa juga user data jika ada backend_url
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        // Jika backend_url dalam user data berbeda dengan domain saat ini, perbarui
+        if (userData.backend_url) {
+          const userDomain = new URL(userData.backend_url).hostname;
+          const currentDomain = window.location.hostname;
+          
+          // Jika domain berubah, tandai untuk diperbarui pada login berikutnya
+          if ((userDomain.includes('kinterstore.my.id') && currentDomain.includes('kinterstore.com')) ||
+              (userDomain.includes('kinterstore.com') && currentDomain.includes('kinterstore.my.id'))) {
+            console.log('Domain user berbeda dengan domain saat ini, menandai untuk pembaruan');
+            localStorage.setItem('domain_changed', 'true');
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing user data:', e);
       }
-    } catch (e) {
-      console.error('Error parsing user data from sessionStorage:', e);
     }
-  }
-}, []);
+    
+    // Lakukan hal yang sama untuk sessionStorage
+    const sessionUserStr = sessionStorage.getItem('user');
+    if (sessionUserStr) {
+      try {
+        const userData = JSON.parse(sessionUserStr);
+        if (userData.backend_url) {
+          const userDomain = new URL(userData.backend_url).hostname;
+          const currentDomain = window.location.hostname;
+          
+          if ((userDomain.includes('kinterstore.my.id') && currentDomain.includes('kinterstore.com')) ||
+              (userDomain.includes('kinterstore.com') && currentDomain.includes('kinterstore.my.id'))) {
+            sessionStorage.setItem('domain_changed', 'true');
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing user data from sessionStorage:', e);
+      }
+    }
+  }, []);
 
   return (
     <AuthProvider>
