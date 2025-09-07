@@ -22,20 +22,19 @@ const Login = () => {
   // Fetch support number from backend
   useEffect(() => {
     const fetchSupportNumber = async () => {
-      try {
-        const response = await axios.get(`${backendUrl}/api/settings/support-number`);
-        if (response.data && response.data.whatsappNumber) {
-          setSupportNumber(response.data.whatsappNumber);
-        } else {
-          // Fallback to default if not found
-          setSupportNumber('6281284712684');
-        }
-      } catch (error) {
-        console.error('Error fetching support number:', error);
-        // Use default number if failed to fetch
-        setSupportNumber('6281284712684');
-      }
-    };
+  try {
+    // Pastikan menggunakan endpoint publik
+    const response = await axios.get(`${backendUrl}/api/settings/whatsapp-public`);
+    if (response.data && response.data.whatsappNumber) {
+      setSupportNumber(response.data.whatsappNumber);
+    } else {
+      setSupportNumber('6281284712684');
+    }
+  } catch (error) {
+    console.error('Error fetching support number:', error);
+    setSupportNumber('6281284712684');
+  }
+};
 
     fetchSupportNumber();
   }, [backendUrl]);

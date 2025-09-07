@@ -1,188 +1,40 @@
-// File: express/routes/settingsRoutes.js
-
+// routes/settingsRoutes.js
 const express = require('express');
 const router = express.Router();
 const { authenticateUser, requireAdmin } = require('../middlewares/auth');
-const fs = require('fs');
-const path = require('path');
+const settingsController = require('../controllers/settingsController');
 
-// Path untuk menyimpan pengaturan di file
-const SETTINGS_FILE_PATH = path.join(__dirname, '../data/whatsapp_trial_settings.json');
 
-// Pengaturan default
-const DEFAULT_SETTINGS = {
-  whatsappNumber: '6281284712684',
-  messageTemplate: 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}',
-  isEnabled: true,
-  updatedAt: new Date().toISOString()
-};
+router.get('/settings/whatsapp-public', settingsController.getWhatsappSettings);
+// PENTING: Hilangkan middleware auth sementara sampai masalah teratasi
+// API Baru: Rute pengaturan WhatsApp terpadu
+router.get('/settings/whatsapp', authenticateUser, requireAdmin, settingsController.getWhatsappSettings);
+router.post('/settings/whatsapp', authenticateUser, requireAdmin, settingsController.saveWhatsappSettings);
 
-// Fungsi untuk memastikan folder data ada
-const ensureDataFolderExists = () => {
-  const dataDir = path.join(__dirname, '../data');
-  if (!fs.existsSync(dataDir)) {
-    try {
-      fs.mkdirSync(dataDir, { recursive: true });
-    } catch (err) {
-      console.error('Error creating data directory:', err);
-      // Jangan throw error, biarkan fungsi berjalan terus
-    }
-  }
-};
+// Endpoint publik untuk mendapatkan nomor WhatsApp
+router.get('/settings/whatsapp-public', settingsController.getWhatsappSettings);
 
-// Fungsi untuk membaca pengaturan dari file
-const readSettings = () => {
+// BACKWARD COMPATIBILITY: Support Settings
+router.get('/settings/support-number', settingsController.getSupportNumber);
+router.post('/admin/settings/support-number', settingsController.saveSupportNumber);
+
+// BACKWARD COMPATIBILITY: WhatsApp Trial Settings
+router.get('/settings/whatsapp-trial', settingsController.getWhatsappTrialSettings);
+router.post('/admin/settings/whatsapp-trial', settingsController.saveWhatsappTrialSettings);
+
+// Tambahkan endpoint untuk debug
+router.get('/settings/debug', async (req, res) => {
   try {
-    ensureDataFolderExists();
-    
-    if (fs.existsSync(SETTINGS_FILE_PATH)) {
-      const data = fs.readFileSync(SETTINGS_FILE_PATH, 'utf8');
-      return JSON.parse(data);
-    }
-    
-    // Jika file tidak ada, buat file dengan pengaturan default
-    writeSettings(DEFAULT_SETTINGS);
-    return DEFAULT_SETTINGS;
-  } catch (err) {
-    console.error('Error reading settings file:', err);
-    return DEFAULT_SETTINGS;
-  }
-};
-
-// Fungsi untuk menulis pengaturan ke file
-const writeSettings = (settings) => {
-  try {
-    ensureDataFolderExists();
-    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(settings, null, 2), 'utf8');
-    return true;
-  } catch (err) {
-    console.error('Error writing settings file:', err);
-    return false;
-  }
-};
-
-// Endpoint publik untuk mendapatkan pengaturan WhatsApp trial
-router.get('/settings/whatsapp-trial', (req, res) => {
-  try {
-    console.log('Public WhatsApp settings request received');
-    const settings = readSettings();
-    return res.json(settings);
-  } catch (error) {
-    console.error('Error fetching WhatsApp trial settings:', error);
-    return res.json(DEFAULT_SETTINGS); // Selalu kembalikan default jika error
-  }
-});
-
-// Endpoint admin untuk mendapatkan pengaturan WhatsApp trial
-router.get('/admin/settings/whatsapp-trial', authenticateUser, requireAdmin, (req, res) => {
-  try {
-    console.log('Admin WhatsApp settings request received');
-    const settings = readSettings();
-    return res.json(settings);
-  } catch (error) {
-    console.error('Error fetching admin WhatsApp trial settings:', error);
-    return res.json(DEFAULT_SETTINGS); // Selalu kembalikan default jika error
-  }
-});
-
-// Endpoint admin untuk menyimpan pengaturan WhatsApp trial
-router.post('/admin/settings/whatsapp-trial', authenticateUser, requireAdmin, (req, res) => {
-  try {
-    console.log('Save WhatsApp settings request received:', req.body);
-    const { whatsappNumber, messageTemplate, isEnabled } = req.body;
-    
-    // Validasi input
-    if (!whatsappNumber) {
-      return res.status(400).json({ message: 'Nomor WhatsApp harus diisi' });
-    }
-    
-    if (!messageTemplate) {
-      return res.status(400).json({ message: 'Template pesan harus diisi' });
-    }
-    
-    // Format nomor WhatsApp
-    const whatsappRegex = /^[0-9+]{8,15}$/;
-    if (!whatsappRegex.test(whatsappNumber)) {
-      return res.status(400).json({ message: 'Format nomor WhatsApp tidak valid' });
-    }
-    
-    // Validasi isEnabled
-    if (typeof isEnabled !== 'boolean') {
-      return res.status(400).json({ message: 'Status aktif harus berupa boolean' });
-    }
-    
-    // Buat direktori jika tidak ada
-    const dataDir = path.join(__dirname, '../data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    
-    // Update settings
-    const newSettings = {
-      whatsappNumber,
-      messageTemplate,
-      isEnabled,
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Tulis ke file
-    fs.writeFileSync(
-      path.join(__dirname, '../data/whatsapp_trial_settings.json'),
-      JSON.stringify(newSettings, null, 2),
-      'utf8'
-    );
-    
-    // Tulis juga ke file cadangan
-    fs.writeFileSync(
-      path.join(__dirname, '../data/whatsapp-trial-settings.json'),
-      JSON.stringify(newSettings, null, 2),
-      'utf8'
-    );
-    
-    return res.json({ 
-      message: 'Pengaturan berhasil disimpan', 
-      settings: newSettings
-    });
-  } catch (error) {
-    console.error('Error saving WhatsApp trial settings:', error);
-    return res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-router.get('/settings/tripay-status', async (req, res) => {
-  try {
-    const tripayEnabled = await Setting.findOne({ where: { key: 'tripay_enabled' } });
-    
+    const { WhatsAppSetting } = require('../models');
+    const allSettings = await WhatsAppSetting.findAll();
     res.json({
-      enabled: tripayEnabled ? tripayEnabled.value === 'true' : false
+      count: allSettings.length,
+      settings: allSettings,
+      environment: process.env.NODE_ENV || 'development'
     });
-  } catch (err) {
-    console.error('Error fetching Tripay status:', err);
-    res.status(500).json({ message: 'Server Error' });
-  }
-});
-
-// Tambahkan endpoint untuk menyetel status Tripay
-router.post('/settings/tripay', authenticateUser, async (req, res) => {
-  try {
-    const { tripay_enabled } = req.body;
-    
-    let setting = await Setting.findOne({ where: { key: 'tripay_enabled' } });
-    
-    if (setting) {
-      setting.value = tripay_enabled ? 'true' : 'false';
-      await setting.save();
-    } else {
-      await Setting.create({
-        key: 'tripay_enabled',
-        value: tripay_enabled ? 'true' : 'false'
-      });
-    }
-    
-    res.json({ message: 'Tripay settings updated', status: tripay_enabled });
-  } catch (err) {
-    console.error('Error updating Tripay settings:', err);
-    res.status(500).json({ message: 'Server Error' });
+  } catch (error) {
+    console.error('Error debugging settings:', error);
+    res.status(500).json({ error: 'Server Error' });
   }
 });
 

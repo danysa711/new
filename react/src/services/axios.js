@@ -22,7 +22,7 @@ const getBackendUrl = () => {
   return user?.backend_url || 
          localStorage.getItem("backendUrl") || 
          import.meta.env.VITE_BACKEND_URL || 
-         "https://db.kinterstore.my.id";
+         "https://db.kinterstore.com";
 };
 
 // Buat instance axios dengan baseURL yang dinamis

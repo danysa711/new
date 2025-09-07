@@ -21,11 +21,8 @@ import ChangePass from "../../pages/ChangePass";
 import UserManagement from "../../pages/admin/UserManagement";
 import SubscriptionManagement from "../../pages/admin/SubscriptionManagement";
 import SubscriptionPlans from "../../pages/admin/SubscriptionPlans";
-import TripaySettings from "../../pages/admin/TripaySettings";
-import TripayTransactions from "../../pages/admin/TripayTransactions";
-import RequestTrialSettings from "../../pages/admin/RequestTrialSettings";
-import PendingSubscriptions from "../../pages/admin/PendingSubscriptions";
-import PaymentSettings from "../../pages/admin/PaymentSettings";
+// Import komponen baru WhatsAppSettings
+import WhatsAppSettings from "../../pages/admin/WhatsAppSettings";
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -86,17 +83,8 @@ const AdminLayout = () => {
                 { key: "/admin/subscription-plans", label: "Paket Langganan" },
               ]
             },
-            { 
-              key: "payment-menu", 
-              icon: <WalletOutlined />, 
-              label: "Pembayaran", 
-              children: [
-                { key: "/admin/payment/settings", label: "Pengaturan Pembayaran" },
-                { key: "/admin/tripay/transactions", label: "Transaksi" },
-                { key: "/admin/tripay/settings", label: "Pengaturan Tripay" },
-              ]
-            },
-            { key: "/admin/request-trial-settings", icon: <WhatsAppOutlined />, label: "Setting Trial" },
+            // Ganti RequestTrialSettings dengan WhatsAppSettings
+            { key: "/admin/whatsapp-settings", icon: <WhatsAppOutlined />, label: "WhatsApp Settings" },
             { key: "/admin/change-password", icon: <SettingOutlined />, label: "Ganti Password" },
             { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
           ]}
@@ -150,13 +138,7 @@ const AdminLayout = () => {
             <Route path="/users" element={<UserManagement />} />
             <Route path="/subscriptions" element={<SubscriptionManagement />} />
             <Route path="/subscription-plans" element={<SubscriptionPlans />} />
-            <Route path="/pending-subscriptions" element={<PendingSubscriptions />} /> {/* Tambahkan route ini */}
-            <Route path="/payment/settings" element={<PaymentSettings />} /> {/* Tambahkan route ini */}
-            <Route path="/whatsapp/settings" element={<PaymentSettings initialTab="2" />} /> {/* Tambahkan route ini */}
-            <Route path="/tripay/transactions" element={<TripayTransactions />} />
-            <Route path="/tripay/settings" element={<TripaySettings />} />
-            <Route path="/payment/settings" element={<PaymentSettings />} />
-            <Route path="/request-trial-settings" element={<RequestTrialSettings />} />
+            <Route path="/whatsapp-settings" element={<WhatsAppSettings />} />
             <Route path="/change-password" element={<ChangePass />} />
           </Routes>
         </Content>

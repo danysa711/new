@@ -1,12 +1,10 @@
-// express/server.js - Versi lengkap dengan integrasi WhatsApp
+// Perbaikan untuk express/server.js
+// Tambahkan rute baru dan hapus fallback manual payment methods
 
 const express = require("express");
 const cors = require("cors");
 const { db } = require("./models");
-const fs = require("fs");
-const path = require("path");
 
-// Import semua routes yang dibutuhkan
 const licenseRoutes = require("./routes/licenseRoutes");
 const softwareRoutes = require("./routes/softwareRoutes");
 const softwareVersionRoutes = require("./routes/softwareVersionRoutes");
@@ -14,17 +12,8 @@ const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
-const tripayRoutes = require("./routes/tripayRoutes");
 const publicApiRoutes = require("./routes/publicApiRoutes");
-const settingsRoutes = require('./routes/settingsRoutes');
-const paymentMethodRoutes = require('./routes/paymentMethodRoutes');
-
-// Import routes baru untuk WhatsApp dan Payment Settings
-const whatsappRoutes = require('./routes/whatsappRoutes');
-const paymentSettingsRoutes = require('./routes/paymentSettingsRoutes');
-
-// Import controller untuk memeriksa langganan kedaluwarsa
-const { checkExpiredSubscriptions } = require('./controllers/subscriptionController');
+const settingsRoutes = require('./routes/settingsRoutes'); // Rute pengaturan
 
 const app = express();
 const PORT = process.env.PORT || 3500;
@@ -34,6 +23,9 @@ const corsOptions = {
   origin: function(origin, callback) {
     // Daftar domain yang diperbolehkan
     const allowedOrigins = [
+      "https://kinterstore.com",       
+      "https://www.kinterstore.com", 
+      "https://db.kinterstore.com",
       "https://kinterstore.my.id",       
       "https://www.kinterstore.my.id", 
       "https://db.kinterstore.my.id",
@@ -51,8 +43,6 @@ const corsOptions = {
       console.log('Origin rejected by CORS:', origin);
       // Izinkan semua origin untuk sementara selama debugging
       callback(null, true);
-      // Setelah debugging selesai, kembalikan ke:
-      // callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -61,32 +51,66 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
-// Tambahkan middleware untuk debugging CORS
+app.get("/api/settings/whatsapp-public", async (req, res) => {
+  try {
+    // Coba ambil data dari database
+    const { WhatsAppSetting } = require('./models');
+    
+    const settings = await WhatsAppSetting.findOne({
+      order: [['id', 'DESC']]
+    });
+    
+    if (settings) {
+      return res.json({
+        whatsappNumber: settings.whatsapp_number,
+        trialEnabled: settings.trial_enabled,
+        messageTemplate: settings.trial_template
+      });
+    } else {
+      // Nilai default jika tidak ada data
+      return res.json({
+        whatsappNumber: '6281284712684',
+        trialEnabled: true,
+        messageTemplate: 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}'
+      });
+    }
+  } catch (err) {
+    console.error('Error mengakses WhatsApp settings:', err);
+    // Kembalikan nilai default jika terjadi error
+    return res.json({
+      whatsappNumber: '6281284712684',
+      trialEnabled: true,
+      messageTemplate: 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}'
+    });
+  }
+});
+
+// Middleware untuk debug
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   console.log('Request origin:', req.headers.origin);
-  console.log('Request headers:', req.headers);
   
-  // Pastikan headers CORS selalu ditambahkan
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+   // Khusus untuk callback Tripay, izinkan akses tanpa CORS
+  if (req.url === '/api/tripay/callback') {
+    console.log('Tripay callback received, bypassing CORS checks');
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, X-Callback-Signature, X-Requested-With');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+  } else {
+    // Untuk request lain, gunakan CORS normal
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
   }
-
-  const requestInfo = {
-    method: req.method,
-    url: req.url,
-    userId: req.userId || 'not authenticated',
-    userRole: req.userRole || 'not authenticated',
-    timestamp: new Date().toISOString()
-  };
-
-  console.log("REQUEST:", JSON.stringify(requestInfo));
   
   next();
 });
@@ -98,22 +122,10 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Tambahkan middleware khusus untuk preflight requests
+// Middleware khusus untuk preflight requests
 app.options('*', cors(corsOptions));
 
-// Buat folder uploads jika belum ada
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Buat direktori untuk menyimpan data sesi WhatsApp jika belum ada
-const sessionDir = path.join(__dirname, 'baileys_auth_info');
-if (!fs.existsSync(sessionDir)) {
-  fs.mkdirSync(sessionDir, { recursive: true });
-}
-
-// TAMBAHKAN HANDLER UNTUK ROOT PATH
+// Handler untuk root path
 app.get("/", (req, res) => {
   res.send(`
     <html>
@@ -143,11 +155,13 @@ app.get("/", (req, res) => {
           <strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}
         </div>
 
+        <div>
+          <p>
             <strong>Database Status:</strong> 
             <span id="dbStatus">Checking...</span>
           </p>
           <script>
-            // Simple script to check database connection
+            // Script sederhana untuk memeriksa koneksi database
             fetch('/api/test')
               .then(response => response.json())
               .then(data => {
@@ -175,47 +189,61 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "API is working", timestamp: new Date().toISOString() });
 });
 
-// Endpoint global untuk payment-methods
-app.get('/api/payment-methods', async (req, res) => {
+app.get("/api/settings/whatsapp", async (req, res) => {
   try {
-    // Coba ambil pengaturan pembayaran
-    const paymentSettings = await db.PaymentSettings.findOne({ order: [['id', 'DESC']] });
+    const { WhatsAppSetting } = require('./models');
     
-    // Cek jika ada QRIS image atau URL
-    let qrisImageUrl = null;
-    if (paymentSettings) {
-      if (paymentSettings.qris_image_url) {
-        qrisImageUrl = paymentSettings.qris_image_url;
-      } else if (paymentSettings.qris_image) {
-        // Generate URL untuk akses gambar dari API
-        const baseUrl = process.env.BACKEND_URL || 'https://db.kinterstore.my.id';
-        qrisImageUrl = `${baseUrl}/api/payment-settings/qris-image`;
-      }
+    const settings = await WhatsAppSetting.findOne({
+      order: [['id', 'DESC']]
+    });
+    
+    if (settings) {
+      return res.json({
+        whatsappNumber: settings.whatsapp_number,
+        trialEnabled: settings.trial_enabled,
+        messageTemplate: settings.trial_template
+      });
+    } else {
+      // Default jika tidak ada data
+      return res.json({
+        whatsappNumber: '6281284712684',
+        trialEnabled: true,
+        messageTemplate: 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}'
+      });
+    }
+  } catch (err) {
+    console.error('Error mengakses WhatsApp settings:', err);
+    return res.json({
+      whatsappNumber: '6281284712684',
+      trialEnabled: true,
+      messageTemplate: 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}'
+    });
+  }
+});
+
+// Endpoint untuk menyimpan WhatsApp settings
+app.post("/api/settings/whatsapp", async (req, res) => {
+  try {
+    const { WhatsAppSetting } = require('./models');
+    const { whatsappNumber, trialEnabled, messageTemplate } = req.body;
+    
+    // Validasi input
+    if (!whatsappNumber) {
+      return res.status(400).json({ error: 'Nomor WhatsApp harus diisi' });
     }
     
-    // Data default - hanya QRIS
-    let methods = [
-      {
-        code: 'MANUAL_QRIS',
-        name: 'QRIS',
-        type: 'qris',
-        fee: 0,
-        isManual: true,
-        manualData: {
-          id: 1,
-          name: 'QRIS',
-          type: 'qris',
-          qrImageUrl: qrisImageUrl || 'https://example.com/qr.png',
-          instructions: 'Scan kode QR menggunakan aplikasi e-wallet atau mobile banking',
-          isActive: true
-        }
-      }
-    ];
+    // Buat setting baru
+    await WhatsAppSetting.create({
+      whatsapp_number: whatsappNumber,
+      trial_enabled: trialEnabled !== undefined ? trialEnabled : true,
+      trial_template: messageTemplate || 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}',
+      support_enabled: true
+    });
     
-    res.json(methods);
-  } catch (error) {
-    console.error('Error in payment methods endpoint:', error);
-    res.status(500).json({ message: 'Server Error' });
+    res.json({ success: true, message: 'Pengaturan WhatsApp berhasil disimpan' });
+  } catch (err) {
+    console.error('Error menyimpan pengaturan WhatsApp:', err);
+    res.status(500).json({ error: 'Server Error' });
   }
 });
 
@@ -227,34 +255,8 @@ app.use("/api", orderRoutes);
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
 app.use("/api", subscriptionRoutes);
-app.use("/api/tripay", tripayRoutes);
 app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
-app.use("/api", paymentMethodRoutes);
-
-// Tambahkan routes baru
-app.use("/api", whatsappRoutes);
-app.use("/api", paymentSettingsRoutes);
-
-// Menjalankan cron job untuk memeriksa langganan yang kedaluwarsa (setiap 15 menit)
-setInterval(async () => {
-  try {
-    const result = await checkExpiredSubscriptions();
-    console.log("Pemeriksaan langganan kedaluwarsa:", result);
-  } catch (error) {
-    console.error("Error saat memeriksa langganan kedaluwarsa:", error);
-  }
-}, 15 * 60 * 1000);
-
-// Inisialisasi WhatsApp saat server start (opsional - bisa diaktifkan jika ingin otomatis terhubung)
-// const whatsappService = require('./services/whatsappService');
-// whatsappService.initWhatsApp().then(result => {
-//   if (result) {
-//     console.log('WhatsApp initialized successfully');
-//   } else {
-//     console.log('Failed to initialize WhatsApp');
-//   }
-// });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -275,8 +277,6 @@ app.listen(PORT, async () => {
   try {
     await db.sequelize.authenticate();
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
-    console.log(`✅ Database terhubung`);
-    console.log(`✅ Integrasi WhatsApp siap digunakan`);
   } catch (error) {
     console.error("❌ Gagal menyambungkan database:", error);
   }

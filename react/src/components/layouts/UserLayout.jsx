@@ -142,62 +142,61 @@ const UserLayout = () => {
   // Fungsi untuk membuka WhatsApp dengan pesan request trial
 const requestTrial = async () => {
   try {
-    // Tampilkan loading message
     const hide = message.loading('Memuat pengaturan trial...', 0);
     
-    // Variabel untuk menyimpan pengaturan
-    let whatsappNumber, messageTemplate, isEnabled;
-    
     try {
-      // Coba dapatkan dari API
-      const response = await axiosInstance.get('/api/settings/whatsapp-trial');
+      // Gunakan endpoint baru
+      const response = await axiosInstance.get('/api/settings/whatsapp');
       console.log('API response:', response.data);
       
-      whatsappNumber = response.data.whatsappNumber;
-      messageTemplate = response.data.messageTemplate;
-      isEnabled = response.data.isEnabled;
+      // Gunakan format yang baru
+      const whatsappNumber = response.data.whatsappNumber;
+      const messageTemplate = response.data.messageTemplate;
+      const isEnabled = response.data.trialEnabled;
       
-      console.log('Berhasil mengambil data dari API');
+      hide();
+      
+      // Periksa apakah fitur diaktifkan
+      if (!isEnabled) {
+        message.info('Fitur request trial saat ini tidak aktif. Silakan hubungi admin.');
+        return;
+      }
+      
+      // Hasilkan pesan dengan mengganti placeholder dengan data pengguna aktual
+      let finalMessage = messageTemplate;
+      if (user) {
+        finalMessage = finalMessage.replace(/{username}/g, user.username || '');
+        finalMessage = finalMessage.replace(/{email}/g, user.email || '');
+        finalMessage = finalMessage.replace(/{url_slug}/g, user.url_slug || '');
+      }
+      
+      // Buka WhatsApp
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
+      window.open(whatsappUrl, '_blank');
+      
     } catch (apiError) {
       console.warn('Gagal mengambil data dari API, beralih ke localStorage', apiError);
+      hide();
       
       // Fallback ke localStorage
-      whatsappNumber = localStorage.getItem('whatsapp_trial_number');
-      messageTemplate = localStorage.getItem('whatsapp_trial_template');
-      isEnabled = localStorage.getItem('whatsapp_trial_enabled') !== 'false';
+      const whatsappNumber = localStorage.getItem('whatsapp_number') || '6281284712684';
+      const messageTemplate = localStorage.getItem('whatsapp_trial_template') || 
+        'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}';
       
-      // Jika localStorage juga kosong, gunakan nilai default hardcoded
-      if (!whatsappNumber) whatsappNumber = '6281284712684';
-      if (!messageTemplate) messageTemplate = 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}';
-      if (isEnabled === null) isEnabled = true;
+      // Hasilkan pesan
+      let finalMessage = messageTemplate;
+      if (user) {
+        finalMessage = finalMessage.replace(/{username}/g, user.username || '');
+        finalMessage = finalMessage.replace(/{email}/g, user.email || '');
+        finalMessage = finalMessage.replace(/{url_slug}/g, user.url_slug || '');
+      }
       
-      console.log('Menggunakan data dari localStorage atau default');
-    } finally {
-      // Hentikan loading
-      hide();
+      // Buka WhatsApp
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
+      window.open(whatsappUrl, '_blank');
+      
+      message.warning('Menggunakan pengaturan lokal karena server tidak dapat diakses');
     }
-    
-    // Periksa apakah fitur diaktifkan
-    if (!isEnabled) {
-      message.info('Fitur request trial saat ini tidak aktif. Silakan hubungi admin.');
-      return;
-    }
-    
-    // Hasilkan pesan dengan mengganti placeholder dengan data pengguna aktual
-    let finalMessage = messageTemplate;
-    if (user) {
-      finalMessage = finalMessage.replace(/{username}/g, user.username || '');
-      finalMessage = finalMessage.replace(/{email}/g, user.email || '');
-      finalMessage = finalMessage.replace(/{url_slug}/g, user.url_slug || '');
-    }
-    
-    // Hasilkan URL WhatsApp
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
-    
-    // Buka WhatsApp di tab baru
-    window.open(whatsappUrl, '_blank');
-    
-    console.log('WhatsApp dibuka dengan URL:', whatsappUrl);
   } catch (error) {
     console.error('Error dalam requestTrial:', error);
     message.error('Terjadi kesalahan. Silakan coba lagi nanti.');
