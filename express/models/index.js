@@ -5,6 +5,12 @@ const sequelize = require("../config/database");
 const { Sequelize } = require("sequelize");
 const Setting = require('./setting')(sequelize, Sequelize.DataTypes);
 const WhatsAppSetting = require('./WhatsAppSetting')(sequelize, Sequelize.DataTypes);
+const BaileysSettings = require('./BaileysSettings')(sequelize, Sequelize.DataTypes);
+const BaileysLog = require('./BaileysLog')(sequelize, Sequelize.DataTypes);
+const QrisPayment = require('./QrisPayment')(sequelize, Sequelize.DataTypes);
+const QrisSettings = require('./QrisSettings')(sequelize, Sequelize.DataTypes);
+const QrisPaymentModel = require('./QrisPayment');
+
 
 const User = sequelize.define(
   "User",
@@ -270,7 +276,12 @@ const db = {
   SubscriptionPlan,
   WhatsAppTrialSettings,
   Setting,
-  WhatsAppSetting
+  WhatsAppSetting,
+  BaileysSettings,
+  BaileysLog,
+  QrisPayment,
+  QrisSettings,
+  QrisPaymentModel
 };
 
 Object.keys(db).forEach((modelName) => {
