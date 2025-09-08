@@ -13,7 +13,7 @@ const startScheduler = () => {
       console.log('Checking expired payments...');
       
       // Pastikan QrisPayment diambil dari db
-      const { QrisPayment } = db;
+      const { QrisPayment, SubscriptionPlan, User, Subscription, BaileysSettings, BaileysLog } = db;
       
       if (!QrisPayment) {
         console.error('QrisPayment model not found');
@@ -39,6 +39,45 @@ const startScheduler = () => {
         });
         
         console.log(`Payment #${payment.order_number} marked as expired`);
+        
+        // Notifikasi WhatsApp jika terintegrasi
+        if (global.waConnection && global.waConnection.isConnected) {
+          try {
+            // Ambil pengaturan WhatsApp
+            const baileysSetting = await BaileysSettings.findOne({
+              order: [['id', 'DESC']]
+            });
+            
+            if (baileysSetting && baileysSetting.notification_enabled) {
+              // Ambil data user
+              const user = await User.findByPk(payment.user_id);
+              
+              if (user) {
+                // Kirim notifikasi ke grup WhatsApp
+                await global.waConnection.sendGroupMessage(
+                  baileysSetting.group_name,
+                  `⏰ Pembayaran #${payment.order_number} dari ${user.username} (${user.email}) sebesar Rp ${payment.amount.toLocaleString('id-ID')} telah kedaluwarsa.`
+                );
+                
+                // Log notifikasi
+                await BaileysLog.create({
+                  type: 'notification',
+                  status: 'success',
+                  message: `Notifikasi pembayaran kedaluwarsa #${payment.order_number} berhasil dikirim`,
+                  data: {
+                    payment_id: payment.id,
+                    order_number: payment.order_number,
+                    user_id: payment.user_id,
+                    username: user.username,
+                    email: user.email
+                  }
+                });
+              }
+            }
+          } catch (notifyError) {
+            console.error('Error sending WhatsApp notification for expired payment:', notifyError);
+          }
+        }
       }
     } catch (error) {
       console.error('Error checking expired payments:', error);

@@ -297,6 +297,20 @@ const confirmPayment = async (req, res) => {
     
     // Gunakan query SQL langsung untuk menghindari masalah ORM
     try {
+      // Ambil data pembayaran sebelum diupdate
+      const paymentQuery = `SELECT * FROM qris_payments WHERE id = ? AND user_id = ?`;
+      const payments = await db.sequelize.query(paymentQuery, {
+        replacements: [id, userId],
+        type: db.sequelize.QueryTypes.SELECT
+      });
+      
+      if (!payments || payments.length === 0) {
+        return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
+      }
+      
+      const payment = payments[0];
+      
+      // Update status pembayaran
       const query = `
         UPDATE qris_payments 
         SET status = 'waiting_verification', updated_at = NOW() 
@@ -336,6 +350,66 @@ const confirmPayment = async (req, res) => {
         }
       }
       
+      // Kirim notifikasi ke WhatsApp jika ada koneksi
+      if (global.waConnection && global.waConnection.isConnected) {
+        try {
+          // Ambil pengaturan WhatsApp
+          const baileysSetting = await db.BaileysSettings.findOne({
+            order: [['id', 'DESC']]
+          });
+          
+          if (baileysSetting && baileysSetting.notification_enabled) {
+            // Ambil data user dan plan
+            const user = await User.findByPk(userId);
+            const plan = await SubscriptionPlan.findByPk(payment.plan_id);
+            
+            // Format pesan notifikasi
+            let message = baileysSetting.template_message;
+            message = message
+              .replace(/{username}/g, user ? user.username : 'Unknown')
+              .replace(/{email}/g, user ? user.email : 'Unknown')
+              .replace(/{amount}/g, payment.amount ? payment.amount.toLocaleString('id-ID') : '0')
+              .replace(/{plan_name}/g, payment.plan_name || (plan ? plan.name : 'Paket Langganan'))
+              .replace(/{order_number}/g, payment.order_number || 'Unknown');
+            
+            // Kirim pesan ke grup WhatsApp
+            await global.waConnection.sendGroupMessage(
+              baileysSetting.group_name,
+              message
+            );
+            
+            console.log('Notifikasi WhatsApp berhasil dikirim');
+            
+            // Log notifikasi
+            await db.BaileysLog.create({
+              type: 'notification',
+              status: 'success',
+              message: `Notifikasi konfirmasi pembayaran #${payment.order_number} berhasil dikirim`,
+              data: {
+                payment_id: payment.id,
+                order_number: payment.order_number,
+                user_id: userId,
+                username: user ? user.username : 'Unknown'
+              }
+            });
+          }
+        } catch (notifyError) {
+          console.error('Error mengirim notifikasi WhatsApp:', notifyError);
+          
+          // Log error
+          await db.BaileysLog.create({
+            type: 'notification',
+            status: 'failed',
+            message: `Gagal mengirim notifikasi konfirmasi pembayaran: ${notifyError.message}`,
+            data: {
+              payment_id: payment.id,
+              order_number: payment.order_number,
+              error: notifyError.message
+            }
+          });
+        }
+      }
+      
       // Berhasil
       return res.status(200).json({
         success: true,
@@ -349,11 +423,148 @@ const confirmPayment = async (req, res) => {
         details: dbError.message
       });
     }
-    
   } catch (error) {
     console.error('Error in confirmPayment:', error);
     return res.status(500).json({ 
       error: "Terjadi kesalahan pada server"
+    });
+  }
+};
+
+const userCancelPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+    
+    console.log('Processing user payment cancellation for ID:', id, 'by user:', userId);
+    
+    if (!id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "ID pembayaran tidak valid" 
+      });
+    }
+    
+    // Verifikasi pembayaran dengan query SQL langsung
+    const payments = await db.sequelize.query(
+      `SELECT * FROM qris_payments WHERE id = ? AND user_id = ? AND status IN ('pending', 'waiting_verification')`,
+      { 
+        replacements: [id, userId],
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    );
+    
+    if (!payments || payments.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        error: "Pembayaran tidak ditemukan atau tidak dapat dibatalkan" 
+      });
+    }
+    
+    const payment = payments[0];
+    console.log('Found payment to cancel:', payment.id, payment.order_number);
+    
+    // Update status dengan query SQL langsung
+    const result = await db.sequelize.query(
+      `UPDATE qris_payments 
+       SET status = 'rejected', rejected_at = NOW(), updated_at = NOW() 
+       WHERE id = ? AND user_id = ? AND status IN ('pending', 'waiting_verification')`,
+      {
+        replacements: [id, userId],
+        type: db.sequelize.QueryTypes.UPDATE
+      }
+    );
+    
+    console.log('Update result:', result);
+    
+    // Cek hasil update
+    if (result && result[1] > 0) {
+      // Kirim notifikasi WhatsApp jika terintegrasi (opsional)
+      if (global.waConnection && global.waConnection.isConnected) {
+        try {
+          const baileysSetting = await db.BaileysSettings.findOne({
+            order: [['id', 'DESC']]
+          });
+          
+          if (baileysSetting && baileysSetting.group_name) {
+            const user = await User.findByPk(userId);
+            
+            if (user) {
+              await global.waConnection.sendGroupMessage(
+                baileysSetting.group_name,
+                `ℹ️ Pembayaran #${payment.order_number} dari ${user.username} (${user.email}) sebesar Rp ${payment.amount.toLocaleString('id-ID')} telah dibatalkan oleh pengguna.`
+              );
+            }
+          }
+        } catch (notifyError) {
+          console.error('Error sending WhatsApp notification:', notifyError);
+          // Lanjutkan meskipun notifikasi gagal
+        }
+      }
+      
+      return res.status(200).json({
+        success: true,
+        message: "Pembayaran berhasil dibatalkan"
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: "Gagal membatalkan pembayaran, mungkin status sudah berubah"
+      });
+    }
+  } catch (error) {
+    console.error('Error in userCancelPayment:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: "Terjadi kesalahan pada server",
+      message: error.message
+    });
+  }
+};
+
+const cancelPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+    
+    console.log('Processing payment cancellation for ID:', id, 'by user:', userId);
+    
+    if (!id) {
+      return res.status(400).json({ error: "ID pembayaran tidak valid" });
+    }
+    
+    // Verifikasi bahwa pembayaran milik user yang bersangkutan
+    const payment = await QrisPayment.findOne({
+      where: {
+        id: id,
+        user_id: userId,
+        status: ['pending', 'waiting_verification'] // Hanya pembayaran dengan status ini yang bisa dibatalkan
+      }
+    });
+    
+    if (!payment) {
+      return res.status(404).json({ 
+        error: "Pembayaran tidak ditemukan atau tidak dapat dibatalkan" 
+      });
+    }
+    
+    // Update status pembayaran menjadi rejected
+    await payment.update({
+      status: 'rejected',
+      rejected_at: new Date(),
+      updated_at: new Date()
+    });
+    
+    return res.status(200).json({
+      success: true,
+      message: "Pembayaran berhasil dibatalkan"
+    });
+    
+  } catch (error) {
+    console.error('Error cancelling payment:', error);
+    return res.status(500).json({ 
+      error: "Terjadi kesalahan pada server",
+      message: error.message
     });
   }
 };
@@ -367,12 +578,26 @@ const verifyPayment = async (req, res) => {
     const { id } = req.params;
     
     // Verifikasi admin
-    if (req.userRole !== "admin" && req.userId !== "admin") {
+    if (req.userRole !== "admin") {
       return res.status(403).json({ error: "Tidak memiliki izin" });
     }
     
     // Gunakan query SQL langsung untuk update
     try {
+      // Dapatkan data pembayaran sebelum diupdate
+      const paymentQuery = `SELECT * FROM qris_payments WHERE id = ?`;
+      const payments = await db.sequelize.query(paymentQuery, {
+        replacements: [id],
+        type: db.sequelize.QueryTypes.SELECT
+      });
+      
+      if (!payments || payments.length === 0) {
+        return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
+      }
+      
+      const payment = payments[0];
+      
+      // Update status pembayaran
       const query = `
         UPDATE qris_payments 
         SET status = 'verified', verified_at = NOW(), updated_at = NOW() 
@@ -387,31 +612,22 @@ const verifyPayment = async (req, res) => {
       console.log("Verification DB result:", result);
       
       // Proses langganan jika update berhasil
-      // Ambil data pembayaran
-      const paymentQuery = `SELECT * FROM qris_payments WHERE id = ?`;
-      const payments = await db.sequelize.query(paymentQuery, {
-        replacements: [id],
-        type: db.sequelize.QueryTypes.SELECT
-      });
-      
-      if (payments.length > 0) {
-        const payment = payments[0];
-        
-        // Cek apakah user sudah memiliki langganan aktif
-        const activeSubscription = await Subscription.findOne({
-          where: {
-            user_id: payment.user_id,
-            status: "active",
-            end_date: {
-              [db.Sequelize.Op.gt]: new Date()
-            }
-          }
-        });
-        
+      if (result && result[1] > 0) {
         // Ambil data plan
         const plan = await SubscriptionPlan.findByPk(payment.plan_id);
         
         if (plan) {
+          // Cek apakah user sudah memiliki langganan aktif
+          const activeSubscription = await Subscription.findOne({
+            where: {
+              user_id: payment.user_id,
+              status: "active",
+              end_date: {
+                [db.Sequelize.Op.gt]: new Date()
+              }
+            }
+          });
+          
           if (activeSubscription) {
             // Perpanjang langganan yang ada
             const newEndDate = new Date(activeSubscription.end_date);
@@ -422,6 +638,8 @@ const verifyPayment = async (req, res) => {
               payment_status: "paid",
               payment_method: "QRIS"
             });
+            
+            console.log(`Langganan diperpanjang untuk user ${payment.user_id} sebanyak ${plan.duration_days} hari`);
           } else {
             // Buat langganan baru
             const startDate = new Date();
@@ -436,6 +654,32 @@ const verifyPayment = async (req, res) => {
               payment_status: "paid",
               payment_method: "QRIS"
             });
+            
+            console.log(`Langganan baru dibuat untuk user ${payment.user_id} selama ${plan.duration_days} hari`);
+          }
+        }
+        
+        // Kirim notifikasi WhatsApp jika terintegrasi
+        if (global.waConnection && global.waConnection.isConnected) {
+          try {
+            const baileysSetting = await db.BaileysSettings.findOne({
+              order: [['id', 'DESC']]
+            });
+            
+            if (baileysSetting && baileysSetting.group_name) {
+              const user = await User.findByPk(payment.user_id);
+              
+              if (user) {
+                await global.waConnection.sendGroupMessage(
+                  baileysSetting.group_name,
+                  `✅ Pembayaran #${payment.order_number} dari ${user.username} (${user.email}) sebesar Rp ${payment.amount.toLocaleString('id-ID')} telah berhasil diverifikasi oleh admin.`
+                );
+                
+                console.log('Notifikasi WhatsApp berhasil dikirim');
+              }
+            }
+          } catch (notifyError) {
+            console.error('Error mengirim notifikasi WhatsApp:', notifyError);
           }
         }
       }
@@ -469,12 +713,26 @@ const rejectPayment = async (req, res) => {
     const { id } = req.params;
     
     // Verifikasi admin
-    if (req.userRole !== "admin" && req.userId !== "admin") {
+    if (req.userRole !== "admin") {
       return res.status(403).json({ error: "Tidak memiliki izin" });
     }
     
     // Gunakan query SQL langsung untuk update
     try {
+      // Dapatkan data pembayaran sebelum diupdate
+      const paymentQuery = `SELECT * FROM qris_payments WHERE id = ?`;
+      const payments = await db.sequelize.query(paymentQuery, {
+        replacements: [id],
+        type: db.sequelize.QueryTypes.SELECT
+      });
+      
+      if (!payments || payments.length === 0) {
+        return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
+      }
+      
+      const payment = payments[0];
+      
+      // Update status pembayaran
       const query = `
         UPDATE qris_payments 
         SET status = 'rejected', rejected_at = NOW(), updated_at = NOW() 
@@ -487,6 +745,30 @@ const rejectPayment = async (req, res) => {
       });
       
       console.log("Rejection DB result:", result);
+      
+      // Kirim notifikasi WhatsApp jika terintegrasi
+      if (result && result[1] > 0 && global.waConnection && global.waConnection.isConnected) {
+        try {
+          const baileysSetting = await db.BaileysSettings.findOne({
+            order: [['id', 'DESC']]
+          });
+          
+          if (baileysSetting && baileysSetting.group_name) {
+            const user = await User.findByPk(payment.user_id);
+            
+            if (user) {
+              await global.waConnection.sendGroupMessage(
+                baileysSetting.group_name,
+                `❌ Pembayaran #${payment.order_number} dari ${user.username} (${user.email}) sebesar Rp ${payment.amount.toLocaleString('id-ID')} telah ditolak oleh admin.`
+              );
+              
+              console.log('Notifikasi WhatsApp berhasil dikirim');
+            }
+          }
+        } catch (notifyError) {
+          console.error('Error mengirim notifikasi WhatsApp:', notifyError);
+        }
+      }
       
       return res.status(200).json({
         success: true,
@@ -507,6 +789,7 @@ const rejectPayment = async (req, res) => {
     });
   }
 };
+
 
 // Cek status pembayaran
 const checkPaymentStatus = async (req, res) => {
@@ -929,10 +1212,12 @@ module.exports = {
   confirmPayment,
   verifyPayment,
   rejectPayment,
+  cancelPayment,
   checkPaymentStatus,
   getQrisImage,
   saveQrisSettings,
   uploadQrisImage,
   uploadQrisImageBase64,
-  getQrisSettings
+  getQrisSettings,
+  userCancelPayment
 };

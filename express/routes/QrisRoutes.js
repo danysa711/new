@@ -1,4 +1,4 @@
-// routes/QrisRoutes.js (modifikasi)
+// routes/QrisRoutes.js (modifikasi dengan penambahan rute cancel)
 const express = require("express");
 const router = express.Router();
 const QrisController = require("../controllers/QrisController");
@@ -14,6 +14,8 @@ router.get("/qris/pending", QrisController.getPendingPayments);
 router.get("/qris/history", QrisController.getPaymentHistory);
 router.post("/qris/create", QrisController.createPayment);
 router.post("/qris/confirm/:id", QrisController.confirmPayment);
+router.post("/qris/cancel/:id", QrisController.cancelPayment); // Tambahkan rute baru untuk pembatalan
+router.post("/qris/user-cancel/:id", QrisController.userCancelPayment); // Endpoint baru khusus pengguna
 router.get("/qris/status/:id", QrisController.checkPaymentStatus);
 router.get("/qris/image", QrisController.getQrisImage);
 
@@ -25,11 +27,8 @@ router.post("/qris/reject/:id", requireAdmin, QrisController.rejectPayment);
 router.get("/qris/settings", requireAdmin, QrisController.getQrisSettings);
 router.post("/qris/settings", requireAdmin, QrisController.saveQrisSettings);
 
-// Gunakan metode alternatif untuk upload gambar (tanpa multer)
-// Comment out atau hapus baris yang menggunakan multer
-// router.post("/qris/upload-image", requireAdmin, upload.single('qrisImage'), QrisController.uploadQrisImage);
-
-// Gunakan pendekatan alternatif (jika QrisController sudah memiliki metode ini)
+// Upload gambar QRIS
 router.post("/qris/upload-image", requireAdmin, upload.single('qrisImage'), QrisController.uploadQrisImage);
+router.post("/qris/upload-image-base64", requireAdmin, QrisController.uploadQrisImageBase64);
 
 module.exports = router;

@@ -18,7 +18,7 @@ const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const publicApiRoutes = require("./routes/publicApiRoutes");
 const settingsRoutes = require('./routes/settingsRoutes');
-const qrisRoutes = require("./routes/QrisRoutes");
+const QrisRoutes = require("./routes/QrisRoutes");
 const baileysRoutes = require("./routes/BaileysRoutes");
 
 // Mulai scheduler
@@ -161,7 +161,7 @@ app.use("/api", userRoutes);
 app.use("/api", subscriptionRoutes);
 app.use("/api/public", publicApiRoutes);
 app.use("/api", settingsRoutes);
-app.use("/api", qrisRoutes);
+app.use("/api", QrisRoutes);
 app.use("/api", baileysRoutes);
 
 // Error handling middleware

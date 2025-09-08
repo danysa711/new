@@ -1,20 +1,21 @@
 // File: src/pages/admin/QrisPayment.jsx
 import axios from 'axios';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Card, Typography, Table, Tag, Button, Space, 
   Modal, Form, Input, Upload, Spin, message, Descriptions, 
-  Divider, Image, Statistic, Row, Col, DatePicker, Select, Tabs
+  Divider, Image, Statistic, Row, Col, DatePicker, Select, Tabs, Tooltip
 } from 'antd';
 import { 
   ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, 
   UploadOutlined, ClockCircleOutlined, SearchOutlined,
-  SettingOutlined, QrcodeOutlined
+  SettingOutlined, QrcodeOutlined, InfoCircleOutlined
 } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
 
 const { Title, Text, Paragraph } = Typography;
+const { TabPane } = Tabs;
 
 const QrisPayment = () => {
   // State variables
@@ -31,9 +32,11 @@ const QrisPayment = () => {
   const [settingsForm] = Form.useForm();
   const [filterForm] = Form.useForm();
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [rejectionLoading, setRejectionLoading] = useState(false);
   
   // Fetch pending payments
-  const fetchPendingPayments = async () => {
+  const fetchPendingPayments = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get('/api/qris/pending-admin');
@@ -46,10 +49,10 @@ const QrisPayment = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Fetch QRIS settings
-  const fetchQrisSettings = async () => {
+  const fetchQrisSettings = useCallback(async () => {
     try {
       const response = await axiosInstance.get('/api/qris/settings');
       
@@ -67,123 +70,121 @@ const QrisPayment = () => {
     } catch (error) {
       console.error('Error fetching QRIS settings:', error);
     }
-  };
+  }, [settingsForm]);
   
-  // Direct XHR implementation for verify payment
-  // Direct XHR implementation for verify payment
-const directVerifyPayment = (id) => {
-  console.log('Direct verify payment for ID:', id);
-  message.loading('Memverifikasi pembayaran...', 1);
-  
-  const xhr = new XMLHttpRequest();
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  
-  xhr.open('POST', 'https://db.kinterstore.my.id/api/qris/verify/' + id, true);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-  
-  xhr.onload = function() {
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        const response = JSON.parse(xhr.responseText);
-        console.log('Verify response:', response);
-        if (response.success) {
-          message.success('Pembayaran berhasil diverifikasi');
-          
-          // Perbarui data di state secara manual
-          setPendingPayments(prevPayments => 
-            prevPayments.filter(payment => payment.id !== id)
-          );
-          
-          // Kemudian fetch ulang data setelah jeda singkat
-          setTimeout(() => {
-            fetchPendingPayments();
-          }, 1000);
-        } else {
-          message.error('Gagal memverifikasi pembayaran: ' + (response.error || 'Terjadi kesalahan'));
-        }
-      } catch (e) {
-        console.error('Error parsing response:', e);
-        message.error('Gagal memproses respons server');
+  // Verify payment function dengan pendekatan yang lebih andal
+  const verifyPayment = async (id) => {
+    try {
+      setVerificationLoading(true);
+      console.log('Verifying payment ID:', id);
+      
+      // Gunakan token dari localStorage atau sessionStorage
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token tidak ditemukan');
       }
-    } else {
-      console.error('XHR error:', xhr.status, xhr.statusText);
-      message.error('Error ' + xhr.status + ': ' + xhr.statusText);
+      
+      // Gunakan API URL dari state global atau environment
+      const baseUrl = axiosInstance.defaults.baseURL || 'https://db.kinterstore.my.id';
+      const url = `${baseUrl}/api/qris/verify/${id}`;
+      
+      // Buat request langsung dengan axios
+      const response = await axios({
+        method: 'POST',
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Verify response:', response.data);
+      
+      if (response.data && response.data.success) {
+        message.success('Pembayaran berhasil diverifikasi');
+        
+        // Perbarui data
+        await fetchPendingPayments();
+        
+        // Tutup modal detail jika terbuka
+        if (detailModalVisible && selectedPayment && selectedPayment.id === id) {
+          setDetailModalVisible(false);
+        }
+      } else {
+        throw new Error(response.data?.error || 'Verifikasi gagal');
+      }
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      message.error('Gagal memverifikasi pembayaran: ' + (error.message || 'Terjadi kesalahan'));
+    } finally {
+      setVerificationLoading(false);
     }
   };
-  
-  xhr.onerror = function() {
-    console.error('Network error');
-    message.error('Terjadi kesalahan jaringan');
-  };
-  
-  xhr.send(JSON.stringify({}));
-};
 
-  // Direct XHR implementation for reject payment
-  const directRejectPayment = (id) => {
-  console.log('Direct reject payment for ID:', id);
-  message.loading('Menolak pembayaran...', 1);
-  
-  const xhr = new XMLHttpRequest();
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  
-  xhr.open('POST', 'https://db.kinterstore.my.id/api/qris/reject/' + id, true);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-  
-  xhr.onload = function() {
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        const response = JSON.parse(xhr.responseText);
-        console.log('Reject response:', response);
-        if (response.success) {
-          message.success('Pembayaran berhasil ditolak');
-          
-          // Perbarui data di state secara manual
-          setPendingPayments(prevPayments => 
-            prevPayments.filter(payment => payment.id !== id)
-          );
-          
-          // Kemudian fetch ulang data setelah jeda singkat
-          setTimeout(() => {
-            fetchPendingPayments();
-          }, 1000);
-        } else {
-          message.error('Gagal menolak pembayaran: ' + (response.error || 'Terjadi kesalahan'));
-        }
-      } catch (e) {
-        console.error('Error parsing response:', e);
-        message.error('Gagal memproses respons server');
+  // Reject payment function dengan pendekatan yang lebih andal
+  const rejectPayment = async (id) => {
+    try {
+      setRejectionLoading(true);
+      console.log('Rejecting payment ID:', id);
+      
+      // Gunakan token dari localStorage atau sessionStorage
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token tidak ditemukan');
       }
-    } else {
-      console.error('XHR error:', xhr.status, xhr.statusText);
-      message.error('Error ' + xhr.status + ': ' + xhr.statusText);
+      
+      // Gunakan API URL dari state global atau environment
+      const baseUrl = axiosInstance.defaults.baseURL || 'https://db.kinterstore.my.id';
+      const url = `${baseUrl}/api/qris/reject/${id}`;
+      
+      // Buat request langsung dengan axios
+      const response = await axios({
+        method: 'POST',
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Reject response:', response.data);
+      
+      if (response.data && response.data.success) {
+        message.success('Pembayaran berhasil ditolak');
+        
+        // Perbarui data
+        await fetchPendingPayments();
+        
+        // Tutup modal detail jika terbuka
+        if (detailModalVisible && selectedPayment && selectedPayment.id === id) {
+          setDetailModalVisible(false);
+        }
+      } else {
+        throw new Error(response.data?.error || 'Penolakan gagal');
+      }
+    } catch (error) {
+      console.error('Error rejecting payment:', error);
+      message.error('Gagal menolak pembayaran: ' + (error.message || 'Terjadi kesalahan'));
+    } finally {
+      setRejectionLoading(false);
     }
   };
-  
-  xhr.onerror = function() {
-    console.error('Network error');
-    message.error('Terjadi kesalahan jaringan');
-  };
-  
-  xhr.send(JSON.stringify({}));
-};
 
   // Save QRIS settings
   const saveQrisSettings = async (values) => {
     try {
       setLoading(true);
+      console.log('Saving QRIS settings:', values);
       
       const response = await axiosInstance.post('/api/qris/settings', {
-        expiryHours: values.expiryHours,
+        expiryHours: parseInt(values.expiryHours)
       });
       
       if (response.data && response.data.success) {
         message.success('Pengaturan QRIS berhasil disimpan');
         setQrisSettings({
           ...qrisSettings,
-          expiryHours: values.expiryHours,
+          expiryHours: parseInt(values.expiryHours),
         });
         setSettingsModalVisible(false);
       } else {
@@ -251,13 +252,14 @@ const directVerifyPayment = (id) => {
     }, 30000);
     
     return () => clearInterval(intervalId);
-  }, []);
+  }, [fetchPendingPayments, fetchQrisSettings]);
 
   // Filter pending payments based on search keyword
   const filteredPendingPayments = searchKeyword
     ? pendingPayments.filter(payment => 
         payment.order_number?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-        payment.username?.toLowerCase().includes(searchKeyword.toLowerCase())
+        payment.username?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+        payment.email?.toLowerCase().includes(searchKeyword.toLowerCase())
       )
     : pendingPayments;
 
@@ -301,6 +303,7 @@ const directVerifyPayment = (id) => {
         <Button
           icon={<ReloadOutlined />}
           onClick={() => fetchPendingPayments()}
+          loading={loading}
         >
           Refresh Data
         </Button>
@@ -312,10 +315,10 @@ const directVerifyPayment = (id) => {
         style={{ marginBottom: 24 }}
         extra={
           <Input.Search
-            placeholder="Cari no. pesanan/username"
+            placeholder="Cari no. pesanan/username/email"
             allowClear
             onSearch={handleSearch}
-            style={{ width: 250 }}
+            style={{ width: 300 }}
           />
         }
       >
@@ -397,14 +400,16 @@ const directVerifyPayment = (id) => {
                       borderColor: '#52c41a'
                     }}
                     onClick={() => {
-                      console.log('Verifikasi button clicked for ID:', record.id);
                       Modal.confirm({
                         title: 'Verifikasi Pembayaran',
                         content: `Apakah Anda yakin ingin memverifikasi pembayaran #${record.order_number}?`,
-                        onOk: () => directVerifyPayment(record.id),
+                        onOk: () => verifyPayment(record.id),
+                        okText: 'Ya, Verifikasi',
+                        cancelText: 'Batal'
                       });
                     }}
                     icon={<CheckCircleOutlined />}
+                    loading={verificationLoading}
                   >
                     Verifikasi
                   </Button>
@@ -413,14 +418,16 @@ const directVerifyPayment = (id) => {
                     danger
                     size="small"
                     onClick={() => {
-                      console.log('Tolak button clicked for ID:', record.id);
                       Modal.confirm({
                         title: 'Tolak Pembayaran',
                         content: `Apakah Anda yakin ingin menolak pembayaran #${record.order_number}?`,
-                        onOk: () => directRejectPayment(record.id),
+                        onOk: () => rejectPayment(record.id),
+                        okText: 'Ya, Tolak',
+                        cancelText: 'Batal'
                       });
                     }}
                     icon={<CloseCircleOutlined />}
+                    loading={rejectionLoading}
                   >
                     Tolak
                   </Button>
@@ -528,11 +535,13 @@ const directVerifyPayment = (id) => {
                       title: 'Verifikasi Pembayaran',
                       content: `Apakah Anda yakin ingin memverifikasi pembayaran ini?`,
                       onOk: () => {
-                        directVerifyPayment(selectedPayment.id);
-                        setDetailModalVisible(false);
+                        verifyPayment(selectedPayment.id);
                       },
+                      okText: 'Ya, Verifikasi',
+                      cancelText: 'Batal'
                     });
                   }}
+                  loading={verificationLoading}
                 >
                   Verifikasi Pembayaran
                 </Button>
@@ -545,11 +554,13 @@ const directVerifyPayment = (id) => {
                       title: 'Tolak Pembayaran',
                       content: `Apakah Anda yakin ingin menolak pembayaran ini?`,
                       onOk: () => {
-                        directRejectPayment(selectedPayment.id);
-                        setDetailModalVisible(false);
+                        rejectPayment(selectedPayment.id);
                       },
+                      okText: 'Ya, Tolak',
+                      cancelText: 'Batal'
                     });
                   }}
+                  loading={rejectionLoading}
                 >
                   Tolak Pembayaran
                 </Button>
@@ -568,7 +579,7 @@ const directVerifyPayment = (id) => {
         width={600}
       >
         <Tabs defaultActiveKey="expiry">
-          <Tabs.TabPane 
+          <TabPane 
             key="expiry" 
             tab={<span><ClockCircleOutlined />Waktu Kedaluwarsa</span>}
           >
@@ -581,9 +592,21 @@ const directVerifyPayment = (id) => {
               <Form.Item
                 name="expiryHours"
                 label="Waktu Kedaluwarsa Pembayaran (Jam)"
+                tooltip={{
+                  title: 'Setelah waktu ini, pembayaran yang belum diverifikasi akan otomatis kedaluwarsa',
+                  icon: <InfoCircleOutlined />
+                }}
                 rules={[
                   { required: true, message: 'Masukkan waktu kedaluwarsa' },
-                  { type: 'number', min: 1, max: 48, message: 'Waktu harus antara 1-48 jam' }
+                  { 
+                    validator: (_, value) => {
+                      const numValue = parseInt(value);
+                      if (isNaN(numValue) || numValue < 1 || numValue > 48) {
+                        return Promise.reject('Waktu harus antara 1-48 jam');
+                      }
+                      return Promise.resolve();
+                    }
+                  }
                 ]}
               >
                 <Input type="number" min={1} max={48} />
@@ -595,9 +618,9 @@ const directVerifyPayment = (id) => {
                 </Button>
               </Form.Item>
             </Form>
-          </Tabs.TabPane>
+          </TabPane>
           
-          <Tabs.TabPane 
+          <TabPane 
             key="qris" 
             tab={<span><QrcodeOutlined />Gambar QRIS</span>}
           >
@@ -654,7 +677,7 @@ const directVerifyPayment = (id) => {
                 Format gambar: JPG, PNG. Ukuran maksimal: 2MB
               </Text>
             </Paragraph>
-          </Tabs.TabPane>
+          </TabPane>
         </Tabs>
       </Modal>
     </div>

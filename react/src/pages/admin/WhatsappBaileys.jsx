@@ -1,5 +1,5 @@
 // File: src/pages/admin/WhatsappBaileys.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Card, Typography, Button, Form, Input, Switch, Tabs, 
   Space, Table, Tag, message, Spin, Modal, Image, Upload
@@ -28,12 +28,16 @@ const WhatsappBaileys = () => {
   });
   const [qrCode, setQrCode] = useState('');
   const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [qrModalClosed, setQrModalClosed] = useState(false);
   const [historyLogs, setHistoryLogs] = useState([]);
   const [form] = Form.useForm();
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState(null);
+  const [pollingCount, setPollingCount] = useState(0);
+  const [qrPollingAttempts, setQrPollingAttempts] = useState(0);
 
   // Fetch WhatsApp settings
-  const fetchWhatsAppSettings = async () => {
+  const fetchWhatsAppSettings = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get('/api/baileys/settings');
@@ -54,10 +58,10 @@ const WhatsappBaileys = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Fetch history logs
-  const fetchHistoryLogs = async () => {
+  const fetchHistoryLogs = useCallback(async () => {
     try {
       const response = await axiosInstance.get('/api/baileys/logs');
       if (response.data) {
@@ -66,45 +70,68 @@ const WhatsappBaileys = () => {
     } catch (error) {
       console.error('Error fetching WhatsApp logs:', error);
     }
-  };
+  }, []);
 
-  // Connect WhatsApp
+  // Connect WhatsApp dengan perbaikan dan handling QR Code
   const connectWhatsApp = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    const response = await axiosInstance.post('/api/baileys/connect');
-    
-    if (response.data && response.data.qrCode) {
-      setQrCode(response.data.qrCode);
-      setQrModalVisible(true);
+    try {
+      setLoading(true);
+      setQrCode('');
+      setQrPollingAttempts(0);
+      setQrModalClosed(false);
       
-      // Start polling connection status
-      startCheckingConnectionStatus();
-    } else {
-      message.error('Gagal mendapatkan kode QR');
+      message.loading('Menginisialisasi koneksi WhatsApp...', 2);
+      
+      // Coba dapatkan QR code untuk koneksi
+      const response = await axiosInstance.post('/api/baileys/connect');
+      
+      console.log('Connect response:', response.data);
+      
+      if (response.data && response.data.qrCode) {
+        // Jika QR code tersedia, tampilkan
+        setQrCode(response.data.qrCode);
+        setQrModalVisible(true);
+        
+        // Mulai polling status koneksi
+        startPollingConnectionStatus();
+      } else {
+        // Jika tidak ada QR code tapi status mungkin sudah terhubung
+        await checkConnectionStatus();
+      }
+    } catch (error) {
+      console.error('Error connecting WhatsApp:', error);
+      message.error('Gagal menghubungkan WhatsApp: ' + (error.response?.data?.error || 'Terjadi kesalahan pada server'));
+      
+      // Tetap cek status, mungkin sudah terhubung
+      await checkConnectionStatus();
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error connecting WhatsApp:', error);
-    message.error('Gagal menghubungkan WhatsApp: ' + (error.response?.data?.error || 'Terjadi kesalahan pada server'));
-    setError('Gagal menghubungkan WhatsApp. Silakan coba lagi.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Disconnect WhatsApp
   const disconnectWhatsApp = async () => {
     try {
       setLoading(true);
-      await axiosInstance.post('/api/baileys/disconnect');
       
-      message.success('WhatsApp berhasil diputuskan');
-      setConnectionStatus('disconnected');
+      // Hentikan polling
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+      }
+      
+      const response = await axiosInstance.post('/api/baileys/disconnect');
+      
+      if (response.data && response.data.success) {
+        message.success('WhatsApp berhasil diputuskan');
+        setConnectionStatus('disconnected');
+        setQrModalVisible(false);
+      } else {
+        throw new Error(response.data?.error || 'Gagal memutuskan WhatsApp');
+      }
     } catch (error) {
       console.error('Error disconnecting WhatsApp:', error);
-      message.error('Gagal memutuskan WhatsApp');
+      message.error('Gagal memutuskan WhatsApp: ' + (error.response?.data?.error || 'Terjadi kesalahan'));
     } finally {
       setLoading(false);
     }
@@ -116,46 +143,120 @@ const WhatsappBaileys = () => {
       setCheckingStatus(true);
       const response = await axiosInstance.get('/api/baileys/status');
       
+      console.log('Connection status response:', response.data);
+      
       if (response.data) {
-        setConnectionStatus(response.data.status || 'disconnected');
+        const newStatus = response.data.status || 'disconnected';
+        setConnectionStatus(newStatus);
         
-        if (response.data.status === 'connected') {
-          message.success('WhatsApp terhubung');
+        // Tutup modal QR jika sudah terhubung
+        if (newStatus === 'connected' && qrModalVisible) {
+          message.success('WhatsApp berhasil terhubung!');
           setQrModalVisible(false);
+          
+          // Hentikan polling jika sudah terhubung
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+          }
         }
       }
+      
+      return response.data?.status || 'disconnected';
     } catch (error) {
       console.error('Error checking connection status:', error);
+      return 'error';
     } finally {
       setCheckingStatus(false);
     }
   };
 
   // Start polling connection status
-  const startCheckingConnectionStatus = () => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await axiosInstance.get('/api/baileys/status');
-        
-        if (response.data) {
-          setConnectionStatus(response.data.status || 'disconnected');
-          
-          if (response.data.status === 'connected') {
-            clearInterval(interval);
-            message.success('WhatsApp terhubung');
-            setQrModalVisible(false);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking connection status:', error);
-        clearInterval(interval);
-      }
-    }, 3000);
+  const startPollingConnectionStatus = () => {
+    // Hentikan polling yang sudah ada jika ada
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
     
-    // Clear interval after 2 minutes
-    setTimeout(() => {
-      clearInterval(interval);
-    }, 2 * 60 * 1000);
+    // Reset counter
+    setPollingCount(0);
+    
+    // Buat interval baru untuk polling
+    const interval = setInterval(async () => {
+      setPollingCount(prev => {
+        const newCount = prev + 1;
+        
+        // Cek status koneksi
+        checkConnectionStatus().then(status => {
+          console.log(`Polling #${newCount}, status: ${status}`);
+          
+          // Jika terhubung, hentikan polling
+          if (status === 'connected') {
+            clearInterval(interval);
+            setPollingInterval(null);
+            setQrPollingAttempts(0);
+            return;
+          }
+          
+          // Jika modal ditutup dan tidak terhubung, coba dapatkan QR code baru
+          if (qrModalClosed && status !== 'connected' && newCount % 5 === 0) {
+            // Coba maksimal 3 kali untuk mendapatkan QR code baru
+            if (qrPollingAttempts < 3) {
+              refreshQrCode();
+              setQrPollingAttempts(prev => prev + 1);
+            } else {
+              // Jika sudah 3 kali, hentikan polling
+              clearInterval(interval);
+              setPollingInterval(null);
+              message.warning('Batas percobaan mendapatkan QR code tercapai. Silakan coba lagi nanti.');
+            }
+          }
+        });
+        
+        // Batasi polling maksimal 60 kali (sekitar 5 menit)
+        if (newCount >= 60) {
+          clearInterval(interval);
+          setPollingInterval(null);
+          
+          // Periksa status terakhir
+          checkConnectionStatus().then(status => {
+            if (status !== 'connected') {
+              message.info('Tidak ada respons dari WhatsApp. Silakan coba lagi nanti.');
+            }
+          });
+          
+          return newCount;
+        }
+        
+        return newCount;
+      });
+    }, 5000); // Polling setiap 5 detik
+    
+    setPollingInterval(interval);
+  };
+
+  // Refresh QR code
+  const refreshQrCode = async () => {
+    try {
+      setLoading(true);
+      
+      // Coba dapatkan QR code baru
+      const response = await axiosInstance.post('/api/baileys/connect');
+      
+      if (response.data && response.data.qrCode) {
+        setQrCode(response.data.qrCode);
+        setQrModalVisible(true);
+        setQrModalClosed(false);
+        message.info('QR code baru berhasil didapatkan');
+      } else {
+        message.warning('Tidak bisa mendapatkan QR code baru');
+      }
+    } catch (error) {
+      console.error('Error refreshing QR code:', error);
+      message.error('Gagal mendapatkan QR code baru');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Save WhatsApp settings
@@ -201,13 +302,24 @@ const WhatsappBaileys = () => {
       fetchHistoryLogs();
     }, 30000);
     
-    return () => clearInterval(intervalId);
-  }, []);
+    return () => {
+      clearInterval(intervalId);
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [fetchWhatsAppSettings, fetchHistoryLogs, pollingInterval]);
 
   // Update form when settings change
   useEffect(() => {
     form.setFieldsValue(whatsappSettings);
   }, [whatsappSettings, form]);
+
+  // Renderkan waktu relatif dengan moment
+  const formatRelativeTime = (timestamp) => {
+    if (!timestamp) return '';
+    return moment(timestamp).fromNow();
+  };
 
   return (
     <div>
@@ -217,7 +329,11 @@ const WhatsappBaileys = () => {
       <Card style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Space align="center">
-            <WhatsAppOutlined style={{ fontSize: 32, color: connectionStatus === 'connected' ? '#25D366' : '#ccc' }} />
+            <WhatsAppOutlined style={{ 
+              fontSize: 32, 
+              color: connectionStatus === 'connected' ? '#25D366' : '#ccc',
+              animation: connectionStatus === 'connected' ? 'pulse 2s infinite' : 'none'
+            }} />
             <div>
               <Text strong>Status WhatsApp:</Text>
               <Tag color={connectionStatus === 'connected' ? 'success' : 'error'} style={{ marginLeft: 8 }}>
@@ -240,7 +356,15 @@ const WhatsappBaileys = () => {
               <Button 
                 danger 
                 icon={<LogoutOutlined />} 
-                onClick={disconnectWhatsApp}
+                onClick={() => {
+                  Modal.confirm({
+                    title: 'Putuskan Koneksi WhatsApp',
+                    content: 'Apakah Anda yakin ingin memutuskan koneksi WhatsApp?',
+                    onOk: disconnectWhatsApp,
+                    okText: 'Ya, Putuskan',
+                    cancelText: 'Batal'
+                  });
+                }}
                 loading={loading}
               >
                 Putuskan WhatsApp
@@ -293,6 +417,7 @@ const WhatsappBaileys = () => {
                 name="groupName"
                 label="Nama Grup WhatsApp"
                 rules={[{ required: true, message: 'Masukkan nama grup WhatsApp' }]}
+                tooltip="Pastikan grup dengan nama ini sudah ada di WhatsApp Anda dan nomor WhatsApp yang digunakan sudah ditambahkan ke grup"
               >
                 <Input prefix={<GroupOutlined />} placeholder="Nama grup untuk notifikasi" />
               </Form.Item>
@@ -309,9 +434,12 @@ const WhatsappBaileys = () => {
                 name="templateMessage"
                 label="Template Pesan Notifikasi"
                 rules={[{ required: true, message: 'Masukkan template pesan notifikasi' }]}
-                extra="Gunakan placeholder: {username}, {email}, {amount}, {plan_name}, {order_number}"
+                tooltip="Gunakan placeholder: {username}, {email}, {amount}, {plan_name}, {order_number} untuk menggantikan data yang sesuai"
               >
-                <TextArea rows={4} placeholder="Template pesan notifikasi pembayaran" />
+                <TextArea 
+                  rows={4} 
+                  placeholder="Template pesan notifikasi pembayaran" 
+                />
               </Form.Item>
               
               <Form.Item>
@@ -335,10 +463,14 @@ const WhatsappBaileys = () => {
               columns={[
                 {
                   title: 'Waktu',
-                  dataIndex: 'timestamp',
-                  key: 'timestamp',
-                  render: timestamp => moment(timestamp).format('DD/MM/YYYY HH:mm:ss'),
-                  sorter: (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
+                  dataIndex: 'created_at',
+                  key: 'created_at',
+                  render: timestamp => (
+                    <Tooltip title={moment(timestamp).format('DD/MM/YYYY HH:mm:ss')}>
+                      {formatRelativeTime(timestamp)}
+                    </Tooltip>
+                  ),
+                  sorter: (a, b) => moment(b.created_at).unix() - moment(a.created_at).unix(),
                   defaultSortOrder: 'descend',
                 },
                 {
@@ -410,7 +542,7 @@ const WhatsappBaileys = () => {
                           title: 'Detail Log',
                           content: (
                             <div style={{ marginTop: 16 }}>
-                              <p><strong>Waktu:</strong> {moment(record.timestamp).format('DD/MM/YYYY HH:mm:ss')}</p>
+                              <p><strong>Waktu:</strong> {moment(record.created_at).format('DD/MM/YYYY HH:mm:ss')}</p>
                               <p><strong>Tipe:</strong> {record.type}</p>
                               <p><strong>Status:</strong> {record.status}</p>
                               <p><strong>Pesan:</strong> {record.message}</p>
@@ -453,9 +585,23 @@ const WhatsappBaileys = () => {
       <Modal
         title="Scan QR Code WhatsApp"
         open={qrModalVisible}
-        onCancel={() => setQrModalVisible(false)}
+        onCancel={() => {
+          setQrModalVisible(false);
+          setQrModalClosed(true);
+        }}
         footer={[
-          <Button key="close" onClick={() => setQrModalVisible(false)}>
+          <Button 
+            key="refresh" 
+            icon={<ReloadOutlined />} 
+            onClick={refreshQrCode}
+            disabled={loading}
+          >
+            Refresh QR Code
+          </Button>,
+          <Button key="close" onClick={() => {
+            setQrModalVisible(false);
+            setQrModalClosed(true);
+          }}>
             Tutup
           </Button>
         ]}
@@ -466,10 +612,16 @@ const WhatsappBaileys = () => {
               src={`data:image/png;base64,${qrCode}`}
               alt="WhatsApp QR Code"
               style={{ maxWidth: '100%' }}
+              preview={false}
             />
             <Paragraph style={{ marginTop: 16 }}>
-              Buka WhatsApp di ponsel Anda dan scan QR code ini untuk menghubungkan
+              Buka WhatsApp di ponsel Anda, lalu:
             </Paragraph>
+            <ol style={{ textAlign: 'left' }}>
+              <li>Ketuk Menu (•••) atau Settings dan pilih WhatsApp Web/Desktop</li>
+              <li>Ketuk pada "Link a Device"</li>
+              <li>Arahkan kamera Anda ke QR code di layar</li>
+            </ol>
             <div style={{ marginTop: 16 }}>
               <Spin spinning={checkingStatus} />
               <Text type="secondary">
@@ -477,6 +629,11 @@ const WhatsappBaileys = () => {
                   'WhatsApp terhubung' : 
                   'Menunggu koneksi...'
                 }
+              </Text>
+            </div>
+            <div style={{ marginTop: 10, fontSize: '12px', color: '#999' }}>
+              <Text type="secondary">
+                Jika QR code kedaluwarsa, klik tombol Refresh QR Code untuk memuat QR code baru
               </Text>
             </div>
           </div>
@@ -487,6 +644,21 @@ const WhatsappBaileys = () => {
           </div>
         )}
       </Modal>
+
+      {/* Styling untuk animasi pulse */}
+      <style jsx>{`
+        @keyframes pulse {
+          0% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };
