@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Sep 08, 2025 at 06:50 AM
+-- Generation Time: Sep 12, 2025 at 02:03 AM
 -- Server version: 10.11.6-MariaDB
 -- PHP Version: 8.0.30
 
@@ -20,45 +20,6 @@ SET time_zone = "+00:00";
 --
 -- Database: `db_shopee_bot`
 --
-
--- --------------------------------------------------------
-
---
--- Table structure for table `baileys_logs`
---
-
-CREATE TABLE `baileys_logs` (
-  `id` int(11) NOT NULL,
-  `type` enum('connection','notification','verification','error') NOT NULL,
-  `status` enum('success','failed','pending') NOT NULL,
-  `message` text NOT NULL,
-  `data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`data`)),
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `baileys_settings`
---
-
-CREATE TABLE `baileys_settings` (
-  `id` int(11) NOT NULL,
-  `phone_number` varchar(255) NOT NULL,
-  `group_name` varchar(255) NOT NULL,
-  `notification_enabled` tinyint(1) NOT NULL DEFAULT 1,
-  `template_message` text NOT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-
---
--- Dumping data for table `baileys_settings`
---
-
-INSERT INTO `baileys_settings` (`id`, `phone_number`, `group_name`, `notification_enabled`, `template_message`, `created_at`, `updated_at`) VALUES
-(1, '081284712564', 'Verifikasi', 1, 'Permintaan pembayaran baru dari {username} ({email}) dengan nominal Rp {amount} untuk paket {plan_name}. Nomor pesanan: {order_number}. Balas *1* untuk verifikasi atau *2* untuk tolak.', '2025-09-07 18:42:37', '2025-09-07 18:42:37');
 
 -- --------------------------------------------------------
 
@@ -163,85 +124,6 @@ INSERT INTO `Orders` (`id`, `order_id`, `item_name`, `os`, `version`, `license_c
 -- --------------------------------------------------------
 
 --
--- Table structure for table `qris_payments`
---
-
-CREATE TABLE `qris_payments` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `plan_id` int(11) NOT NULL,
-  `order_number` varchar(255) NOT NULL,
-  `amount` decimal(10,2) NOT NULL,
-  `status` enum('pending','waiting_verification','verified','rejected','expired') NOT NULL DEFAULT 'pending',
-  `expired_at` datetime NOT NULL,
-  `verified_at` datetime DEFAULT NULL,
-  `rejected_at` datetime DEFAULT NULL,
-  `plan_name` varchar(255) DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-
---
--- Dumping data for table `qris_payments`
---
-
-INSERT INTO `qris_payments` (`id`, `user_id`, `plan_id`, `order_number`, `amount`, `status`, `expired_at`, `verified_at`, `rejected_at`, `plan_name`, `created_at`, `updated_at`) VALUES
-(1, 45, 25, 'QRIS70800534GCYN', 100552.00, 'pending', '2025-09-08 02:46:40', NULL, NULL, '1 Bulan', '2025-09-07 18:46:40', '2025-09-07 18:46:40'),
-(2, 45, 25, 'QRIS70916094I53H', 100592.00, 'pending', '2025-09-08 02:48:36', NULL, NULL, '1 Bulan', '2025-09-07 18:48:36', '2025-09-07 18:48:36'),
-(3, 45, 25, 'QRIS70966520PUA9', 100758.00, 'pending', '2025-09-08 02:49:26', NULL, NULL, '1 Bulan', '2025-09-07 18:49:26', '2025-09-07 18:49:26'),
-(4, 45, 25, 'QRIS71007555AQ94', 100009.00, 'pending', '2025-09-08 02:50:07', NULL, NULL, '1 Bulan', '2025-09-07 18:50:07', '2025-09-07 18:50:07'),
-(5, 45, 25, 'QRIS71338110OG2D', 100438.00, 'pending', '2025-09-08 02:55:38', NULL, NULL, '1 Bulan', '2025-09-07 18:55:38', '2025-09-07 18:55:38'),
-(6, 45, 25, 'QRIS71950110W319', 100975.00, 'pending', '2025-09-08 03:05:50', NULL, NULL, '1 Bulan', '2025-09-07 19:05:50', '2025-09-07 19:05:50'),
-(7, 45, 25, 'QRIS72067794WN50', 100624.00, 'pending', '2025-09-08 03:07:47', NULL, NULL, '1 Bulan', '2025-09-07 19:07:47', '2025-09-07 19:07:47'),
-(8, 45, 25, 'QRIS72402273FD73', 100940.00, 'pending', '2025-09-08 03:13:22', NULL, NULL, '1 Bulan', '2025-09-07 19:13:22', '2025-09-07 19:13:22'),
-(9, 45, 25, 'QRIS73444106GI5L', 100008.00, 'pending', '2025-09-08 03:30:44', NULL, NULL, '1 Bulan', '2025-09-07 19:30:44', '2025-09-07 19:30:44'),
-(10, 45, 25, 'QRIS73542094ZZAX', 100186.00, 'pending', '2025-09-08 03:32:22', NULL, NULL, '1 Bulan', '2025-09-07 19:32:22', '2025-09-07 19:32:22'),
-(11, 45, 25, 'QRIS73878260YEDR', 100285.00, 'pending', '2025-09-08 03:37:58', NULL, NULL, '1 Bulan', '2025-09-07 19:37:58', '2025-09-07 19:37:58'),
-(12, 45, 25, 'QRIS73946837GONU', 100794.00, 'pending', '2025-09-08 03:39:06', NULL, NULL, '1 Bulan', '2025-09-07 19:39:06', '2025-09-07 19:39:06'),
-(13, 45, 25, 'QRIS742191000P3G', 100310.00, 'pending', '2025-09-08 03:43:39', NULL, NULL, '1 Bulan', '2025-09-07 19:43:39', '2025-09-07 19:43:39'),
-(14, 45, 25, 'QRIS746383233H2S', 100676.00, 'pending', '2025-09-08 03:50:38', NULL, NULL, '1 Bulan', '2025-09-07 19:50:38', '2025-09-07 19:50:38'),
-(15, 45, 25, 'QRIS75020873BBW6', 100759.00, 'pending', '2025-09-08 03:57:00', NULL, NULL, '1 Bulan', '2025-09-07 19:57:00', '2025-09-07 19:57:00'),
-(16, 45, 25, 'QRIS75214521A9DR', 100296.00, 'pending', '2025-09-08 04:00:14', NULL, NULL, '1 Bulan', '2025-09-07 20:00:14', '2025-09-07 20:00:14'),
-(17, 45, 25, 'QRIS753350237R4H', 100816.00, 'waiting_verification', '2025-09-08 04:02:15', NULL, NULL, '1 Bulan', '2025-09-07 20:02:15', '2025-09-07 20:02:19'),
-(18, 45, 25, 'QRIS756281629Q9V', 100735.00, 'waiting_verification', '2025-09-08 04:07:08', NULL, NULL, '1 Bulan', '2025-09-07 20:07:08', '2025-09-07 20:07:15'),
-(19, 45, 25, 'QRIS76019324TB7R', 100381.00, 'waiting_verification', '2025-09-08 04:13:39', NULL, NULL, '1 Bulan', '2025-09-07 20:13:39', '2025-09-07 20:13:45'),
-(20, 45, 25, 'QRIS76357617085F', 100869.00, 'waiting_verification', '2025-09-08 04:19:17', NULL, NULL, '1 Bulan', '2025-09-07 20:19:17', '2025-09-07 20:19:20'),
-(21, 45, 25, 'QRIS76706696R20K', 100032.00, 'waiting_verification', '2025-09-08 04:25:06', NULL, NULL, '1 Bulan', '2025-09-07 20:25:06', '2025-09-07 20:25:16'),
-(22, 45, 25, 'QRIS77181415EXHL', 100039.00, 'waiting_verification', '2025-09-08 04:33:01', NULL, NULL, '1 Bulan', '2025-09-07 20:33:01', '2025-09-07 20:33:04'),
-(23, 45, 25, 'QRIS77201697L4VN', 100276.00, 'waiting_verification', '2025-09-08 04:33:21', NULL, NULL, '1 Bulan', '2025-09-07 20:33:21', '2025-09-07 20:33:26'),
-(24, 45, 25, 'QRIS77217129HRAU', 100162.00, 'waiting_verification', '2025-09-08 04:33:37', NULL, NULL, '1 Bulan', '2025-09-07 20:33:37', '2025-09-07 20:33:39'),
-(25, 45, 25, 'QRIS81545062312K', 100716.00, 'waiting_verification', '2025-09-08 05:45:45', NULL, NULL, '1 Bulan', '2025-09-07 21:45:45', '2025-09-07 21:45:49'),
-(26, 45, 25, 'QRIS8241461722V1', 100514.00, 'waiting_verification', '2025-09-08 06:00:14', NULL, NULL, '1 Bulan', '2025-09-07 22:00:14', '2025-09-07 22:00:29'),
-(27, 45, 17, 'QRIS82650338JOWO', 1300492.00, 'waiting_verification', '2025-09-08 06:04:10', NULL, NULL, '1 Tahun', '2025-09-07 22:04:10', '2025-09-07 22:04:23'),
-(28, 45, 25, 'QRIS8276523760F7', 100941.00, 'waiting_verification', '2025-09-08 06:06:05', NULL, NULL, '1 Bulan', '2025-09-07 22:06:05', '2025-09-07 22:06:08'),
-(29, 45, 25, 'QRIS832045636F8S', 100121.00, 'waiting_verification', '2025-09-08 06:13:24', NULL, NULL, '1 Bulan', '2025-09-07 22:13:24', '2025-09-07 22:13:34'),
-(30, 45, 25, 'QRIS86518309PEKH', 100764.00, 'rejected', '2025-09-08 07:08:38', '2025-09-08 06:48:07', '2025-09-08 06:48:14', '1 Bulan', '2025-09-07 23:08:38', '2025-09-07 23:08:41'),
-(31, 45, 25, 'QRIS87212648H4VF', 100930.00, 'waiting_verification', '2025-09-08 07:20:12', NULL, NULL, '1 Bulan', '2025-09-07 23:20:12', '2025-09-07 23:20:18');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `qris_settings`
---
-
-CREATE TABLE `qris_settings` (
-  `id` int(11) NOT NULL,
-  `expiry_hours` int(11) NOT NULL DEFAULT 1,
-  `qris_image` varchar(255) DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-
---
--- Dumping data for table `qris_settings`
---
-
-INSERT INTO `qris_settings` (`id`, `expiry_hours`, `qris_image`, `created_at`, `updated_at`) VALUES
-(1, 1, '/uploads/qris_1757273477614.jpeg', '2025-09-07 18:41:20', '2025-09-07 19:31:17');
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `SequelizeMeta`
 --
 
@@ -254,6 +136,7 @@ CREATE TABLE `SequelizeMeta` (
 --
 
 INSERT INTO `SequelizeMeta` (`name`) VALUES
+('2025-09-08-0000-create-transactions.js'),
 ('20250216100716-create-software.js'),
 ('20250216100805-create-software-version.js'),
 ('20250216100833-create-license.js'),
@@ -268,14 +151,40 @@ INSERT INTO `SequelizeMeta` (`name`) VALUES
 ('20250820095420-add-tripay-fields.js'),
 ('20250830000000-create-whatsapp-trial-settings.js'),
 ('20250906090141-update-payment-settings.js'),
-('20250907000001-create-qris-payment.js'),
-('20250907000002-create-qris-settings.js'),
-('20250907000003-create-baileys-settings.js'),
-('20250907000004-create-baileys-log.js'),
 ('202509070358-create-whatsapp-settings.js'),
 ('2025090711-create-settings-table.js'),
+('20250908000-add-transaction-id-to-subscriptions.js'),
+('20250909090821-create-setting.js'),
 ('20250920000001-create-setting.js'),
 ('20250920000002-create-subscription-order.js');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `settings`
+--
+
+CREATE TABLE `settings` (
+  `id` int(11) NOT NULL,
+  `key` varchar(255) NOT NULL,
+  `value` text DEFAULT NULL,
+  `createdAt` datetime NOT NULL DEFAULT current_timestamp(),
+  `updatedAt` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+--
+-- Dumping data for table `settings`
+--
+
+INSERT INTO `settings` (`id`, `key`, `value`, `createdAt`, `updatedAt`) VALUES
+(1, 'tripay_enabled', 'true', '2025-09-09 09:13:59', '2025-09-09 16:02:08'),
+(2, 'tripay_api_key', '5CVDH22vZjFAWySB7lIpCDRd2hXIBnycUA1tvHBa', '2025-09-09 09:13:59', '2025-09-09 22:39:46'),
+(3, 'tripay_private_key', '4PAWA-uFTIU-H6Ced-yK6Bz-f0AGl', '2025-09-09 09:13:59', '2025-09-09 22:39:54'),
+(4, 'tripay_merchant_code', 'T44798', '2025-09-09 09:13:59', '2025-09-09 15:57:21'),
+(10, 'tripay_base_url', 'https://tripay.co.id/api-sandbox', '2025-09-09 21:38:25', '2025-09-09 22:39:25'),
+(11, 'tripay_callback_url', 'https://callback.kinterstore.com/api/tripay/callback/autobot', '2025-09-09 21:38:25', '2025-09-09 22:40:12'),
+(12, 'front_return_url', 'https://kinterstore.my.id', '2025-09-09 21:38:25', '2025-09-09 21:38:25'),
+(13, 'tripay_allowed_channels', 'QRIS', '2025-09-09 21:38:25', '2025-09-09 21:38:25');
 
 -- --------------------------------------------------------
 
@@ -306,7 +215,8 @@ INSERT INTO `Software` (`id`, `user_id`, `name`, `requires_license`, `search_by_
 (30, 42, 'SmartPLS', 1, 0, '2025-08-30 12:47:44', '2025-08-30 12:47:44'),
 (31, 41, 'SmartPLS', 1, 0, '2025-08-30 12:49:02', '2025-08-30 12:49:02'),
 (33, 41, 'Nvivo', 1, 0, '2025-09-01 07:08:30', '2025-09-01 07:08:30'),
-(34, 42, 'Nvivo', 1, 0, '2025-09-01 07:10:50', '2025-09-01 07:10:50');
+(34, 42, 'Nvivo', 1, 0, '2025-09-01 07:10:50', '2025-09-01 07:10:50'),
+(35, 60, 'Www', 1, 1, '2025-09-11 15:33:02', '2025-09-11 15:33:11');
 
 -- --------------------------------------------------------
 
@@ -381,7 +291,7 @@ CREATE TABLE `SubscriptionPlans` (
   `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
   `duration_days` int(11) NOT NULL,
-  `price` decimal(10,2) NOT NULL,
+  `price` int(11) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `createdAt` datetime NOT NULL,
@@ -393,10 +303,10 @@ CREATE TABLE `SubscriptionPlans` (
 --
 
 INSERT INTO `SubscriptionPlans` (`id`, `name`, `duration_days`, `price`, `description`, `is_active`, `createdAt`, `updatedAt`) VALUES
-(16, '6 Bulan', 180, 700000.00, 'Langganan selama 6 bulan', 1, '2025-08-21 13:15:46', '2025-08-26 12:08:12'),
-(17, '1 Tahun', 365, 1300000.00, 'Langganan selama 1 tahun', 1, '2025-08-21 13:15:46', '2025-08-26 12:08:28'),
-(22, '3 Bulan', 90, 270000.00, 'Langganan selama 3 bulan', 1, '2025-09-06 09:03:04', '2025-09-06 09:03:04'),
-(25, '1 Bulan', 30, 100000.00, 'Langganan selama 1 bulan', 1, '2025-09-06 16:28:32', '2025-09-06 16:28:32');
+(16, '6 Bulan', 180, 700000, 'Langganan selama 6 bulan', 1, '2025-08-21 13:15:46', '2025-08-26 12:08:12'),
+(17, '1 Tahun', 365, 1300000, 'Langganan selama 1 tahun', 1, '2025-08-21 13:15:46', '2025-08-26 12:08:28'),
+(22, '3 Bulan', 90, 270000, 'Langganan selama 3 bulan', 1, '2025-09-06 09:03:04', '2025-09-06 09:03:04'),
+(25, '1 Bulan', 30, 1000, 'Langganan selama 1 bulan', 1, '2025-09-06 16:28:32', '2025-09-11 18:19:37');
 
 -- --------------------------------------------------------
 
@@ -415,35 +325,64 @@ CREATE TABLE `Subscriptions` (
   `createdAt` datetime NOT NULL DEFAULT current_timestamp(),
   `updatedAt` datetime NOT NULL DEFAULT current_timestamp(),
   `tripay_reference` varchar(255) DEFAULT NULL,
-  `tripay_merchant_ref` varchar(255) DEFAULT NULL
+  `tripay_merchant_ref` varchar(255) DEFAULT NULL,
+  `transaction_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 --
 -- Dumping data for table `Subscriptions`
 --
 
-INSERT INTO `Subscriptions` (`id`, `user_id`, `start_date`, `end_date`, `status`, `payment_status`, `payment_method`, `createdAt`, `updatedAt`, `tripay_reference`, `tripay_merchant_ref`) VALUES
-(17, 41, '2025-08-30 07:40:01', '2025-09-07 07:40:01', 'active', 'paid', 'manual', '2025-08-30 07:40:01', '2025-09-06 17:09:36', NULL, NULL),
-(18, 42, '2025-08-30 07:56:04', '2025-09-03 07:56:04', 'active', 'paid', 'manual', '2025-08-30 07:56:04', '2025-09-01 08:43:08', NULL, NULL),
-(19, 44, '2025-09-01 15:09:48', '2025-09-02 15:09:48', 'active', 'paid', 'manual', '2025-09-01 15:09:48', '2025-09-01 15:09:48', NULL, NULL),
-(20, 45, '2025-09-02 05:48:37', '2027-11-26 05:48:37', 'active', 'paid', 'manual', '2025-09-02 05:48:37', '2025-09-05 11:54:38', NULL, NULL);
+INSERT INTO `Subscriptions` (`id`, `user_id`, `start_date`, `end_date`, `status`, `payment_status`, `payment_method`, `createdAt`, `updatedAt`, `tripay_reference`, `tripay_merchant_ref`, `transaction_id`) VALUES
+(17, 41, '2025-08-30 07:40:01', '2025-09-07 07:40:01', 'active', 'paid', 'manual', '2025-08-30 07:40:01', '2025-09-06 17:09:36', NULL, NULL, NULL),
+(18, 42, '2025-08-30 07:56:04', '2025-09-03 07:56:04', 'active', 'paid', 'manual', '2025-08-30 07:56:04', '2025-09-01 08:43:08', NULL, NULL, NULL),
+(19, 44, '2025-09-01 15:09:48', '2025-09-02 15:09:48', 'active', 'paid', 'manual', '2025-09-01 15:09:48', '2025-09-01 15:09:48', NULL, NULL, NULL),
+(20, 45, '2025-09-02 05:48:37', '2027-11-28 05:48:37', 'active', 'paid', 'QRIS', '2025-09-02 05:48:37', '2025-09-11 15:25:37', NULL, NULL, NULL),
+(21, 59, '2025-09-11 15:31:02', '2025-11-13 15:31:02', 'active', 'paid', 'QRIS', '2025-09-11 15:31:02', '2025-09-11 18:51:24', NULL, NULL, 13);
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `subscription_plans`
+-- Table structure for table `transactions`
 --
 
-CREATE TABLE `subscription_plans` (
+CREATE TABLE `transactions` (
   `id` int(11) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `duration_days` int(11) NOT NULL,
-  `price` decimal(12,2) NOT NULL,
-  `is_active` tinyint(1) DEFAULT 1,
-  `createdAt` timestamp NULL DEFAULT current_timestamp(),
-  `updatedAt` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `reference` varchar(255) NOT NULL,
+  `merchant_ref` varchar(255) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `plan_id` int(11) NOT NULL,
+  `payment_method` varchar(255) NOT NULL,
+  `payment_name` varchar(255) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `fee` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_amount` decimal(10,2) NOT NULL,
+  `status` varchar(255) NOT NULL DEFAULT 'UNPAID',
+  `payment_code` varchar(255) DEFAULT NULL,
+  `qr_url` text DEFAULT NULL,
+  `instructions` text DEFAULT NULL,
+  `raw` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`raw`)),
+  `created_at` datetime NOT NULL,
+  `paid_at` datetime DEFAULT NULL,
+  `expired_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+--
+-- Dumping data for table `transactions`
+--
+
+INSERT INTO `transactions` (`id`, `reference`, `merchant_ref`, `user_id`, `plan_id`, `payment_method`, `payment_name`, `amount`, `fee`, `total_amount`, `status`, `payment_code`, `qr_url`, `instructions`, `raw`, `created_at`, `paid_at`, `expired_at`, `updated_at`) VALUES
+(9, 'T44798268858240FKLR', 'SUB-59-1757615030672', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'PAID', NULL, 'https://tripay.co.id/qr/T44798268858240FKLR', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 18:23:51', '1970-01-21 08:13:35', '2025-09-11 19:21:51', '2025-09-11 18:24:23'),
+(10, 'T4479826885828FGXL4', 'SUB-59-1757615084868', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'UNPAID', NULL, 'https://tripay.co.id/qr/T4479826885828FGXL4', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 18:24:45', NULL, '2025-09-11 19:22:45', '2025-09-11 18:24:45'),
+(11, 'T4479826885942YJPYF', 'SUB-59-1757616147415', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'UNPAID', NULL, 'https://tripay.co.id/qr/T4479826885942YJPYF', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 18:42:28', NULL, '2025-09-11 19:40:27', '2025-09-11 18:42:28'),
+(12, 'T44798268859605ANPQ', 'SUB-59-1757616415966', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'UNPAID', NULL, 'https://tripay.co.id/qr/T44798268859605ANPQ', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 18:46:56', NULL, '2025-09-11 19:44:56', '2025-09-11 18:46:56'),
+(13, 'T44798268859760R7VZ', 'SUB-59-1757616638543', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'PAID', NULL, 'https://tripay.co.id/qr/T44798268859760R7VZ', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 18:50:40', '1970-01-21 08:13:36', '2025-09-11 19:48:40', '2025-09-11 18:51:24'),
+(14, 'T4479826885987XV6QJ', 'SUB-59-1757616874754', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'UNPAID', NULL, 'https://tripay.co.id/qr/T4479826885987XV6QJ', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 18:54:35', NULL, '2025-09-11 19:52:35', '2025-09-11 18:54:35'),
+(15, 'T44798268859994K1XP', 'SUB-59-1757617086437', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'UNPAID', NULL, 'https://tripay.co.id/qr/T44798268859994K1XP', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 18:58:07', NULL, '2025-09-11 19:56:07', '2025-09-11 18:58:07'),
+(16, 'T4479826886006OO0FQ', 'SUB-59-1757617142627', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'UNPAID', NULL, 'https://tripay.co.id/qr/T4479826886006OO0FQ', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 18:59:03', NULL, '2025-09-11 19:57:03', '2025-09-11 18:59:03'),
+(17, 'T4479826886008SZ289', 'SUB-59-1757617202634', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'UNPAID', NULL, 'https://tripay.co.id/qr/T4479826886008SZ289', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 19:00:03', NULL, '2025-09-11 19:58:02', '2025-09-11 19:00:03'),
+(18, 'T4479826886012GY9HS', 'SUB-59-1757617240931', 59, 25, 'QRIS', 'QRIS by ShopeePay', 1000.00, 0.00, 1529.00, 'UNPAID', NULL, 'https://tripay.co.id/qr/T4479826886012GY9HS', '[{\"title\":\"Pembayaran via QRIS (ShopeePay)\",\"steps\":[\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Pindai/Scan QR Code yang tersedia\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]},{\"title\":\"Pembayaran via QRIS (Mobile)\",\"steps\":[\"Download QR Code pada invoice\",\"Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS\",\"Upload QR Code yang telah di download tadi\",\"Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai\",\"Selesaikan proses pembayaran Anda\",\"Transaksi selesai. Simpan bukti pembayaran Anda\"]}]', NULL, '2025-09-11 19:00:42', NULL, '2025-09-11 19:58:41', '2025-09-11 19:00:42');
 
 -- --------------------------------------------------------
 
@@ -477,7 +416,10 @@ INSERT INTO `Users` (`id`, `username`, `email`, `password`, `role`, `url_slug`, 
 (44, 'admin33', 'danysadewa7111111@gmail.com', '$2b$10$p5hj6TM5CZi13tDPGYDVXOnMopG9QThLziTFOqEjT7MpXRKyqprFG', 'user', 'admin33-f126170f', '2025-09-01 15:05:28', '2025-09-01 15:07:15', NULL, 0, NULL),
 (45, 'vins', 'vins@gmail.com', '$2b$10$eqUAjj11gN0QabB0dP.YwucDAGRmjfc00QsA6gtDaIV6rP42a.AYa', 'user', 'vins-d7628cb6', '2025-09-01 15:26:31', '2025-09-01 15:26:31', NULL, 0, NULL),
 (53, 'tes', 'tes@gmail.com', '$2b$10$edrBLdRERXJRf8RtH5pemeUdmAF74lhhOlj.rDFvSpNH.WawtUYnS', 'user', 'tes-e2ea8a2b', '2025-09-06 18:35:33', '2025-09-06 18:35:33', NULL, 0, NULL),
-(54, 'tripay', 'tripay@gmail.com', '$2b$10$SSxr7wupALcsObSMIuA8L.jix0Xf9iEeOHhFM4YTHyBsvOxhTI0nu', 'user', 'tripay-c1dba979', '2025-09-06 20:07:43', '2025-09-06 20:07:43', NULL, 0, NULL);
+(54, 'tripay', 'tripay@gmail.com', '$2b$10$SSxr7wupALcsObSMIuA8L.jix0Xf9iEeOHhFM4YTHyBsvOxhTI0nu', 'user', 'tripay-c1dba979', '2025-09-06 20:07:43', '2025-09-06 20:07:43', NULL, 0, NULL),
+(58, 'Qwerty123', 'qwerty@gmail.com', '$2b$10$SSBmmqJ62t1JlRfEp6VVKeo5g5eZYVR2gkzvmkwrLQHWIJTBab9d.', 'user', 'qwerty123-889a75eb', '2025-09-11 13:36:55', '2025-09-11 13:36:55', NULL, 0, NULL),
+(59, 'qq2323', '123123sha@gmail.com', '$2b$10$vihVhH3GUtADbLkmEQUf1OE4ND8nlAjVZEe7jZucw3XZKWMIVJC/q', 'user', 'qq2323-a831ab61', '2025-09-11 15:30:26', '2025-09-11 15:30:26', NULL, 0, NULL),
+(60, 'Silit123', 'salabim226@gmail.com', '$2b$10$bkGDGHC//csJczB2LwqFH.kvnBAzmCz7uK3lZ68VYfx7ObtGts3MG', 'user', 'silit123-90805ab1', '2025-09-11 15:31:44', '2025-09-11 15:31:44', NULL, 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -532,23 +474,14 @@ INSERT INTO `whatsapp_settings` (`id`, `whatsapp_number`, `trial_enabled`, `tria
 (11, '6281284712684', 1, 'Halo, saya {username} ({email}) ingin request trial dengan URL: {url_slug}', 1, '2025-09-06 21:44:28', '2025-09-06 21:44:28'),
 (12, '6281284712684', 1, 'Halo Admin, saya {username} ingin request trial.', 1, '2025-09-06 21:45:30', '2025-09-06 21:45:30'),
 (13, '6281284712684', 1, 'Halo Admin, saya {username} ingin request trial.', 1, '2025-09-06 21:45:38', '2025-09-06 21:45:38'),
-(14, '6281284712684', 1, 'Halo Admin, saya dengan username: {username} ingin request trial.', 1, '2025-09-06 21:46:04', '2025-09-06 21:46:04');
+(14, '6281284712684', 1, 'Halo Admin, saya dengan username: {username} ingin request trial.', 1, '2025-09-06 21:46:04', '2025-09-06 21:46:04'),
+(15, '6281284712685', 1, 'Halo Admin, saya dengan username: {username} ingin request trial.', 1, '2025-09-09 04:25:36', '2025-09-09 04:25:36'),
+(16, '6281284712684', 1, 'Halo Admin, saya dengan username: {username} ingin request trial.', 1, '2025-09-09 04:25:51', '2025-09-09 04:25:51'),
+(17, '6281284712684', 1, 'Halo Admin, saya dengan username: {username} butuh bantuan / ingin request trial.', 1, '2025-09-09 04:28:11', '2025-09-09 04:28:11');
 
 --
 -- Indexes for dumped tables
 --
-
---
--- Indexes for table `baileys_logs`
---
-ALTER TABLE `baileys_logs`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `baileys_settings`
---
-ALTER TABLE `baileys_settings`
-  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `Licenses`
@@ -579,26 +512,20 @@ ALTER TABLE `Orders`
   ADD KEY `user_id` (`user_id`);
 
 --
--- Indexes for table `qris_payments`
---
-ALTER TABLE `qris_payments`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `order_number` (`order_number`),
-  ADD KEY `user_id` (`user_id`),
-  ADD KEY `plan_id` (`plan_id`);
-
---
--- Indexes for table `qris_settings`
---
-ALTER TABLE `qris_settings`
-  ADD PRIMARY KEY (`id`);
-
---
 -- Indexes for table `SequelizeMeta`
 --
 ALTER TABLE `SequelizeMeta`
   ADD PRIMARY KEY (`name`),
   ADD UNIQUE KEY `name` (`name`);
+
+--
+-- Indexes for table `settings`
+--
+ALTER TABLE `settings`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `key` (`key`),
+  ADD UNIQUE KEY `key_2` (`key`),
+  ADD UNIQUE KEY `unique_setting_key` (`key`);
 
 --
 -- Indexes for table `Software`
@@ -636,13 +563,18 @@ ALTER TABLE `SubscriptionPlans`
 ALTER TABLE `Subscriptions`
   ADD PRIMARY KEY (`id`),
   ADD KEY `id` (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `Subscriptions_transaction_id_foreign_idx` (`transaction_id`);
 
 --
--- Indexes for table `subscription_plans`
+-- Indexes for table `transactions`
 --
-ALTER TABLE `subscription_plans`
-  ADD PRIMARY KEY (`id`);
+ALTER TABLE `transactions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `reference` (`reference`),
+  ADD UNIQUE KEY `uniq_transactions_reference` (`reference`),
+  ADD KEY `plan_id` (`plan_id`),
+  ADD KEY `idx_transactions_user_created` (`user_id`,`created_at`);
 
 --
 -- Indexes for table `Users`
@@ -673,18 +605,6 @@ ALTER TABLE `whatsapp_settings`
 --
 
 --
--- AUTO_INCREMENT for table `baileys_logs`
---
-ALTER TABLE `baileys_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `baileys_settings`
---
-ALTER TABLE `baileys_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
 -- AUTO_INCREMENT for table `Licenses`
 --
 ALTER TABLE `Licenses`
@@ -703,22 +623,16 @@ ALTER TABLE `Orders`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=160;
 
 --
--- AUTO_INCREMENT for table `qris_payments`
+-- AUTO_INCREMENT for table `settings`
 --
-ALTER TABLE `qris_payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
-
---
--- AUTO_INCREMENT for table `qris_settings`
---
-ALTER TABLE `qris_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+ALTER TABLE `settings`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT for table `Software`
 --
 ALTER TABLE `Software`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `SoftwareVersions`
@@ -736,25 +650,25 @@ ALTER TABLE `SubscriptionOrders`
 -- AUTO_INCREMENT for table `SubscriptionPlans`
 --
 ALTER TABLE `SubscriptionPlans`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT for table `Subscriptions`
 --
 ALTER TABLE `Subscriptions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
--- AUTO_INCREMENT for table `subscription_plans`
+-- AUTO_INCREMENT for table `transactions`
 --
-ALTER TABLE `subscription_plans`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `transactions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `Users`
 --
 ALTER TABLE `Users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
 
 --
 -- AUTO_INCREMENT for table `UserSubscriptions`
@@ -766,7 +680,7 @@ ALTER TABLE `UserSubscriptions`
 -- AUTO_INCREMENT for table `whatsapp_settings`
 --
 ALTER TABLE `whatsapp_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- Constraints for dumped tables
@@ -795,13 +709,6 @@ ALTER TABLE `Orders`
   ADD CONSTRAINT `user_id` FOREIGN KEY (`user_id`) REFERENCES `Users` (`id`);
 
 --
--- Constraints for table `qris_payments`
---
-ALTER TABLE `qris_payments`
-  ADD CONSTRAINT `qris_payments_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `Users` (`id`),
-  ADD CONSTRAINT `qris_payments_ibfk_2` FOREIGN KEY (`plan_id`) REFERENCES `SubscriptionPlans` (`id`);
-
---
 -- Constraints for table `Software`
 --
 ALTER TABLE `Software`
@@ -825,7 +732,15 @@ ALTER TABLE `SubscriptionOrders`
 -- Constraints for table `Subscriptions`
 --
 ALTER TABLE `Subscriptions`
-  ADD CONSTRAINT `Subscriptions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `Users` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `Subscriptions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `Subscriptions_transaction_id_foreign_idx` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Constraints for table `transactions`
+--
+ALTER TABLE `transactions`
+  ADD CONSTRAINT `transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `Users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `transactions_ibfk_2` FOREIGN KEY (`plan_id`) REFERENCES `SubscriptionPlans` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `UserSubscriptions`

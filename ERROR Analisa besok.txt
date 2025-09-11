@@ -1,9 +1,0 @@
-Request error (percobaan 3/3): 500 Server Error: Internal Server Error for url: https://db.kinterstore.my.id/api/orders/find
-
-analisa file saya dan perbaiki error berikut,sinkronisasi pembayaran pada halaman admin ke halaman user menggunakan api
-gunakan bahasa indonesia
-
-dan perbaiki error 
-Request error (percobaan 3/3): 500 Server Error: Internal Server Error for url: https://db.kinterstore.my.id/api/orders/find
-
-gunakan struktur yang sudah ada
