@@ -1,5 +1,3 @@
-// File: react/src/components/layouts/UserLayout.jsx
-
 import React, { useContext, useState, useEffect } from "react";
 import {
   MenuFoldOutlined,
@@ -18,12 +16,19 @@ import {
   LinkOutlined,
   WarningOutlined,
   CopyOutlined,
-  WalletOutlined
+  WalletOutlined,
+  CreditCardOutlined,
+  DollarOutlined,
+  TransactionOutlined,
+  QuestionCircleOutlined,
+  FileTextOutlined,
+  SafetyOutlined,
+  ShopOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Row, Col, message } from 'antd';
+import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Spin, Space, Dropdown, Alert, Modal, Row, Col, message, Divider } from 'antd';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
-import { ConnectionContext } from "../../context/ConnectionContext"; // Import ConnectionContext
+import { ConnectionContext } from "../../context/ConnectionContext";
 import OrderTable from "../tables/OrderTable";
 import HomeView from "../tables/HomeView";
 import ChangePass from "../../pages/ChangePass";
@@ -31,10 +36,14 @@ import SubscriptionPage from "../../pages/user/SubscriptionPage";
 import SoftwareTable from "../tables/SoftwareTable";
 import VersionTable from "../tables/VersionTable";
 import LicenseTable from "../tables/LicenseTable";
-import BackendSettings from "../../pages/user/BackendSettings"; // Impor halaman BackendSettings (buat setelah ini)
+import BackendSettings from "../../pages/user/BackendSettings";
+import PrivacyPolicy from "../../pages/info/PrivacyPolicy";
+import TermsOfService from "../../pages/info/TermsOfService";
+import HelpCenter from "../../pages/info/HelpCenter";
+import Logo from "../common/Logo";
 import axiosInstance from "../../services/axios";
 
-const { Header, Sider, Content } = Layout;
+const { Header, Sider, Content, Footer } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
 const UserLayout = () => {
@@ -42,6 +51,9 @@ const UserLayout = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingTransactions, setPendingTransactions] = useState([]);
+  const [showPendingAlert, setShowPendingAlert] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -75,6 +87,17 @@ const UserLayout = () => {
        
        const response = await axiosInstance.get(`/api/user/public/${slug}`);
        setUserProfile(response.data.user);
+       
+       // Cek transaksi yang pending
+       try {
+         const pendingTransactionsResponse = await axiosInstance.get('/api/tripay/pending-transactions');
+         const pendingTrans = pendingTransactionsResponse.data;
+         
+         setPendingTransactions(pendingTrans);
+         setShowPendingAlert(pendingTrans.length > 0);
+       } catch (err) {
+         console.error("Error fetching pending transactions:", err);
+       }
      } catch (err) {
        setError("Failed to load user profile");
      } finally {
@@ -83,7 +106,82 @@ const UserLayout = () => {
    };
    
    fetchUserProfile();
+   
+   // Set interval untuk memeriksa transaksi pending setiap 5 menit
+   const pendingTransactionsInterval = setInterval(async () => {
+     try {
+       const pendingTransactionsResponse = await axiosInstance.get('/api/tripay/pending-transactions');
+       setPendingTransactions(pendingTransactionsResponse.data);
+       setShowPendingAlert(pendingTransactionsResponse.data.length > 0);
+     } catch (err) {
+       console.error("Error checking pending transactions:", err);
+     }
+   }, 5 * 60 * 1000);
+   
+   return () => {
+     clearInterval(pendingTransactionsInterval);
+   };
  }, [token, slug, user, navigate]);
+
+  // Modal untuk menampilkan informasi bantuan cepat
+  const HelpModal = () => {
+    return (
+      <Modal 
+        title="Bantuan Cepat - Kinterstore" 
+        open={showHelpModal} 
+        onCancel={() => setShowHelpModal(false)}
+        footer={[
+          <Button key="close" onClick={() => setShowHelpModal(false)}>
+            Tutup
+          </Button>,
+          <Button 
+            key="help" 
+            type="primary" 
+            onClick={() => {
+              setShowHelpModal(false);
+              navigate(`/user/page/${slug}/help-center`);
+            }}
+          >
+            Pusat Bantuan Lengkap
+          </Button>,
+        ]}
+        width={700}
+      >
+        <Divider />
+        <Title level={4}>Cara Kerja Kinterstore</Title>
+        <Paragraph>
+          Kinterstore adalah sistem pengelolaan stok otomatis untuk Shopee. Alur kerja sistem:
+        </Paragraph>
+        <ol>
+          <li>Pembeli melakukan pembelian langganan di website Kinterstore</li>
+          <li>Penjual mendaftarkan produk, variasi produk, dan stok produk sesuai dengan toko Shopee</li>
+          <li>Ketika ada pembelian di akun Shopee Seller, aplikasi kami secara otomatis mengirimkan pesanan dalam waktu kurang dari 1 menit</li>
+          <li>Stok diperbarui secara real-time di dashboard Kinterstore</li>
+        </ol>
+        
+        <Divider />
+        <Title level={4}>Kontak Bantuan</Title>
+        <Paragraph>
+          Jika Anda membutuhkan bantuan lebih lanjut, silakan hubungi kami melalui:
+        </Paragraph>
+        <ul>
+          <li>WhatsApp: +6281284712684</li>
+          <li>Email: support@kinterstore.my.id</li>
+        </ul>
+        
+        <Button 
+          type="primary" 
+          icon={<WhatsAppOutlined />} 
+          onClick={() => {
+            window.open('https://wa.me/6281284712684?text=Halo,%20saya%20membutuhkan%20bantuan%20dengan%20Kinterstore', '_blank');
+          }}
+          style={{ marginTop: 16 }}
+        >
+          Hubungi via WhatsApp
+        </Button>
+      </Modal>
+    );
+  };
 
  if (!token) {
    return <Navigate to="/login" />;
@@ -137,8 +235,7 @@ const UserLayout = () => {
  // API URL yang dapat digunakan orang lain untuk mengakses data halaman ini
  const apiUrl = `${backendUrl || 'https://db.kinterstore.my.id'}/api/public/user/${slug}`;
 
- 
-  // Fungsi untuk membuka WhatsApp dengan pesan request trial
+ // Fungsi untuk membuka WhatsApp dengan pesan request trial
 const requestTrial = async () => {
   try {
     const hide = message.loading('Memuat pengaturan trial...', 0);
@@ -216,7 +313,9 @@ const requestTrial = async () => {
        collapsedWidth="0"
        onCollapse={(collapsed) => setCollapsed(collapsed)}
      >
-       <div className="demo-logo-vertical" />
+       {/* Logo Kinterstore */}
+       <Logo collapsed={collapsed} />
+       
        <div style={{ color: "white", padding: "16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
          <UserOutlined style={{ fontSize: 24 }} />
          {!collapsed && (
@@ -251,13 +350,22 @@ const requestTrial = async () => {
          }}
          items={[
            { key: `/user/page/${slug}`, icon: <HomeOutlined />, label: "Beranda" },
-           { key: `/user/page/${slug}/subscription`, icon: <ShoppingOutlined />, label: "Langganan" },
-
-           { key: `/user/page/${slug}/orders`, icon: <VideoCameraOutlined />, label: "Pesanan" },
+           { 
+            key: `/user/page/${slug}/subscription`, 
+            icon: <WalletOutlined />, 
+            label: "Langganan"
+           },
+           { key: `/user/page/${slug}/orders`, icon: <ShoppingOutlined />, label: "Pesanan" },
            { key: `/user/page/${slug}/software`, icon: <AppstoreOutlined />, label: "Produk" },
            { key: `/user/page/${slug}/version`, icon: <ApartmentOutlined />, label: "Variasi Produk" },
            { key: `/user/page/${slug}/license`, icon: <KeyOutlined />, label: "Stok" },
+        
            { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
+           { type: 'divider' },
+           { key: `/user/page/${slug}/help-center`, icon: <QuestionCircleOutlined />, label: "Pusat Bantuan" },
+           { key: `/user/page/${slug}/privacy-policy`, icon: <FileTextOutlined />, label: "Kebijakan Privasi" },
+           { key: `/user/page/${slug}/terms-of-service`, icon: <SafetyOutlined />, label: "Ketentuan Layanan" },
+           { type: 'divider' },
            { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
          ]}
        />
@@ -294,33 +402,71 @@ const requestTrial = async () => {
          </div>
          
          {/* Dropdown untuk Request Trial dan Logout */}
-         <Dropdown
-           menu={{
-             items: [
-               {
-                 key: '1',
-                 label: 'Request Trial',
-                 icon: <WhatsAppOutlined />,
-                 onClick: requestTrial
-               },
-               {
-                 key: '3',
-                 label: 'Keluar',
-                 icon: <LogoutOutlined />,
-                 danger: true,
-                 onClick: logout
-               }
-             ]
-           }}
-         >
-           <Button type="primary">
-             <Space>
-               Akun
-               <DownOutlined />
-             </Space>
+         <Space>
+           <Button 
+             icon={<QuestionCircleOutlined />} 
+             onClick={() => setShowHelpModal(true)}
+           >
+             Bantuan
            </Button>
-         </Dropdown>
+           
+           {pendingTransactions.length > 0 && (
+             <Badge count={pendingTransactions.length}>
+               <Button 
+                 icon={<DollarOutlined />} 
+                 onClick={() => navigate(`/user/page/${slug}/subscription`)}
+               >
+                 Pembayaran Tertunda
+               </Button>
+             </Badge>
+           )}
+           
+           <Dropdown
+             menu={{
+               items: [
+                 {
+                   key: '1',
+                   label: 'Request Trial',
+                   icon: <WhatsAppOutlined />,
+                   onClick: requestTrial
+                 },
+                 {
+                   key: '3',
+                   label: 'Keluar',
+                   icon: <LogoutOutlined />,
+                   danger: true,
+                   onClick: logout
+                 }
+               ]
+             }}
+           >
+             <Button type="primary">
+               <Space>
+                 Akun
+                 <DownOutlined />
+               </Space>
+             </Button>
+           </Dropdown>
+         </Space>
        </Header>
+       
+       {/* Peringatan Transaksi Tertunda */}
+       {showPendingAlert && pendingTransactions.length > 0 && (
+         <Alert
+           message={`Anda memiliki ${pendingTransactions.length} transaksi pembayaran tertunda`}
+           description="Silakan selesaikan pembayaran untuk mengaktifkan langganan Anda."
+           type="warning"
+           showIcon
+           action={
+             <Button size="small" type="primary" onClick={() => navigate(`/user/page/${slug}/subscription`)}>
+               Lihat Detail
+             </Button>
+           }
+           closable
+           onClose={() => setShowPendingAlert(false)}
+           style={{ margin: "8px 16px 0" }}
+         />
+       )}
        
        {/* Connection Status & API URL Banner */}
        <div style={{ 
@@ -392,10 +538,45 @@ const requestTrial = async () => {
            <Route path="/software" element={<SoftwareTable />} />
            <Route path="/version" element={<VersionTable />} />
            <Route path="/license" element={<LicenseTable />} />
-           <Route path="/backend-settings" element={<BackendSettings />} /> {/* Tambahkan rute ini */}
+           <Route path="/backend-settings" element={<BackendSettings />} />
+           
            <Route path="/change-password" element={<ChangePass />} />
+           <Route path="/help-center" element={<HelpCenter />} />
+           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+           <Route path="/terms-of-service" element={<TermsOfService />} />
          </Routes>
        </Content>
+       
+       <Footer style={{ textAlign: 'center' }}>
+         <div>
+           <strong>Kinterstore</strong> - Sistem Pengiriman Produk Otomatis untuk Shopee © 2025
+         </div>
+         <div style={{ marginTop: 8 }}>
+           <Space>
+             <Button 
+               type="link" 
+               onClick={() => navigate(`/user/page/${slug}/privacy-policy`)}
+             >
+               Kebijakan Privasi
+             </Button>
+             <Button 
+               type="link" 
+               onClick={() => navigate(`/user/page/${slug}/terms-of-service`)}
+             >
+               Ketentuan Layanan
+             </Button>
+             <Button 
+               type="link" 
+               onClick={() => navigate(`/user/page/${slug}/help-center`)}
+             >
+               Pusat Bantuan
+             </Button>
+           </Space>
+         </div>
+       </Footer>
+       
+       {/* Modal Bantuan */}
+       <HelpModal />
      </Layout>
    </Layout>
  );

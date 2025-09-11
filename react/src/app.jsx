@@ -8,14 +8,15 @@ import { ConnectionProvider } from "./context/ConnectionContext"; // Import Conn
 import MainLayout from "./components/layouts/MainLayout";
 import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
-import SubscriptionPage from "./pages/user/SubscriptionPage";
 import ProtectedRoute from "./components/layouts/ProtectedRoute";
 import ConnectionSettings from "./pages/ConnectionSettings"; // Halaman untuk pengaturan koneksi
 import { useContext, useEffect } from "react";
 import OrderSearch from './components/OrderSearch';
 import React from "react";
 import { detectDomainAndGenerateBackendUrl } from "./utils/domainUtils";
-import ErrorBoundary from './components/ErrorBoundary';
+import HelpCenter from "./pages/info/HelpCenter";
+import PrivacyPolicy from "./pages/info/PrivacyPolicy";
+import TermsOfService from "./pages/info/TermsOfService";
 
 // Komponen pengalihan beranda
 const HomeRedirect = () => {
@@ -106,7 +107,6 @@ const App = () => {
   return (
     <AuthProvider>
       <ConnectionProvider> {/* Tambahkan ConnectionProvider */}
-        <ErrorBoundary>
         <Router>
           <Routes>
             {/* Rute publik */}
@@ -119,6 +119,10 @@ const App = () => {
             
             {/* Rute pengguna */}
             <Route path="/user/page/:slug/*" element={<UserLayout />} />
+            <Route path="help-center" element={<HelpCenter />} />
+            <Route path="privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="terms-of-service" element={<TermsOfService />} />
+            
             
             {/* Rute admin */}
             <Route path="/admin/*" element={<AdminLayout />} />
@@ -132,9 +136,10 @@ const App = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
 
             <Route path="/user/page/:slug/orders/search" element={<OrderSearch />} />
+
+
           </Routes>
         </Router>
-        </ErrorBoundary>
       </ConnectionProvider>
     </AuthProvider>
   );

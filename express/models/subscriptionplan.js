@@ -4,7 +4,11 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class SubscriptionPlan extends Model {
     static associate(models) {
-      // define association here
+      // Association ke Transaction
+      this.hasMany(models.Transaction, {
+        foreignKey: 'plan_id',
+        as: 'transactions'
+      });
     }
   }
 
@@ -19,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       price: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       description: {
@@ -35,6 +39,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       sequelize,
       modelName: "SubscriptionPlan",
+      tableName: "SubscriptionPlans", // PENTING: Sesuai database schema
       timestamps: true,
     }
   );

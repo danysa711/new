@@ -6,7 +6,7 @@ import {
 } from 'antd';
 import { 
   PlusOutlined, CalendarOutlined, UserOutlined,
-  ClockCircleOutlined, EditOutlined
+  ClockCircleOutlined, EditOutlined, SearchOutlined
 } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
@@ -32,6 +32,9 @@ const SubscriptionManagement = () => {
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [form] = Form.useForm();
   const [extendForm] = Form.useForm();
+  
+  // State untuk pencarian
+  const [searchInput, setSearchInput] = useState('');
 
   const fetchData = async () => {
     try {
@@ -181,21 +184,44 @@ const SubscriptionManagement = () => {
 
  const columns = [
    {
-     title: 'User',
+     title: (
+       <div style={{ display: 'flex', alignItems: 'center' }}>
+         <span style={{ marginRight: 8 }}>User</span>
+         <Input
+           placeholder="Cari username"
+           value={searchInput}
+           onChange={e => setSearchInput(e.target.value)}
+           style={{ width: 150 }}
+           allowClear
+           prefix={<SearchOutlined />}
+         />
+       </div>
+     ),
      dataIndex: 'User',
      key: 'user',
-     render: (user) => (
-       <>
-         <div><strong>{user.username}</strong></div>
-         <div>{user.email}</div>
-         <div>
-           <a href={`/user/page/${user.url_slug}`} target="_blank" rel="noopener noreferrer">
-             {user.url_slug}
-           </a>
-         </div>
-       </>
-     ),
-     sorter: (a, b) => a.User.username.localeCompare(b.User.username),
+     render: (user) => {
+       if (!user) {
+         return <div>User tidak ditemukan</div>;
+       }
+       
+       return (
+         <>
+           <div><strong>{user.username || 'N/A'}</strong></div>
+           <div>{user.email || 'N/A'}</div>
+           <div>
+             {user.url_slug ? (
+               <a href={`/user/page/${user.url_slug}`} target="_blank" rel="noopener noreferrer">
+                 {user.url_slug}
+               </a>
+             ) : 'N/A'}
+           </div>
+         </>
+       );
+     },
+     sorter: (a, b) => {
+       if (!a.User || !b.User) return 0;
+       return a.User.username?.localeCompare(b.User.username) || 0;
+     },
    },
    {
      title: 'Start Date',
@@ -320,6 +346,14 @@ const SubscriptionManagement = () => {
    },
  ];
 
+ // Filter data berdasarkan pencarian
+ const filteredSubscriptions = subscriptions.filter(sub => {
+   if (!searchInput) return true;
+   if (!sub.User) return false;
+   return sub.User.username?.toLowerCase().includes(searchInput.toLowerCase()) ||
+          sub.User.email?.toLowerCase().includes(searchInput.toLowerCase());
+ });
+
  return (
    <div>
      <Title level={3}>Subscription Management</Title>
@@ -373,7 +407,7 @@ const SubscriptionManagement = () => {
        }
      >
        <Table 
-         dataSource={subscriptions} 
+         dataSource={filteredSubscriptions} 
          columns={columns} 
          rowKey="id" 
          loading={loading}
@@ -475,7 +509,7 @@ const SubscriptionManagement = () => {
      >
        {selectedSubscription && (
          <div style={{ marginBottom: 16 }}>
-           <p><strong>User:</strong> {selectedSubscription.User.username}</p>
+           <p><strong>User:</strong> {selectedSubscription.User?.username || 'User tidak ditemukan'}</p>
            <p><strong>Current End Date:</strong> {formatDate(selectedSubscription.end_date)}</p>
          </div>
        )}

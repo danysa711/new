@@ -12,7 +12,8 @@ import {
   ShoppingOutlined,
   WhatsAppOutlined,
   WalletOutlined,
-  QrcodeOutlined
+  DollarOutlined,
+  TransactionOutlined
 } from "@ant-design/icons";
 import { Button, Layout, Menu, theme, Typography } from "antd";
 import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
@@ -22,8 +23,10 @@ import ChangePass from "../../pages/ChangePass";
 import UserManagement from "../../pages/admin/UserManagement";
 import SubscriptionManagement from "../../pages/admin/SubscriptionManagement";
 import SubscriptionPlans from "../../pages/admin/SubscriptionPlans";
-import WhatsappBaileys from "../../pages/admin/WhatsappBaileys";
-import QrisPayment from "../../pages/admin/QrisPayment";
+import WhatsAppSettings from "../../pages/admin/WhatsAppSettings";
+// Import komponen baru untuk Tripay
+import TripaySettings from "../../pages/admin/TripaySettings";
+import TripayTransactions from "../../pages/admin/TripayTransactions";
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -84,10 +87,17 @@ const AdminLayout = () => {
                 { key: "/admin/subscription-plans", label: "Paket Langganan" },
               ]
             },
-            // Menu pembayaran QRIS
-            { key: "/admin/qris-payment", icon: <QrcodeOutlined />, label: "Verifikasi QRIS" },
-            // Menu WhatsApp Baileys
-            { key: "/admin/whatsapp-baileys", icon: <WhatsAppOutlined />, label: "WhatsApp Baileys" },
+            // Menu Tripay baru dengan sub-menu
+            {
+              key: "payment-menu",
+              icon: <WalletOutlined />,
+              label: "Pembayaran",
+              children: [
+                { key: "/admin/tripay-settings", icon: <SettingOutlined />, label: "Pengaturan Tripay" },
+                { key: "/admin/tripay-transactions", icon: <TransactionOutlined />, label: "Transaksi Tripay" },
+              ]
+            },
+            { key: "/admin/whatsapp-settings", icon: <WhatsAppOutlined />, label: "WhatsApp Settings" },
             { key: "/admin/change-password", icon: <SettingOutlined />, label: "Ganti Password" },
             { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
           ]}
@@ -141,8 +151,10 @@ const AdminLayout = () => {
             <Route path="/users" element={<UserManagement />} />
             <Route path="/subscriptions" element={<SubscriptionManagement />} />
             <Route path="/subscription-plans" element={<SubscriptionPlans />} />
-            <Route path="/whatsapp-baileys" element={<WhatsappBaileys />} />
-            <Route path="/qris-payment" element={<QrisPayment />} />
+            <Route path="/whatsapp-settings" element={<WhatsAppSettings />} />
+            {/* Rute baru untuk Tripay */}
+            <Route path="/tripay-settings" element={<TripaySettings />} />
+            <Route path="/tripay-transactions" element={<TripayTransactions />} />
             <Route path="/change-password" element={<ChangePass />} />
           </Routes>
         </Content>

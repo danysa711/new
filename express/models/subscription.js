@@ -4,7 +4,21 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class Subscription extends Model {
     static associate(models) {
-      this.belongsTo(models.User, { foreignKey: "user_id" });
+      // Association ke User - perbaikan penggunaan as dan onDelete/onUpdate
+      this.belongsTo(models.User, { 
+        foreignKey: "user_id",
+        as: "user",
+        onDelete: 'SET NULL',  // Jika user dihapus, tetap pertahankan langganan tapi set user_id ke NULL
+        onUpdate: 'CASCADE'    // Jika user ID berubah, update juga di subscription
+      });
+      
+      // Association ke Transaction
+      this.belongsTo(models.Transaction, {
+        foreignKey: "transaction_id",
+        as: "transaction",
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE'
+      });
     }
   }
 
@@ -12,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       user_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,  // Ubah menjadi allowNull:true agar bisa handle kasus user dihapus
         references: {
           model: "Users",
           key: "id",
@@ -49,10 +63,19 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
+      transaction_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+          model: "transactions",
+          key: "id",
+        },
+      },
     },
     {
       sequelize,
       modelName: "Subscription",
+      tableName: "Subscriptions", 
       timestamps: true,
     }
   );

@@ -15,6 +15,7 @@ export default defineConfig(({ command, mode }) => {
         "kinterstore.com",
         "www.kinterstore.com",
         "db.kinterstore.com",
+        "bot.kinterstore.com",
         "www.kinterstore.my.id",
         "kinterstore.my.id",
         "db.kinterstore.my.id",

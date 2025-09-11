@@ -27,7 +27,6 @@ const getBackendUrl = () => {
 
 // Buat instance axios dengan baseURL yang dinamis
 const axiosInstance = axios.create({
-  baseURL: 'https://db.kinterstore.my.id',
   timeout: 90000,
   headers: {
     "Content-Type": "application/json",
@@ -58,9 +57,25 @@ const getStoredRefreshToken = () => {
   return remember ? localStorage.getItem("refreshToken") : sessionStorage.getItem("refreshToken");
 };
 
+axiosInstance.interceptors.request.use(
+  function (config) {
+    // Jika ada permintaan ke endpoint pembelian langganan, redirect ke endpoint demo
+    if (config.url === '/api/subscriptions/purchase') {
+      console.log('Mengarahkan permintaan ke endpoint demo');
+      config.url = '/api/subscriptions/purchase-demo';
+    }
+    return config;
+  },
+  function (error) {
+    return Promise.reject(error);
+  }
+);
+
 // Tambahkan token dan baseURL ke setiap request
 axiosInstance.interceptors.request.use(
   (config) => {
+
+
     // Set baseURL dinamis untuk setiap request
     config.baseURL = getBackendUrl();
     

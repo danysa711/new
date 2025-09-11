@@ -3,10 +3,19 @@
 const jwt = require("jsonwebtoken");
 const { User, Subscription, db } = require("../models");
 
+const publicTripayEndpoints = [
+  '/api/tripay/callback',
+  '/api/settings/tripay-status',
+  '/api/settings/whatsapp-public'
+];
+
 const authenticateUser = async (req, res, next) => {
-  // PENTING: Tidak memerlukan autentikasi untuk endpoint login dan register
-  if (req.originalUrl === '/api/login' || req.originalUrl === '/api/register') {
-    console.log("Allowing access to authentication endpoint without token");
+  // PENTING: Tidak memerlukan autentikasi untuk endpoint publik
+  if (req.originalUrl === '/api/login' || 
+      req.originalUrl === '/api/register' || 
+      req.originalUrl === '/api/test' ||
+      publicTripayEndpoints.includes(req.originalUrl)) {
+    console.log("Allowing access to public endpoint without token:", req.originalUrl);
     return next();
   }
 

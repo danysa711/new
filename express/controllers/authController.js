@@ -387,6 +387,8 @@ const getPublicUserProfile = async (req, res) => {
       attributes: ['id', 'username', 'url_slug', 'createdAt'],
       include: [{
         model: Subscription,
+        attributes: ['id', 'user_id', 'start_date', 'end_date', 'status', 
+                   'payment_status', 'payment_method', 'createdAt', 'updatedAt'],
         where: {
           status: 'active',
           end_date: {

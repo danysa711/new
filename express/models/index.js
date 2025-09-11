@@ -5,10 +5,6 @@ const sequelize = require("../config/database");
 const { Sequelize } = require("sequelize");
 const Setting = require('./setting')(sequelize, Sequelize.DataTypes);
 const WhatsAppSetting = require('./WhatsAppSetting')(sequelize, Sequelize.DataTypes);
-const BaileysSettings = require('./BaileysSettings')(sequelize, Sequelize.DataTypes);
-const BaileysLog = require('./BaileysLog')(sequelize, Sequelize.DataTypes);
-const QrisPayment = require('./QrisPayment')(sequelize, Sequelize.DataTypes);
-const QrisSettings = require('./QrisSettings')(sequelize, Sequelize.DataTypes);
 
 
 const User = sequelize.define(
@@ -65,6 +61,14 @@ const Subscription = sequelize.define(
       allowNull: false,
       references: {
         model: "Users",
+        key: "id",
+      },
+    },
+      transaction_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "Transactions",
         key: "id",
       },
     },
@@ -262,6 +266,101 @@ const WhatsAppTrialSettings = sequelize.define(
   }
 );
 
+const Transaction = sequelize.define(
+  "Transaction",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    reference: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    merchant_ref: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: "Users",
+        key: "id",
+      },
+    },
+    plan_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: "SubscriptionPlans",
+        key: "id",
+      },
+    },
+    payment_method: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    payment_name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    amount: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+    },
+    fee: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    total_amount: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'UNPAID',
+    },
+    payment_code: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    qr_url: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    instructions: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    paid_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    expired_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+  },
+  {
+    tableName: 'transactions',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  }
+);
+
+
+
 const db = {
   sequelize,
   Sequelize,
@@ -276,10 +375,7 @@ const db = {
   WhatsAppTrialSettings,
   Setting,
   WhatsAppSetting,
-  BaileysSettings,
-  BaileysLog,
-  QrisPayment,
-  QrisSettings
+  Transaction
 };
 
 Object.keys(db).forEach((modelName) => {
@@ -319,4 +415,13 @@ License.belongsTo(User, { foreignKey: "user_id" });
 User.hasMany(Order, { foreignKey: "user_id" });
 Order.belongsTo(User, { foreignKey: "user_id" });
 
-module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, WhatsAppTrialSettings, Setting, WhatsAppSetting, db };
+User.hasMany(Transaction, { foreignKey: "user_id" });
+Transaction.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+SubscriptionPlan.hasMany(Transaction, { foreignKey: "plan_id" });
+Transaction.belongsTo(SubscriptionPlan, { foreignKey: "plan_id", as: "plan" });
+
+Subscription.belongsTo(Transaction, { foreignKey: "transaction_id", as: "transaction" });
+Transaction.hasOne(Subscription, { foreignKey: "transaction_id", as: "subscription" });
+
+module.exports = { User, Software, SoftwareVersion, License, Order, OrderLicense, Subscription, SubscriptionPlan, WhatsAppTrialSettings, Setting, WhatsAppSetting, Transaction, db };
