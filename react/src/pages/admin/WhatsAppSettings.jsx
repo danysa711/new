@@ -124,65 +124,72 @@ const WhatsAppSettings = () => {
 
   // Save settings to database
   const saveSettings = async () => {
-    try {
-      setLoading(true);
-      
-      // Basic validation
-      if (!whatsappNumber) {
-        message.error('Nomor WhatsApp harus diisi');
-        setLoading(false);
-        return;
-      }
-      
-      // Format nomor WhatsApp
-      const whatsappRegex = /^[0-9+]{8,15}$/;
-      if (!whatsappRegex.test(whatsappNumber)) {
-        message.error('Format nomor WhatsApp tidak valid');
-        setLoading(false);
-        return;
-      }
-      
-      // Save to database
-      const settingsData = {
-        whatsappNumber,
-        trialEnabled,
-        messageTemplate
-      };
-      
-      console.log('Sending data to server:', settingsData);
-      
-      try {
-        const response = await axiosInstance.post('/api/settings/whatsapp', settingsData);
-        console.log('Server response:', response.data);
-        
-        // Save also to localStorage as backup
-        localStorage.setItem('whatsapp_number', whatsappNumber);
-        localStorage.setItem('whatsapp_trial_enabled', trialEnabled.toString());
-        localStorage.setItem('whatsapp_trial_template', messageTemplate);
-        
-        message.success('Pengaturan WhatsApp berhasil disimpan');
-        
-        // Re-fetch settings to verify they were saved
-        setTimeout(() => {
-          fetchSettings();
-        }, 1000);
-      } catch (apiError) {
-        console.error('Error saving to API:', apiError);
-        
-        // Save to localStorage if API fails
-        localStorage.setItem('whatsapp_number', whatsappNumber);
-        localStorage.setItem('whatsapp_trial_enabled', trialEnabled.toString());
-        localStorage.setItem('whatsapp_trial_template', messageTemplate);
-        
-        message.warning('Gagal menyimpan ke server. Pengaturan disimpan secara lokal saja.');
-      }
-    } catch (error) {
-      console.error('Error in saveSettings:', error);
-      message.error('Terjadi kesalahan saat menyimpan pengaturan');
-    } finally {
+  try {
+    setLoading(true);
+    
+    // Basic validation
+    if (!whatsappNumber) {
+      message.error('Nomor WhatsApp harus diisi');
       setLoading(false);
+      return;
     }
-  };
+    
+    // Format nomor WhatsApp
+    const whatsappRegex = /^[0-9+]{8,15}$/;
+    if (!whatsappRegex.test(whatsappNumber)) {
+      message.error('Format nomor WhatsApp tidak valid');
+      setLoading(false);
+      return;
+    }
+    
+    // Save to database
+    const settingsData = {
+      whatsappNumber,
+      trialEnabled,
+      messageTemplate
+    };
+    
+    console.log('Sending data to server:', settingsData);
+    
+    try {
+      const response = await axiosInstance.post('/api/settings/whatsapp', settingsData);
+      console.log('Server response:', response.data);
+      
+      // Save also to localStorage as backup
+      localStorage.setItem('whatsapp_number', whatsappNumber);
+      localStorage.setItem('whatsapp_trial_enabled', trialEnabled.toString());
+      localStorage.setItem('whatsapp_trial_template', messageTemplate);
+      
+      message.success('Pengaturan WhatsApp berhasil disimpan');
+      
+      // Pastikan endpoint publik juga terupdate
+      try {
+        await axiosInstance.get('/api/settings/whatsapp-public');
+      } catch (e) {
+        console.warn('Gagal memuat ulang pengaturan publik:', e);
+      }
+      
+      // Re-fetch settings to verify they were saved
+      setTimeout(() => {
+        fetchSettings();
+      }, 1000);
+    } catch (apiError) {
+      console.error('Error saving to API:', apiError);
+      
+      // Save to localStorage if API fails
+      localStorage.setItem('whatsapp_number', whatsappNumber);
+      localStorage.setItem('whatsapp_trial_enabled', trialEnabled.toString());
+      localStorage.setItem('whatsapp_trial_template', messageTemplate);
+      
+      message.warning('Gagal menyimpan ke server. Pengaturan disimpan secara lokal saja.');
+    }
+  } catch (error) {
+    console.error('Error in saveSettings:', error);
+    message.error('Terjadi kesalahan saat menyimpan pengaturan');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Test WhatsApp Support
   const testWhatsAppSupport = () => {

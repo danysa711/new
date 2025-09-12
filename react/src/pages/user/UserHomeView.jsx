@@ -3,10 +3,10 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { useState, useEffect, useContext } from 'react';
 import axiosInstance from '../../services/axios';
 import { AuthContext } from '../../context/AuthContext';
-import UserApiInfo from '../../components/UserApiInfo';
+// Removed the UserApiInfo import since we're not using it anymore
 
 const { Option } = Select;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const UserHomeView = () => {
   const [data, setData] = useState({
@@ -14,6 +14,7 @@ const UserHomeView = () => {
     totalSoftwareVersions: 0,
     totalLicenses: 0,
     usedLicenses: 0,
+    availableLicenses: 0,
     totalOrders: 0,
     softwareUsage: [],
   });
@@ -33,59 +34,63 @@ const UserHomeView = () => {
   };
 
   const fetchData = async () => {
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    const { startDate, endDate } = calculateDateRange(Number(timeRange));
-    const requestBody = { startDate, endDate, user_id: user.id };
+    try {
+      const { startDate, endDate } = calculateDateRange(Number(timeRange));
+      const requestBody = { startDate, endDate, user_id: user.id };
 
-    // Menggunakan user_id sebagai filter untuk mendapatkan data khusus user
-    const softwareResponse = await axiosInstance.post("/api/software/count", requestBody);
-    const versionsResponse = await axiosInstance.post("/api/software-versions/count", requestBody);
-    const licensesResponse = await axiosInstance.post("/api/licenses/count", requestBody);
-    const availableLicensesResponse = await axiosInstance.post("/api/licenses/available/all/count", requestBody);
-    const ordersResponse = await axiosInstance.post("/api/orders/count", requestBody);
-    const usageResponse = await axiosInstance.post("/api/orders/usage", requestBody);
+      // Gunakan API untuk mendapatkan data khusus pengguna
+      const [
+        softwareResponse,
+        versionsResponse,
+        licensesResponse,
+        availableLicensesResponse,
+        ordersResponse,
+        usageResponse
+      ] = await Promise.all([
+        axiosInstance.post("/api/software/count", requestBody),
+        axiosInstance.post("/api/software-versions/count", requestBody),
+        axiosInstance.post("/api/licenses/count", requestBody),
+        axiosInstance.post("/api/licenses/available/all/count", requestBody),
+        axiosInstance.post("/api/orders/count", requestBody),
+        axiosInstance.post("/api/orders/usage", requestBody)
+      ]);
 
-    // Perhitungan stok yang benar:
-    // - totalLicenses adalah total keseluruhan stok
-    // - availableLicensesResponse.data.availableLicenses adalah jumlah stok yang tersedia (belum digunakan)
-    // - Jadi stok terpakai = totalLicenses - availableLicenses
-    const totalLicenses = licensesResponse.data.totalLicenses || 0;
-    const availableLicenses = availableLicensesResponse.data.availableLicenses || 0;
-    const usedLicenses = totalLicenses - availableLicenses;
+      // Hitung stok yang tersedia dan terpakai dengan benar
+      const totalLicenses = licensesResponse.data.totalLicenses || 0;
+      const availableLicenses = availableLicensesResponse.data.availableLicenses || 0;
+      const usedLicenses = totalLicenses - availableLicenses;
 
-    setData({
-      totalSoftware: softwareResponse.data.totalSoftware || 0,
-      totalSoftwareVersions: versionsResponse.data.totalSoftwareVersions || 0,
-      totalLicenses: totalLicenses,
-      availableLicenses: availableLicenses,
-      usedLicenses: usedLicenses, // Nilai terpakai yang benar
-      totalOrders: ordersResponse.data.totalOrders || 0,
-      softwareUsage: usageResponse.data || [],
-    });
+      setData({
+        totalSoftware: softwareResponse.data.totalSoftware || 0,
+        totalSoftwareVersions: versionsResponse.data.totalSoftwareVersions || 0,
+        totalLicenses: totalLicenses,
+        availableLicenses: availableLicenses,
+        usedLicenses: usedLicenses,
+        totalOrders: ordersResponse.data.totalOrders || 0,
+        softwareUsage: usageResponse.data || [],
+      });
 
-  } catch (error) {
-    console.error("Error fetching data:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      console.error("Error saat mengambil data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   useEffect(() => {
     fetchData();
   }, [timeRange, user.id]);
 
+  // Data untuk chart distribusi stok
   const licenseData = [
-  { name: 'Terpakai', value: data.usedLicenses },
-  { name: 'Tersedia', value: data.totalLicenses - data.usedLicenses },
-];
-
-  const COLORS = ['#0088FE', '#00C49F'];
+    { name: 'Terpakai', value: data.usedLicenses, fill: '#FF8042' },
+    { name: 'Tersedia', value: data.availableLicenses, fill: '#00C49F' },
+  ];
 
   return (
     <div style={{ padding: 20 }}>
-      <Title level={2}>Dashboard</Title>
 
       <Row justify="end" style={{ marginBottom: 20 }}>
         <Select value={timeRange} onChange={setTimeRange} style={{ width: 150 }}>
@@ -95,11 +100,7 @@ const UserHomeView = () => {
         </Select>
       </Row>
 
-       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col span={24}>
-          <UserApiInfo user={user} />
-        </Col>
-      </Row>
+      {/* Removed the API Information section */}
 
       <Row gutter={[16, 16]}>
         <Col span={6}>
@@ -127,32 +128,73 @@ const UserHomeView = () => {
       <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
         <Col span={12}>
           <Card title="Distribusi Stok">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={licenseData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  {licenseData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => [value, 'Jumlah']} />
-              </PieChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+                <Spin />
+              </div>
+            ) : (
+              <>
+                <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                  <Col span={12}>
+                    <Statistic 
+                      title="Stok Tersedia" 
+                      value={data.availableLicenses} 
+                      valueStyle={{ color: '#00C49F' }}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic 
+                      title="Stok Terpakai" 
+                      value={data.usedLicenses} 
+                      valueStyle={{ color: '#FF8042' }}
+                    />
+                  </Col>
+                </Row>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={licenseData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {licenseData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`${value} stok`, 'Jumlah']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </>
+            )}
           </Card>
         </Col>
 
         <Col span={12}>
-          <Card title="Produk Terlaris">
+          <Card title="Produk Terlaris Anda">
             {loading ? (
-              <Spin />
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+                <Spin />
+              </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.softwareUsage}>
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" name="Jumlah Terjual" fill="#8884d8" barSize={50} />
-                </BarChart>
-              </ResponsiveContainer>
+              data.softwareUsage && data.softwareUsage.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={data.softwareUsage}>
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`${value} terjual`, 'Jumlah']} />
+                    <Bar dataKey="count" name="Jumlah Terjual" fill="#8884d8" barSize={50} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                  <Text>Belum ada data penjualan produk</Text>
+                </div>
+              )
             )}
           </Card>
         </Col>
