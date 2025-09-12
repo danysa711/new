@@ -52,7 +52,7 @@ const UserLayout = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pendingTransactions, setPendingTransactions] = useState([]);
-  const [showPendingAlert, setShowPendingAlert] = useState(false);
+  const [showPendingAlert, setShowPendingAlert] = useState(false); // Selalu false untuk menyembunyikan alert
   const [showHelpModal, setShowHelpModal] = useState(false);
   
   const navigate = useNavigate();
@@ -94,7 +94,7 @@ const UserLayout = () => {
          const pendingTrans = pendingTransactionsResponse.data;
          
          setPendingTransactions(pendingTrans);
-         setShowPendingAlert(pendingTrans.length > 0);
+         setShowPendingAlert(false); // Selalu sembunyikan alert terlepas dari jumlah transaksi pending
        } catch (err) {
          console.error("Error fetching pending transactions:", err);
        }
@@ -112,7 +112,7 @@ const UserLayout = () => {
      try {
        const pendingTransactionsResponse = await axiosInstance.get('/api/tripay/pending-transactions');
        setPendingTransactions(pendingTransactionsResponse.data);
-       setShowPendingAlert(pendingTransactionsResponse.data.length > 0);
+       setShowPendingAlert(false); // Selalu false meskipun ada transaksi pending
      } catch (err) {
        console.error("Error checking pending transactions:", err);
      }
@@ -148,25 +148,12 @@ const UserLayout = () => {
         width={700}
       >
         <Divider />
-        <Title level={4}>Cara Kerja Kinterstore</Title>
-        <Paragraph>
-          Kinterstore adalah sistem pengelolaan stok otomatis untuk Shopee. Alur kerja sistem:
-        </Paragraph>
-        <ol>
-          <li>Pembeli melakukan pembelian langganan di website Kinterstore</li>
-          <li>Penjual mendaftarkan produk, variasi produk, dan stok produk sesuai dengan toko Shopee</li>
-          <li>Ketika ada pembelian di akun Shopee Seller, aplikasi kami secara otomatis mengirimkan pesanan dalam waktu kurang dari 1 menit</li>
-          <li>Stok diperbarui secara real-time di dashboard Kinterstore</li>
-        </ol>
-        
-        <Divider />
         <Title level={4}>Kontak Bantuan</Title>
         <Paragraph>
           Jika Anda membutuhkan bantuan lebih lanjut, silakan hubungi kami melalui:
         </Paragraph>
         <ul>
           <li>WhatsApp: +6281284712684</li>
-          <li>Email: support@kinterstore.my.id</li>
         </ul>
         
         <Button 
@@ -362,10 +349,6 @@ const requestTrial = async () => {
         
            { key: `/user/page/${slug}/change-password`, icon: <SettingOutlined />, label: "Ganti Password" },
            { type: 'divider' },
-           { key: `/user/page/${slug}/help-center`, icon: <QuestionCircleOutlined />, label: "Pusat Bantuan" },
-           { key: `/user/page/${slug}/privacy-policy`, icon: <FileTextOutlined />, label: "Kebijakan Privasi" },
-           { key: `/user/page/${slug}/terms-of-service`, icon: <SafetyOutlined />, label: "Ketentuan Layanan" },
-           { type: 'divider' },
            { key: "logout", icon: <LogoutOutlined />, label: "Keluar", danger: true },
          ]}
        />
@@ -401,26 +384,29 @@ const requestTrial = async () => {
            )}
          </div>
          
-         {/* Dropdown untuk Request Trial dan Logout */}
+         {/* Menu dan tombol atas kanan */}
          <Space>
+           {/* Link dengan urutan yang diubah: Ketentuan Layanan - Kebijakan Privasi - Pusat Bantuan */}
            <Button 
-             icon={<QuestionCircleOutlined />} 
-             onClick={() => setShowHelpModal(true)}
+             type="text" 
+             onClick={() => navigate(`/user/page/${slug}/terms-of-service`)}
            >
-             Bantuan
+             Ketentuan Layanan
+           </Button>
+           <Button 
+             type="text" 
+             onClick={() => navigate(`/user/page/${slug}/privacy-policy`)}
+           >
+             Kebijakan Privasi
+           </Button>
+           <Button 
+             type="text" 
+             onClick={() => navigate(`/user/page/${slug}/help-center`)}
+           >
+             Pusat Bantuan
            </Button>
            
-           {pendingTransactions.length > 0 && (
-             <Badge count={pendingTransactions.length}>
-               <Button 
-                 icon={<DollarOutlined />} 
-                 onClick={() => navigate(`/user/page/${slug}/subscription`)}
-               >
-                 Pembayaran Tertunda
-               </Button>
-             </Badge>
-           )}
-           
+           {/* Tombol Hubungi Kami (dulu Bantuan) dengan tambahan menu dropdown untuk Request Trial */}
            <Dropdown
              menu={{
                items: [
@@ -429,9 +415,25 @@ const requestTrial = async () => {
                    label: 'Request Trial',
                    icon: <WhatsAppOutlined />,
                    onClick: requestTrial
-                 },
+                 }
+               ]
+             }}
+           >
+             <Button 
+               type="text"
+               icon={<QuestionCircleOutlined />}
+               onClick={() => setShowHelpModal(true)}
+             >
+               Hubungi Kami
+             </Button>
+           </Dropdown>
+           
+           {/* Dropdown untuk Logout (sudah tidak ada Request Trial) */}
+           <Dropdown
+             menu={{
+               items: [
                  {
-                   key: '3',
+                   key: '1',
                    label: 'Keluar',
                    icon: <LogoutOutlined />,
                    danger: true,
@@ -450,25 +452,7 @@ const requestTrial = async () => {
          </Space>
        </Header>
        
-       {/* Peringatan Transaksi Tertunda */}
-       {showPendingAlert && pendingTransactions.length > 0 && (
-         <Alert
-           message={`Anda memiliki ${pendingTransactions.length} transaksi pembayaran tertunda`}
-           description="Silakan selesaikan pembayaran untuk mengaktifkan langganan Anda."
-           type="warning"
-           showIcon
-           action={
-             <Button size="small" type="primary" onClick={() => navigate(`/user/page/${slug}/subscription`)}>
-               Lihat Detail
-             </Button>
-           }
-           closable
-           onClose={() => setShowPendingAlert(false)}
-           style={{ margin: "8px 16px 0" }}
-         />
-       )}
-       
-       {/* Connection Status & API URL Banner */}
+       {/* Connection Status Banner - Menghilangkan bagian API URL */}
        <div style={{ 
          padding: "8px 16px", 
          background: "#f0f2f5", 
@@ -509,18 +493,7 @@ const requestTrial = async () => {
          />
        )}
        
-       {/* API URL Banner */}
-       <div style={{ 
-         padding: "8px 16px", 
-         background: "#f0f2f5", 
-         borderBottom: "1px solid #e8e8e8",
-         display: "flex",
-         alignItems: "center",
-         justifyContent: "space-between"
-       }}>
-         <Text strong>API URL: </Text>
-         <Paragraph copyable={{ icon: <CopyOutlined /> }} style={{ margin: 0 }}>{apiUrl}</Paragraph>
-       </div>
+       {/* API URL Banner - Dihilangkan */}
        
        <Content
          style={{
@@ -555,15 +528,15 @@ const requestTrial = async () => {
            <Space>
              <Button 
                type="link" 
-               onClick={() => navigate(`/user/page/${slug}/privacy-policy`)}
-             >
-               Kebijakan Privasi
-             </Button>
-             <Button 
-               type="link" 
                onClick={() => navigate(`/user/page/${slug}/terms-of-service`)}
              >
                Ketentuan Layanan
+             </Button>
+             <Button 
+               type="link" 
+               onClick={() => navigate(`/user/page/${slug}/privacy-policy`)}
+             >
+               Kebijakan Privasi
              </Button>
              <Button 
                type="link" 

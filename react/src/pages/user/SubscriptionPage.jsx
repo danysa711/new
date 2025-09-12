@@ -743,7 +743,7 @@ const SubscriptionPage = () => {
                 payment_code={transaction.payment_code} 
               />
               
-              <Text>Setelah melakukan pembayaran, Tutup dan refresh halaman langganan akan otomatis di tambahkan</Text>
+              <Text>Setelah melakukan pembayaran Tutup dan refresh halaman, langganan akan otomatis di tambahkan</Text>
               
               {/* Tampilkan referensi transaksi yang bisa disalin */}
               <div style={{ marginTop: 10 }}>
