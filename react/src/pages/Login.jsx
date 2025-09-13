@@ -1,8 +1,8 @@
-// Updated src/pages/Login.jsx without backend URL notification
+// Updated src/pages/Login.jsx dengan tema elegan dan warna yang tidak mencolok
 
 import React, { useState, useContext, useEffect } from 'react';
 import { Form, Input, Button, Card, Typography, Alert, Spin, Tooltip } from 'antd';
-import { UserOutlined, LockOutlined, CommentOutlined, SendOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -110,14 +110,28 @@ const Login = () => {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', position: 'relative' }}>
-      <Card style={{ width: 400, boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={2}>Login</Title>
-          <Text type="secondary">Masuk ke akun Anda</Text>
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh', 
+      position: 'relative',
+      background: 'linear-gradient(135deg, #2c3e50, #1a1a2e)',
+      fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+    }}>
+      <Card 
+        style={{ 
+          width: 400, 
+          boxShadow: '0 10px 25px rgba(0,0,0,0.15)', 
+          borderRadius: '12px',
+          background: 'rgba(255, 255, 255, 0.95)'
+        }}
+        bordered={false}
+      >
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <Title level={2} style={{ color: '#2c3e50', marginBottom: '8px', fontWeight: 600 }}>Login</Title>
+          <Text type="secondary" style={{ fontSize: '15px' }}>Masuk ke akun Anda</Text>
         </div>
-        
-        {/* Notifikasi backend URL telah dihilangkan */}
         
         {error && (
           <Alert
@@ -125,7 +139,7 @@ const Login = () => {
             description={error}
             type="error"
             showIcon
-            style={{ marginBottom: 24 }}
+            style={{ marginBottom: 24, borderRadius: '6px' }}
           />
         )}
         
@@ -137,37 +151,56 @@ const Login = () => {
         >
           <Form.Item
             name="username"
-            label="Username atau Email"
+            label={<span style={{ color: '#2c3e50', fontWeight: 500 }}>Username atau Email</span>}
             rules={[{ required: true, message: 'Masukkan username atau email' }]}
           >
             <Input 
-              prefix={<UserOutlined />} 
+              prefix={<UserOutlined style={{ color: '#7f8c8d' }} />} 
               placeholder="Username atau Email" 
               size="large" 
               disabled={loading}
+              style={{ 
+                borderRadius: '8px', 
+                padding: '12px',
+                border: '1px solid #e0e0e0',
+              }}
             />
           </Form.Item>
           
           <Form.Item
             name="password"
-            label="Password"
+            label={<span style={{ color: '#2c3e50', fontWeight: 500 }}>Password</span>}
             rules={[{ required: true, message: 'Masukkan password' }]}
           >
             <Input.Password 
-              prefix={<LockOutlined />} 
+              prefix={<LockOutlined style={{ color: '#7f8c8d' }} />} 
               placeholder="Password" 
               size="large"
               disabled={loading}
+              style={{ 
+                borderRadius: '8px', 
+                padding: '12px',
+                border: '1px solid #e0e0e0',
+              }}
             />
           </Form.Item>
           
-          <Form.Item style={{ marginBottom: 0 }}>
+          <Form.Item style={{ marginBottom: 0, marginTop: '24px' }}>
             <Button
               type="primary"
               htmlType="submit"
               size="large"
               block
               loading={loading}
+              style={{
+                height: '50px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '16px',
+                background: 'linear-gradient(135deg, #34495e, #2c3e50)',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(44, 62, 80, 0.3)',
+              }}
             >
               Login
             </Button>
@@ -177,22 +210,22 @@ const Login = () => {
         {loading && (
           <div style={{ textAlign: 'center', marginTop: 24 }}>
             <Spin />
-            <div style={{ marginTop: 8 }}>Logging in...</div>
+            <div style={{ marginTop: 8, color: '#7f8c8d' }}>Logging in...</div>
           </div>
         )}
         
-        <div style={{ marginTop: 16, textAlign: 'center' }}>
-          <Text type="secondary">
-            Belum punya akun? <a href="/register">Daftar sekarang</a>
+        <div style={{ marginTop: 20, textAlign: 'center' }}>
+          <Text type="secondary" style={{ fontSize: '14px' }}>
+            Belum punya akun? <a href="/register" style={{ color: '#34495e', fontWeight: 500 }}>Daftar sekarang</a>
           </Text>
         </div>
       </Card>
       
-      {/* Elegant Chat Support Button */}
+      {/* WhatsApp Support Button tanpa logo dengan warna yang cocok dengan tema */}
       <Tooltip 
-        title="Butuh bantuan? Hubungi support chat"
+        title="Klik untuk menghubungi via WhatsApp"
         placement="left"
-        color="#333"
+        color="#2c3e50"
         overlayInnerStyle={{ fontWeight: 500 }}
       >
         <div
@@ -201,91 +234,82 @@ const Login = () => {
             position: 'absolute',
             bottom: 32,
             right: 32,
-            width: '70px',
-            height: '70px',
-            borderRadius: '50%',
-            background: 'linear-gradient(145deg, #2b5876, #4e4376)',
-            boxShadow: '0 8px 32px rgba(31, 38, 135, 0.37)',
+            width: 'auto',
+            height: '60px',
+            borderRadius: '30px',
+            background: 'linear-gradient(135deg, #34495e, #2c3e50)',
+            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.25)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
             transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-            border: '2px solid rgba(255, 255, 255, 0.18)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
             backdropFilter: 'blur(8px)',
             overflow: 'hidden',
+            padding: '0 25px',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-5px) scale(1.05)';
-            e.currentTarget.style.boxShadow = '0 15px 35px rgba(31, 38, 135, 0.5)';
+            e.currentTarget.style.transform = 'translateY(-5px) scale(1.03)';
+            e.currentTarget.style.boxShadow = '0 15px 30px rgba(0, 0, 0, 0.3)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = '0 8px 32px rgba(31, 38, 135, 0.37)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.25)';
           }}
         >
-          <div style={{ 
+          {/* "Butuh bantuan? hubungi kami." text */}
+          <span style={{
+            color: 'white',
+            fontWeight: '500',
+            fontSize: '15px',
+            letterSpacing: '0.5px',
+            textAlign: 'center',
             position: 'relative',
+            zIndex: 2
+          }}>
+            Butuh bantuan? hubungi kami.
+          </span>
+          
+          {/* Subtle pulse animation */}
+          <div style={{
+            position: 'absolute',
             width: '100%',
             height: '100%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center'
-          }}>
-            {/* Main chat bubble icon */}
-            <CommentOutlined 
-              style={{ 
-                fontSize: '32px',
-                color: 'white',
-                filter: 'drop-shadow(0 2px 5px rgba(0, 0, 0, 0.2))',
-                position: 'absolute',
-                zIndex: 2
-              }} 
-            />
-            
-            {/* Decorative send icon */}
-            <SendOutlined 
-              style={{
-                position: 'absolute',
-                right: '18px',
-                bottom: '18px',
-                fontSize: '16px',
-                color: 'rgba(255, 255, 255, 0.85)',
-                transform: 'rotate(-45deg)',
-                opacity: 0.9,
-                zIndex: 1
-              }}
-            />
-            
-            {/* Subtle pulse animation */}
-            <div style={{
-              position: 'absolute',
-              width: '100%',
-              height: '100%',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              animation: 'pulse 2s infinite',
-              zIndex: 0
-            }} />
-            
-            {/* Adding style for pulse animation */}
-            <style>{`
-              @keyframes pulse {
-                0% {
-                  transform: scale(0.95);
-                  opacity: 0.7;
-                }
-                70% {
-                  transform: scale(1.05);
-                  opacity: 0.2;
-                }
-                100% {
-                  transform: scale(0.95);
-                  opacity: 0.7;
-                }
+            borderRadius: '30px',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            animation: 'pulse 3s infinite',
+            zIndex: 1
+          }} />
+          
+          {/* Adding style for pulse animation */}
+          <style>{`
+            @keyframes pulse {
+              0% {
+                transform: scale(0.98);
+                opacity: 0.5;
               }
-            `}</style>
-          </div>
+              70% {
+                transform: scale(1.01);
+                opacity: 0.1;
+              }
+              100% {
+                transform: scale(0.98);
+                opacity: 0.5;
+              }
+            }
+            
+            /* Style tambahan untuk form input focus */
+            .ant-input:focus, .ant-input-affix-wrapper:focus, .ant-input-affix-wrapper-focused {
+              border-color: #34495e !important;
+              box-shadow: 0 0 0 2px rgba(52, 73, 94, 0.2) !important;
+            }
+            
+            /* Style tambahan untuk hover tombol */
+            .ant-btn-primary:hover, .ant-btn-primary:focus {
+              background: linear-gradient(135deg, #3d5a73, #34495e) !important;
+            }
+          `}</style>
         </div>
       </Tooltip>
       

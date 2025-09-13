@@ -7,7 +7,8 @@ import {
   getAllSoftware
 } from "../../api/software-service";
 import MainTable from './MainTable';
-import { Button, Form, message, Modal, Popconfirm, Input, Select } from "antd";
+import { Button, Form, message, Modal, Popconfirm, Input, Select, Space } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 
 const VersionTable = () => {
   const [softwareVersions, setSoftwareVersions] = useState([]);
@@ -17,6 +18,7 @@ const VersionTable = () => {
   const [error, setError] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [newSoftwareVersion, setNewSoftwareVersion] = useState({
     name: "",
     software_id: null, 
@@ -32,7 +34,6 @@ const VersionTable = () => {
         const data = await getAllSoftwareVersions();
         setSoftwareVersions(data);
       } catch (err) {
-        console.error("Error fetching software versions:", err);
         setError("Gagal memuat data variasi produk");
       } finally {
         setLoading(false);
@@ -48,7 +49,6 @@ const VersionTable = () => {
           const data = await getAllSoftware();
           setSoftwareList(data);
         } catch (err) {
-          console.error("Error fetching software:", err);
           setError("Gagal memuat data software");
         } finally {
           setLoadingSoftware(false);
@@ -71,7 +71,6 @@ const VersionTable = () => {
       const data = await getAllSoftwareVersions();
       setSoftwareVersions(data);
     } catch (error) {
-      console.error("Error deleting software version:", error);
       message.error("Gagal menghapus variasi produk");
     }
   };
@@ -99,7 +98,6 @@ const VersionTable = () => {
         const data = await getAllSoftwareVersions();
         setSoftwareVersions(data);
       } catch (error) {
-        console.error("Error updating software version:", error);
         message.error("Gagal memperbarui variasi produk");
       }
     } else {
@@ -119,7 +117,6 @@ const VersionTable = () => {
         const data = await getAllSoftwareVersions();
         setSoftwareVersions(data);
       } catch (error) {
-        console.error("Error adding software version:", error);
         message.error("Gagal menambahkan variasi produk");
       }
     }
@@ -165,6 +162,10 @@ const VersionTable = () => {
     setIsModalVisible(true);
   };
 
+  const handleSearch = (e) => {
+    setSearchText(e.target.value);
+  };
+
   const columns = [
     { 
       title: "Nama Produk", 
@@ -191,13 +192,6 @@ const VersionTable = () => {
       dataIndex: "download_link", 
       key: "download_link",
       render: (text) => <a href={text} target="_blank" rel="noopener noreferrer">{text}</a>,
-    },
-    {
-      title: "Tanggal Ditambahkan",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      render: (date) => new Date(date).toLocaleDateString('id-ID'),
-      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
     },
     {
       title: "Aksi",
@@ -229,10 +223,27 @@ const VersionTable = () => {
     createdAt: version.createdAt
   }));
 
+  // Filter data berdasarkan teks pencarian
+  const filteredData = processedVersions.filter(item => 
+    (item.name && item.name.toLowerCase().includes(searchText.toLowerCase())) ||
+    (item.version && item.version.toString().toLowerCase().includes(searchText.toLowerCase())) ||
+    (item.os && item.os.toLowerCase().includes(searchText.toLowerCase())) ||
+    (item.download_link && item.download_link.toLowerCase().includes(searchText.toLowerCase()))
+  );
+
   return( 
   <div>
+    <Space style={{ marginBottom: 16 }}>
+      <Input
+        placeholder="Cari variasi produk..."
+        prefix={<SearchOutlined />}
+        value={searchText}
+        onChange={handleSearch}
+        style={{ width: 250 }}
+      />
+    </Space>
     <MainTable 
-      data={processedVersions} 
+      data={filteredData} 
       columns={columns} 
       onAdd={handleAddData} 
     />

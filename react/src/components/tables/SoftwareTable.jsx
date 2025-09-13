@@ -6,7 +6,8 @@ import {
   updateSoftware
 } from "../../api/software-service";
 import MainTable from './MainTable';
-import { Button, Form, message, Modal, Popconfirm, Input } from "antd";
+import { Button, Form, message, Modal, Popconfirm, Input, Space } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 
 const SoftwareTable = () => {
   const [softwareData, setSoftwareData] = useState([]);
@@ -14,6 +15,7 @@ const SoftwareTable = () => {
   const [error, setError] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [newSoftware, setNewSoftware] = useState({
     name: '',
     requires_license: false,
@@ -27,7 +29,6 @@ const SoftwareTable = () => {
         const data = await getAllSoftware();
         setSoftwareData(data);
       } catch (err) {
-        console.error("Error fetching software:", err);
         setError("Gagal memuat data produk");
       } finally {
         setLoading(false);
@@ -49,7 +50,6 @@ const SoftwareTable = () => {
       const data = await getAllSoftware();
       setSoftwareData(data);
     } catch (error) {
-      console.error("Error deleting software:", error);
       message.error("Gagal menghapus software");
     }
   };
@@ -71,7 +71,6 @@ const SoftwareTable = () => {
         const data = await getAllSoftware();
         setSoftwareData(data);
       } catch (error) {
-        console.error("Error updating software:", error);
         message.error("Gagal memperbarui software");
       }
     } else {
@@ -85,7 +84,6 @@ const SoftwareTable = () => {
         const data = await getAllSoftware();
         setSoftwareData(data);
       } catch (error) {
-        console.error("Error adding software:", error);
         message.error("Gagal menambahkan software");
       }
     }
@@ -132,6 +130,15 @@ const SoftwareTable = () => {
     setIsModalVisible(true);
   };
 
+  const handleSearch = (e) => {
+    setSearchText(e.target.value);
+  };
+
+  // Filter data berdasarkan teks pencarian
+  const filteredData = softwareData.filter(item => 
+    item.name.toLowerCase().includes(searchText.toLowerCase())
+  );
+
   const columns = [
     { 
       title: "Nama Produk", 
@@ -151,13 +158,6 @@ const SoftwareTable = () => {
       dataIndex: "search_by_version",
       key: "search_by_version",
       render: (text) => (text ? "Yes" : "No"),
-    },
-    {
-      title: "Tanggal Ditambahkan",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      render: (date) => new Date(date).toLocaleDateString('id-ID'),
-      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
     },
     {
       title: "Aksi",
@@ -180,7 +180,16 @@ const SoftwareTable = () => {
 
   return( 
   <div>
-    <MainTable data={softwareData} columns={columns} onAdd={handleAddData} />
+    <Space style={{ marginBottom: 16 }}>
+      <Input
+        placeholder="Cari produk..."
+        prefix={<SearchOutlined />}
+        value={searchText}
+        onChange={handleSearch}
+        style={{ width: 250 }}
+      />
+    </Space>
+    <MainTable data={filteredData} columns={columns} onAdd={handleAddData} />
   
     <Modal
         title={isEditMode ? "Ubah Produk" : "Tambahkan Produk Baru"}

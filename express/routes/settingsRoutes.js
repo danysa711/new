@@ -5,14 +5,18 @@ const { authenticateUser, requireAdmin } = require('../middlewares/auth');
 const settingsController = require('../controllers/settingsController');
 
 
+// Konfigurasi CORS khusus untuk endpoint publik
+const corsOptions = {
+  origin: ['https://www.kinterstore.my.id', 'https://kinterstore.my.id', 'https://db.kinterstore.my.id'],
+  methods: 'GET,POST',
+  credentials: true
+};
+
 router.get('/settings/whatsapp-public', settingsController.getWhatsappSettings);
 // PENTING: Hilangkan middleware auth sementara sampai masalah teratasi
 // API Baru: Rute pengaturan WhatsApp terpadu
 router.get('/settings/whatsapp', authenticateUser, requireAdmin, settingsController.getWhatsappSettings);
 router.post('/settings/whatsapp', authenticateUser, requireAdmin, settingsController.saveWhatsappSettings);
-
-// Endpoint publik untuk mendapatkan nomor WhatsApp
-router.get('/settings/whatsapp-public', settingsController.getWhatsappSettings);
 
 // BACKWARD COMPATIBILITY: Support Settings
 router.get('/settings/support-number', settingsController.getSupportNumber);

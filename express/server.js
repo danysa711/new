@@ -128,6 +128,15 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
+// Gunakan CORS di seluruh aplikasi
+app.use(cors(corsOptions));
+
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log('Request origin:', req.headers.origin);
+  next();
+})
+
 app.use(tripayInterceptor());
 // Middleware CORS khusus untuk callback Tripay
 app.use('/api/tripay/callback', (req, res, next) => {
@@ -204,15 +213,6 @@ app.use((req, res, next) => {
   
   next();
 });
-
-// Gunakan CORS di seluruh aplikasi
-app.use(cors(corsOptions));
-
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log('Request origin:', req.headers.origin);
-  next();
-})
 
 // Tambahkan middleware untuk parsing body
 app.use(express.json({ limit: '50mb' }));

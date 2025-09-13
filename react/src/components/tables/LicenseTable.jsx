@@ -21,8 +21,10 @@ import {
   Modal, 
   Input, 
   Select, 
-  Table
+  Table,
+  Space
 } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import _ from 'lodash';
 
 const ModalDelete = ({
@@ -77,6 +79,7 @@ const LicenseTable = () => {
   const [errorVersion, setErrorVersion] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [newLicenses, setNewLicenses] = useState({
     name: "",
     software_version_id: "",
@@ -96,7 +99,6 @@ const LicenseTable = () => {
         const data = await getAllAvailableLicenses();
         setLicenses(data);
       } catch (err) {
-        console.error("Error fetching licenses:", err);
         setError("Gagal memuat data stok");
       } finally {
         setLoading(false);
@@ -112,7 +114,6 @@ const LicenseTable = () => {
           const data = await getAllSoftware();
           setSoftwareList(data);
         } catch (err) {
-          console.error("Error fetching software:", err);
           setError("Gagal memuat data software");
         } finally {
           setLoadingSoftware(false);
@@ -131,7 +132,6 @@ const LicenseTable = () => {
           const data = await getSoftwareVersionsBySoftwareId(newLicenses.software_id);
           setSoftwareVersions(data);
         } catch (err) {
-          console.error("Error fetching versions:", err);
           setErrorVersion("Gagal memuat versi software");
         } finally {
           setLoadingVersion(false);
@@ -147,7 +147,7 @@ const LicenseTable = () => {
   if (errorVersion) return <div>Error: {errorVersion}</div>;
 
   // Mengelompokkan data stok
-const groupedData = _.groupBy(licenses.filter(license => !license.is_active), (item) => `${item?.software_id}-${item?.software_version_id}`);
+  const groupedData = _.groupBy(licenses.filter(license => !license.is_active), (item) => `${item?.software_id}-${item?.software_version_id}`);
   const tableData = Object.keys(groupedData).map((key) => {
     const softwareGroup = groupedData[key];
 
@@ -163,6 +163,19 @@ const groupedData = _.groupBy(licenses.filter(license => !license.is_active), (i
       amount: softwareGroup.length || 0,
     };
   });
+
+  // Handle search
+  const handleSearch = (e) => {
+    setSearchText(e.target.value);
+  };
+
+  // Filter data berdasarkan teks pencarian
+  const filteredData = tableData.filter(item => 
+    (item.name && item.name.toLowerCase().includes(searchText.toLowerCase())) ||
+    (item.os && item.os.toLowerCase().includes(searchText.toLowerCase())) ||
+    (item.software_version_id[1] && item.software_version_id[1].toString().toLowerCase().includes(searchText.toLowerCase())) ||
+    (item.license_keys && item.license_keys.toLowerCase().includes(searchText.toLowerCase()))
+  );
 
   const columns = [
     { 
@@ -261,7 +274,6 @@ const groupedData = _.groupBy(licenses.filter(license => !license.is_active), (i
         const updatedLicenses = await getAllAvailableLicenses();
         setLicenses(updatedLicenses);
       } catch (error) {
-        console.error("Error updating licenses:", error);
         message.error("Failed to update licenses.");
       }
     } else {
@@ -280,7 +292,6 @@ const groupedData = _.groupBy(licenses.filter(license => !license.is_active), (i
         const updatedLicenses = await getAllAvailableLicenses();
         setLicenses(updatedLicenses);
       } catch (error) {
-        console.error("Error adding licenses:", error);
         message.error("Failed to add licenses.");
       }
     }
@@ -305,40 +316,44 @@ const groupedData = _.groupBy(licenses.filter(license => !license.is_active), (i
   };  
 
   const handleDeleteSelected = async () => {
-  if (selectedLicenses?.length === 0) {
-    message.warning("Tidak ada lisensi yang dipilih!");
-    return;
-  }
+    if (selectedLicenses?.length === 0) {
+      message.warning("Tidak ada lisensi yang dipilih!");
+      return;
+    }
 
-  const isConfirmed = window.confirm(
-    `Anda akan menghapus ${selectedLicenses?.length} lisensi. Apakah Anda yakin?`
-  );
+    const isConfirmed = window.confirm(
+      `Anda akan menghapus ${selectedLicenses?.length} lisensi. Apakah Anda yakin?`
+    );
 
-  if (!isConfirmed) return;
+    if (!isConfirmed) return;
 
-  try {
-    console.log("Menghapus lisensi:", selectedLicenses); // Log untuk debugging
-    
-    // Pastikan kita mengirim array, bukan objek dengan property 'licenses'
-    const response = await deleteMultipleLicenses(selectedLicenses);
-    
-    console.log("Respons penghapusan:", response); // Log untuk debugging
-    
-    message.success("Lisensi terpilih berhasil dihapus!");
-    setIsDeleteModalVisible(false);
-    
-    // Refresh daftar lisensi
-    const updatedLicenses = await getAllAvailableLicenses();
-    setLicenses(updatedLicenses);
-  } catch (error) {
-    console.error("Error menghapus lisensi:", error);
-    message.error(`Gagal menghapus lisensi terpilih: ${error.message || 'Error tidak diketahui'}`);
-  }
-};
+    try {
+      // Pastikan kita mengirim array, bukan objek dengan property 'licenses'
+      const response = await deleteMultipleLicenses(selectedLicenses);
+      
+      message.success("Lisensi terpilih berhasil dihapus!");
+      setIsDeleteModalVisible(false);
+      
+      // Refresh daftar lisensi
+      const updatedLicenses = await getAllAvailableLicenses();
+      setLicenses(updatedLicenses);
+    } catch (error) {
+      message.error(`Gagal menghapus lisensi terpilih: ${error.message || 'Error tidak diketahui'}`);
+    }
+  };
 
   return (
     <div>
-      <MainTable data={tableData} columns={columns} onAdd={handleAddData} />
+      <Space style={{ marginBottom: 16 }}>
+        <Input
+          placeholder="Cari stok produk..."
+          prefix={<SearchOutlined />}
+          value={searchText}
+          onChange={handleSearch}
+          style={{ width: 250 }}
+        />
+      </Space>
+      <MainTable data={filteredData} columns={columns} onAdd={handleAddData} />
       <Modal 
         title={isEditMode ? `Ubah Stok Produk ${newLicenses.name}` : "Tambahkan Stok Produk Baru"}
         open={isModalVisible}

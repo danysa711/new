@@ -9,6 +9,8 @@ const getWhatsappSettings = async (req, res) => {
       order: [['id', 'DESC']]
     });
     
+    console.log('Fetched settings:', settings); // Tambahkan log untuk debugging
+    
     if (!settings) {
       // Jika tidak ada pengaturan, kembalikan default
       return res.json({

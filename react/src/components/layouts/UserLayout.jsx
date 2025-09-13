@@ -19,7 +19,7 @@ import {
   QuestionCircleOutlined,
   FileTextOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Space, Dropdown, Alert, Modal, message, Divider } from 'antd';
+import { Button, Layout, Menu, theme, Typography, Card, Badge, Tag, Space, Dropdown, Alert, Modal, message, Divider, Spin } from 'antd';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { ConnectionContext } from "../../context/ConnectionContext";
@@ -35,6 +35,7 @@ import PrivacyPolicy from "../../pages/info/PrivacyPolicy";
 import TermsOfService from "../../pages/info/TermsOfService";
 import HelpCenter from "../../pages/info/HelpCenter";
 import Logo from "../common/Logo";
+import { logger } from '../../utils/logger';
 import axiosInstance from "../../services/axios";
 
 const { Header, Sider, Content, Footer } = Layout;
@@ -45,8 +46,9 @@ const UserLayout = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [error, setError] = useState(null);
   const [pendingTransactions, setPendingTransactions] = useState([]);
-  const [showPendingAlert, setShowPendingAlert] = useState(false); // Selalu false untuk menyembunyikan alert
+  const [showPendingAlert, setShowPendingAlert] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,18 +63,21 @@ const UserLayout = () => {
   } = theme.useToken();
 
   // Check if user is authenticated
-  if (!token) {
+  if (!token || !user) {
     return <Navigate to="/login" replace />;
   }
   
   // If not the user's own page and not an admin, redirect to their own page
   if (user?.url_slug !== slug && user?.role !== "admin") {
-    navigate(`/user/page/${user.url_slug}`);
-    return null;
+    return <Navigate to={`/user/page/${user.url_slug}`} replace />;
   }
 
-  // Efek samping masih dipertahankan untuk fetch data, tapi tidak ada loading state
+  // Efek samping untuk fetch data
   useEffect(() => {
+    if (!user || !slug || !token) return;
+    
+    setLoading(true);
+    
     // Load user profile data
     const fetchUserProfile = async () => {
       try {
@@ -88,10 +93,17 @@ const UserLayout = () => {
           setPendingTransactions(pendingTrans);
           setShowPendingAlert(false); // Selalu sembunyikan alert terlepas dari jumlah transaksi pending
         } catch (err) {
-          console.error("Error fetching pending transactions:", err);
+          logger.error("Error fetching pending transactions:", err);
         }
+        
+        setLoading(false);
       } catch (err) {
-        setError("Failed to load user profile");
+        logger.error("Error fetching user profile:", err);
+        // Cek apakah komponen masih mounted
+        if (user && slug) {
+          setError("Failed to load user profile");
+        }
+        setLoading(false);
       }
     };
     
@@ -99,19 +111,21 @@ const UserLayout = () => {
     
     // Set interval untuk memeriksa transaksi pending setiap 5 menit
     const pendingTransactionsInterval = setInterval(async () => {
+      if (!user || !slug || !token) return;
+      
       try {
         const pendingTransactionsResponse = await axiosInstance.get('/api/tripay/pending-transactions');
         setPendingTransactions(pendingTransactionsResponse.data);
         setShowPendingAlert(false); // Selalu false meskipun ada transaksi pending
       } catch (err) {
-        console.error("Error checking pending transactions:", err);
+        logger.error("Error checking pending transactions:", err);
       }
     }, 5 * 60 * 1000);
     
     return () => {
       clearInterval(pendingTransactionsInterval);
     };
-  }, [token, slug, user, navigate]);
+  }, [token, slug, user]);
 
   // Modal untuk menampilkan informasi bantuan cepat
   const HelpModal = () => {
@@ -168,7 +182,7 @@ const UserLayout = () => {
       try {
         // Gunakan endpoint publik
         const response = await axiosInstance.get('/api/settings/whatsapp-public');
-        console.log('API response:', response.data);
+        logger.log('API response:', response.data);
         
         // Gunakan format yang baru
         const whatsappNumber = response.data.whatsappNumber;
@@ -196,7 +210,7 @@ const UserLayout = () => {
         window.open(whatsappUrl, '_blank');
         
       } catch (apiError) {
-        console.warn('Gagal mengambil data dari API, beralih ke localStorage', apiError);
+       logger.warn('Gagal mengambil data dari API, beralih ke localStorage', apiError);
         hide();
         
         // Fallback ke localStorage
@@ -219,10 +233,25 @@ const UserLayout = () => {
         message.warning('Menggunakan pengaturan lokal karena server tidak dapat diakses');
       }
     } catch (error) {
-      console.error('Error dalam requestTrial:', error);
+      logger.error('Error dalam requestTrial:', error);
       message.error('Terjadi kesalahan. Silakan coba lagi nanti.');
     }
   };
+
+  // Tampilkan loading screen
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+        <Card>
+          <div style={{ textAlign: "center", padding: "20px" }}>
+            <Spin size="large" />
+            <Title level={3} style={{ marginTop: 16 }}>Memuat...</Title>
+            <Text>Harap tunggu sementara kami memuat halaman Anda.</Text>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   // Tangani kasus error
   if (error) {

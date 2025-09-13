@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Tag, Button, Typography, Spin, Space, Select, Input, message, Modal, Descriptions, Statistic, Row, Col } from 'antd';
-import { ReloadOutlined, SearchOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { ReloadOutlined, SearchOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, CalendarOutlined } from '@ant-design/icons';
 import axiosInstance from '../../services/axios';
 import moment from 'moment';
 
@@ -11,6 +11,7 @@ const TripayTransactions = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterDateRange, setFilterDateRange] = useState('all');
   const [searchText, setSearchText] = useState('');
   const [transactionDetail, setTransactionDetail] = useState(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -43,7 +44,6 @@ const TripayTransactions = () => {
       setTotalAmount(total);
       setPaidAmount(paid);
     } catch (err) {
-      console.error('Error fetching transactions:', err);
       message.error('Gagal memuat data transaksi');
     } finally {
       setLoading(false);
@@ -57,7 +57,6 @@ const TripayTransactions = () => {
       setTransactionDetail(response.data.transaction);
       setDetailModalVisible(true);
     } catch (err) {
-      console.error('Error fetching transaction detail:', err);
       message.error('Gagal memuat detail transaksi');
     } finally {
       setLoading(false);
@@ -108,11 +107,34 @@ const TripayTransactions = () => {
     }
   };
   
+  const isInDateRange = (date, range) => {
+    if (range === 'all') return true;
+    
+    const transactionDate = moment(date);
+    const now = moment();
+    
+    switch (range) {
+      case '7days':
+        return transactionDate.isAfter(now.clone().subtract(7, 'days'));
+      case '30days':
+        return transactionDate.isAfter(now.clone().subtract(30, 'days'));
+      case '90days':
+        return transactionDate.isAfter(now.clone().subtract(90, 'days'));
+      default:
+        return true;
+    }
+  };
+  
   const handleSearch = () => {
-    // Filter transactions based on search text and status
+    // Filter transactions based on search text, status, and date range
     return transactions.filter(transaction => {
       // Filter by status
       if (filterStatus !== 'all' && transaction.status !== filterStatus) {
+        return false;
+      }
+      
+      // Filter by date range
+      if (!isInDateRange(transaction.created_at, filterDateRange)) {
         return false;
       }
       
@@ -132,6 +154,7 @@ const TripayTransactions = () => {
   
   const resetFilters = () => {
     setFilterStatus('all');
+    setFilterDateRange('all');
     setSearchText('');
   };
   
@@ -219,6 +242,30 @@ const TripayTransactions = () => {
     },
   ];
   
+  // Fungsi untuk menghitung statistik berdasarkan filter
+  const calculateFilteredStats = () => {
+    const filteredData = handleSearch();
+    let filteredTotal = 0;
+    let filteredPaid = 0;
+    
+    filteredData.forEach(transaction => {
+      const amount = parseFloat(transaction.total_amount) || 0;
+      filteredTotal += amount;
+      
+      if (transaction.status === 'PAID') {
+        filteredPaid += amount;
+      }
+    });
+    
+    return {
+      totalCount: filteredData.length,
+      totalAmount: filteredTotal,
+      paidAmount: filteredPaid
+    };
+  };
+  
+  const filteredStats = calculateFilteredStats();
+  
   if (loading && transactions.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -238,7 +285,8 @@ const TripayTransactions = () => {
           <Card>
             <Statistic 
               title="Total Transaksi" 
-              value={transactions.length} 
+              value={filteredStats.totalCount} 
+              suffix={`/ ${transactions.length}`}
             />
           </Card>
         </Col>
@@ -246,7 +294,7 @@ const TripayTransactions = () => {
           <Card>
             <Statistic 
               title="Total Nilai Transaksi" 
-              value={totalAmount} 
+              value={filteredStats.totalAmount} 
               prefix="Rp" 
               formatter={(value) => `${parseInt(value).toLocaleString('id-ID')}`}
             />
@@ -256,7 +304,7 @@ const TripayTransactions = () => {
           <Card>
             <Statistic 
               title="Total Nilai Pembayaran Lunas" 
-              value={paidAmount} 
+              value={filteredStats.paidAmount} 
               prefix="Rp" 
               formatter={(value) => `${parseInt(value).toLocaleString('id-ID')}`}
               valueStyle={{ color: '#3f8600' }}
@@ -286,6 +334,19 @@ const TripayTransactions = () => {
             <Option value="UNPAID">MENUNGGU</Option>
             <Option value="EXPIRED">KEDALUWARSA</Option>
             <Option value="FAILED">GAGAL</Option>
+          </Select>
+          
+          <Select
+            placeholder="Rentang Waktu"
+            style={{ width: 180 }}
+            value={filterDateRange}
+            onChange={setFilterDateRange}
+            icon={<CalendarOutlined />}
+          >
+            <Option value="all">Semua Waktu</Option>
+            <Option value="7days">7 Hari Terakhir</Option>
+            <Option value="30days">30 Hari Terakhir</Option>
+            <Option value="90days">90 Hari Terakhir</Option>
           </Select>
           
           <Button onClick={resetFilters}>Reset Filter</Button>
